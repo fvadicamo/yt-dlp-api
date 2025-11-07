@@ -1,0 +1,49 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+
+timeouts:
+  metadata: 10  # seconds
+  download: 300
+  audio_conversion: 60
+
+storage:
+  output_dir: "/app/downloads"
+  cookie_dir: "/app/cookies"
+  cleanup_age: 24  # hours
+  cleanup_threshold: 80  # disk usage percentage
+  max_file_size: 524288000  # 500MB in bytes
+
+downloads:
+  max_concurrent: 5
+  queue_size: 100
+
+rate_limiting:
+  metadata_rpm: 100  # requests per minute
+  download_rpm: 10
+  burst_capacity: 20  # maximum tokens (burst size)
+
+templates:
+  default_output: "%(title)s-%(id)s.%(ext)s"
+
+providers:
+  youtube:
+    enabled: true
+    cookie_path: "${YOUTUBE_COOKIE_PATH}"
+    retry_attempts: 3
+    retry_backoff: [2, 4, 8]
+
+logging:
+  level: "INFO"
+  format: "json"
+
+security:
+  api_keys:
+    - "${API_KEY_1}"
+    - "${API_KEY_2}"
+  allow_degraded_start: false
+
+monitoring:
+  metrics_enabled: true
+  metrics_port: 9090
