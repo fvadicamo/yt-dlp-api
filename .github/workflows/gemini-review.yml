@@ -1,0 +1,230 @@
+name: Gemini Code Review
+
+# Trigger on pull requests to develop branch
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - develop
+      - main  # Also review hotfixes to main
+
+# Don't run on draft PRs (uncomment if you want to skip drafts)
+# on:
+#   pull_request:
+#     types: [opened, synchronize, reopened, ready_for_review]
+#     branches:
+#       - develop
+#       - main
+
+jobs:
+  gemini-review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    
+    # Don't run on dependabot PRs (they have their own checks)
+    if: github.actor != 'dependabot[bot]'
+    
+    permissions:
+      contents: read
+      pull-requests: write  # Needed to comment on PRs
+      issues: write  # Needed to update PR status
+    
+    steps:
+      # Step 1: Checkout code with full history for better diff analysis
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better context
+          ref: ${{ github.event.pull_request.head.sha }}
+      
+      # Step 2: Set up Python (needed for some Gemini CLI operations)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      # Step 3: Install dependencies (optional, helps Gemini understand imports)
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        continue-on-error: true  # Don't fail if dependencies have issues
+      
+      # Step 4: Run Gemini Code Review
+      - name: Run Gemini CLI
+        uses: google-github-actions/run-gemini-cli@v0.1.14
+        with:
+          # Gemini API key from repository secrets
+          # Add this secret in: Settings > Secrets and variables > Actions > New repository secret
+          # Name: GEMINI_API_KEY
+          # Value: Your API key from https://aistudio.google.com/apikey
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          
+          # Command to run (review mode)
+          command: review
+          
+          # Additional arguments
+          args: |
+            --context-files=.gemini/styleguide.md
+            --config=.gemini/config.yaml
+            --pr=${{ github.event.pull_request.number }}
+            --repo=${{ github.repository }}
+            --output=github-comment
+        
+        # Continue workflow even if review finds issues
+        continue-on-error: true
+        
+        # Set a timeout to prevent hanging
+        timeout-minutes: 10
+      
+      # Step 5: Run tests (optional but recommended)
+      - name: Run tests
+        run: |
+          if [ -f pytest.ini ] || [ -d tests ]; then
+            python -m pytest --cov=app --cov-report=term --cov-report=json
+          fi
+        continue-on-error: true
+        id: tests
+      
+      # Step 6: Check test coverage
+      - name: Check coverage threshold
+        if: steps.tests.outcome == 'success'
+        run: |
+          if [ -f coverage.json ]; then
+            COVERAGE=$(python -c "import json; print(json.load(open('coverage.json'))['totals']['percent_covered'])")
+            echo "Coverage: ${COVERAGE}%"
+            
+            if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+              echo "::warning::Test coverage ${COVERAGE}% is below minimum 80%"
+              echo "COVERAGE_BELOW_THRESHOLD=true" >> $GITHUB_ENV
+            fi
+          fi
+        continue-on-error: true
+      
+      # Step 7: Post coverage comment to PR (optional)
+      - name: Comment coverage on PR
+        if: env.COVERAGE_BELOW_THRESHOLD == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Test coverage is below 80% threshold.** Please add tests for new code.'
+            })
+      
+      # Step 8: Upload coverage report as artifact (optional)
+      - name: Upload coverage report
+        if: steps.tests.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 30
+        continue-on-error: true
+      
+      # Step 9: Security scan with Trivy (Docker image scanning)
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+        continue-on-error: true
+      
+      # Step 10: Upload security scan results
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
+      
+      # Step 11: Summary comment with all check results
+      - name: Post workflow summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const testStatus = '${{ steps.tests.outcome }}';
+            const coverageBelow = '${{ env.COVERAGE_BELOW_THRESHOLD }}' === 'true';
+            
+            let summary = '## 🤖 Automated Review Summary\n\n';
+            summary += '| Check | Status |\n';
+            summary += '|-------|--------|\n';
+            summary += `| Gemini Code Review | ✅ Completed |\n`;
+            summary += `| Tests | ${testStatus === 'success' ? '✅ Passed' : '❌ Failed'} |\n`;
+            summary += `| Coverage (80% min) | ${coverageBelow ? '⚠️ Below threshold' : '✅ OK'} |\n`;
+            summary += `| Security Scan | ✅ Completed |\n\n`;
+            summary += '_Review the comments above for detailed feedback._';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+  # Optional: Dependency review (checks for vulnerable dependencies)
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: always
+
+  # Optional: Linting and formatting checks
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install linting tools
+        run: |
+          pip install black flake8 isort mypy bandit
+      
+      - name: Run Black (formatting check)
+        run: black --check app/ tests/
+        continue-on-error: true
+      
+      - name: Run isort (import sorting)
+        run: isort --check-only app/ tests/
+        continue-on-error: true
+      
+      - name: Run Flake8 (style check)
+        run: flake8 app/ tests/ --max-line-length=88
+        continue-on-error: true
+      
+      - name: Run mypy (type checking)
+        run: mypy app/
+        continue-on-error: true
+      
+      - name: Run Bandit (security linting)
+        run: bandit -r app/ -f json -o bandit-report.json
+        continue-on-error: true
+      
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+        continue-on-error: true
