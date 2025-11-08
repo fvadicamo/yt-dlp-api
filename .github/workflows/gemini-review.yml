@@ -52,8 +52,8 @@ jobs:
         continue-on-error: true  # Don't fail if dependencies have issues
       
       # Step 4: Run Gemini Code Review
-      - name: Run Gemini Code Assist Review
-        uses: google-github-actions/run-gemini-cli@v1
+      - name: Run Gemini CLI
+        uses: google-github-actions/run-gemini-cli@v0.1.14
         with:
           # Gemini API key from repository secrets
           # Add this secret in: Settings > Secrets and variables > Actions > New repository secret
