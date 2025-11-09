@@ -61,16 +61,16 @@ jobs:
           # Value: Your API key from https://aistudio.google.com/apikey
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           
-          # Command to run (review mode)
-          command: review
-          
-          # Additional arguments
-          args: |
-            --context-files=.gemini/styleguide.md
-            --config=.gemini/config.yaml
-            --pr=${{ github.event.pull_request.number }}
-            --repo=${{ github.repository }}
-            --output=github-comment
+          prompt: "Review this pull request according to the styleguide and config."
+
+          settings: |
+          {
+            "context_files": [".gemini/styleguide.md"],
+            "config_file": ".gemini/config.yaml",
+            "output": "github-comment",
+            "pr": "${{ github.event.pull_request.number }}",
+            "repo": "${{ github.repository }}"
+          }
         
         # Continue workflow even if review finds issues
         continue-on-error: true
@@ -137,11 +137,11 @@ jobs:
         continue-on-error: true
       
       # Step 10: Upload security scan results
-      - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
-        continue-on-error: true
+      # - name: Upload Trivy results to GitHub Security
+      #   uses: github/codeql-action/upload-sarif@v3
+      #   with:
+      #     sarif_file: 'trivy-results.sarif'
+      #   continue-on-error: true
       
       # Step 11: Summary comment with all check results
       - name: Post workflow summary
