@@ -64,13 +64,13 @@ jobs:
           prompt: "Review this pull request according to the styleguide and config."
 
           settings: |
-          {
-            "context_files": [".gemini/styleguide.md"],
-            "config_file": ".gemini/config.yaml",
-            "output": "github-comment",
-            "pr": "${{ github.event.pull_request.number }}",
-            "repo": "${{ github.repository }}"
-          }
+            {
+              "context_files": [".gemini/styleguide.md"],
+              "config_file": ".gemini/config.yaml",
+              "output": "github-comment",
+              "pr": "${{ github.event.pull_request.number }}",
+              "repo": "${{ github.repository }}"
+            }
         
         # Continue workflow even if review finds issues
         continue-on-error: true
