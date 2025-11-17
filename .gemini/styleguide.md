@@ -50,7 +50,7 @@ def download_video(url: str) -> dict[str, Any]:
   - Provider classes and their public methods
   - Utility functions in `app/utils/`
   - Configuration loaders
-  
+
 - **Optional but encouraged for**:
   - Private helper functions
   - Data models (Pydantic models have field descriptions)
@@ -61,25 +61,25 @@ def download_video(url: str) -> dict[str, Any]:
 
 ```python
 async def extract_metadata(
-    url: str, 
+    url: str,
     provider: BaseProvider,
     options: Optional[dict[str, Any]] = None
 ) -> VideoMetadata:
     """Extract video metadata using the specified provider.
-    
+
     Args:
         url: Valid video URL (must pass provider validation)
         provider: Provider instance (YouTubeProvider, etc.)
         options: Additional yt-dlp options to pass
-        
+
     Returns:
         VideoMetadata object with title, duration, formats, etc.
-        
+
     Raises:
         ValidationError: If URL is invalid for provider
         ProviderError: If metadata extraction fails
         RateLimitError: If rate limit is exceeded
-        
+
     Example:
         >>> metadata = await extract_metadata(
         ...     "https://youtube.com/watch?v=dQw4w9WgXcQ",
@@ -95,7 +95,7 @@ async def extract_metadata(
 
 ### Endpoint Structure
 - **Versioning**: All routes under `/api/v1/`
-- **HTTP Methods**: 
+- **HTTP Methods**:
   - `GET` for retrieval (metadata, status)
   - `POST` for actions (download, format extraction)
   - `DELETE` for cleanup (clear cache, cancel download)
@@ -109,7 +109,7 @@ class DownloadRequest(BaseModel):
     url: HttpUrl  # Built-in validation
     format: str = Field(default="best", pattern="^(best|worst|[0-9]+p)$")
     extract_audio: bool = False
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -169,10 +169,10 @@ async def rate_limit_handler(request: Request, exc: RateLimitError):
 def get_download_path(filename: str) -> Path:
     base_dir = Path("/app/downloads").resolve()
     target = (base_dir / filename).resolve()
-    
+
     if not target.is_relative_to(base_dir):
         raise SecurityError("Path traversal attempt detected")
-    
+
     return target
 
 # ❌ BAD: Direct path concatenation
@@ -203,7 +203,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     api_key: SecretStr
     redis_password: SecretStr
-    
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -242,13 +242,13 @@ def load_cookies(cookie_file: Path) -> dict[str, str]:
     # Verify file is within allowed directory
     if not cookie_file.is_relative_to(COOKIE_DIR):
         raise SecurityError("Cookie file outside allowed directory")
-    
+
     # Set restrictive permissions (owner read-only)
     cookie_file.chmod(0o600)
-    
+
     # Never log cookie contents
     logger.info(f"Loading cookies from {cookie_file.name}")  # Only filename
-    
+
     return parse_cookie_file(cookie_file)
 ```
 
@@ -262,11 +262,11 @@ async def download_video(
 ):
     # Enforced by dependency injection
     await rate_limiter.check_limit(request.client.host)
-    
+
     # Timeout on long operations
     async with asyncio.timeout(300):  # 5 min max
         result = await perform_download(request.url)
-    
+
     return result
 ```
 
@@ -380,7 +380,7 @@ async def test_download_endpoint_success(client, mock_youtube_provider):
         json={"url": "https://youtube.com/watch?v=test", "format": "best"},
         headers={"X-API-Key": "test-key"}
     )
-    
+
     assert response.status_code == 202
     assert "task_id" in response.json()
 
@@ -390,7 +390,7 @@ async def test_download_rate_limit_exceeded(client):
     # Make requests up to limit
     for _ in range(10):
         await client.post("/api/v1/download", ...)
-    
+
     # Next request should be rate limited
     response = await client.post("/api/v1/download", ...)
     assert response.status_code == 429
@@ -421,7 +421,7 @@ async def download_video(url: str, task_id: str):
         url=url,  # OK to log (no PII)
         provider="youtube"
     )
-    
+
     try:
         result = await perform_download(url)
         logger.info(
@@ -462,27 +462,27 @@ from abc import ABC, abstractmethod
 
 class BaseProvider(ABC):
     """Abstract base class for video platform providers."""
-    
+
     @property
     @abstractmethod
     def name(self) -> str:
         """Provider name (e.g., 'youtube', 'vimeo')."""
         pass
-    
+
     @abstractmethod
     async def validate_url(self, url: str) -> bool:
         """Validate if URL is supported by this provider."""
         pass
-    
+
     @abstractmethod
     async def extract_info(
-        self, 
-        url: str, 
+        self,
+        url: str,
         download: bool = False
     ) -> dict[str, Any]:
         """Extract video metadata and optionally download."""
         pass
-    
+
     @abstractmethod
     async def get_formats(self, url: str) -> list[Format]:
         """Get available formats for video."""

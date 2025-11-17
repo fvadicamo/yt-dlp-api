@@ -12,40 +12,40 @@ code_review:
   disable: false  # Enable code reviews on all PRs
   comment_severity_threshold: LOW  # Catch all issues (security, bugs, style)
   max_review_comments: 25  # Comprehensive reviews without overwhelming
-  
+
 # Pull Request Automation
 pull_request_opened:
   help: true  # Offer specific improvement suggestions
   summary: true  # Auto-generate PR summary
   code_review: true  # Full review on every PR
   include_drafts: false  # Skip draft PRs (WIP)
-  
+
 # File Patterns to Ignore
 # These files won't trigger reviews or count toward coverage
 ignore_patterns:
   # Documentation (review only for major changes)
   - "*.md"
   - "docs/**"
-  
+
   # Auto-generated files
   - "**/__pycache__/**"
   - "*.pyc"
   - ".pytest_cache/**"
   - "*.egg-info/**"
-  
+
   # Test fixtures and data (review logic, not data)
   - "tests/fixtures/**/*.json"
   - "tests/fixtures/**/*.yaml"
   - "tests/data/**"
-  
+
   # CI/CD metadata (Gemini reviews workflow logic, not metadata)
   - ".github/ISSUE_TEMPLATE/**"
   - ".github/PULL_REQUEST_TEMPLATE.md"
-  
+
   # Environment and secrets (never committed anyway)
   - ".env*"
   - "secrets/**"
-  
+
   # Temporary files
   - "*.tmp"
   - "*.log"
@@ -63,7 +63,7 @@ file_rules:
       - "Layer caching optimization"
       - "Security vulnerabilities"
       - "Image size concerns"
-  
+
   # Docker Compose: Focus on security and production readiness
   - pattern: "docker-compose*.yml"
     comment_severity_threshold: MEDIUM
@@ -73,7 +73,7 @@ file_rules:
       - "Network isolation"
       - "Volume security"
       - "Resource limits"
-  
+
   # Config files: Focus on structure and secrets
   - pattern: "config.yaml"
     comment_severity_threshold: MEDIUM
@@ -82,7 +82,7 @@ file_rules:
       - "Environment variable usage"
       - "Schema validation"
       - "Sensible defaults"
-  
+
   # Test files: Focus on logic and security, not style
   - pattern: "tests/**/*.py"
     comment_severity_threshold: MEDIUM
@@ -92,7 +92,7 @@ file_rules:
       - "Async test patterns"
       - "Mock/fixture usage"
     ignore_style: true  # Tests can be "uglier" if they work
-  
+
   # Python source: Full review
   - pattern: "app/**/*.py"
     comment_severity_threshold: LOW  # Catch everything
@@ -103,7 +103,7 @@ file_rules:
       - "Error handling"
       - "Logging best practices"
       - "Docstring completeness"
-  
+
   # Requirements: Focus on security
   - pattern: "requirements*.txt"
     comment_severity_threshold: HIGH  # Only critical security issues
@@ -116,16 +116,16 @@ review_behavior:
   # Advisory mode: Suggest improvements but don't block merges
   # (You can switch to strict mode later when comfortable)
   blocking: false
-  
+
   # Automatically suggest fixes where possible
   auto_fix_suggestions: true
-  
+
   # Request changes if critical security issues found
   request_changes_on_critical: true
-  
+
   # Provide educational context in comments
   explain_reasoning: true
-  
+
   # Link to relevant documentation/best practices
   include_references: true
 
@@ -133,7 +133,7 @@ review_behavior:
 security_checks:
   enabled: true
   severity: CRITICAL  # Block merges if critical vulnerabilities found
-  
+
   # yt-dlp API specific security concerns
   focus:
     - "Path traversal vulnerabilities"
@@ -152,12 +152,12 @@ testing:
   require_tests: true
   minimum_coverage: 80  # Overall project minimum
   critical_path_coverage: 95  # Auth, download, providers
-  
+
   # Test types to check for
   required_test_types:
     - "unit"  # Fast, isolated tests
     - "integration"  # API endpoint tests
-  
+
   # Flag if tests are missing for new features
   warn_missing_tests: true
 
@@ -166,15 +166,15 @@ documentation:
   # Require docstrings for public APIs
   require_docstrings:
     - "**/*.py"  # All Python files
-  
+
   # Exempt test files and private functions
   docstring_exemptions:
     - "tests/**"
     - "**/_*.py"  # Private modules
-  
+
   # Check for outdated documentation
   check_outdated: true
-  
+
   # Suggest documentation improvements
   suggest_improvements: true
 
@@ -184,7 +184,7 @@ performance:
   check_blocking_calls: true  # Detect sync calls in async functions
   check_resource_leaks: true  # Unclosed files, connections
   check_n_plus_one: true  # Database query patterns
-  
+
   # Suggest optimizations
   suggest_async_alternatives: true
   suggest_caching: true
@@ -193,7 +193,7 @@ performance:
 workflow:
   # Target branch for PRs
   base_branch: "develop"
-  
+
   # Auto-label PRs based on changes
   auto_label: true
   labels:
@@ -205,7 +205,7 @@ workflow:
       label: "docker"
     - pattern: "app/security/**"
       label: "security"
-  
+
   # Require PR description
   require_pr_description: true
   minimum_description_length: 50
@@ -217,7 +217,7 @@ notifications:
     - "critical_security_issue"
     - "test_coverage_drop"
     - "breaking_change_detected"
-  
+
   # Don't notify on minor style issues
   suppress_style_notifications: true
 
@@ -225,10 +225,10 @@ notifications:
 learning:
   # Adapt to your coding patterns over time
   enabled: true
-  
+
   # Learn from accepted/rejected suggestions
   feedback_learning: true
-  
+
   # Adjust strictness based on your responses
   adaptive_severity: true
 
@@ -239,22 +239,22 @@ custom_rules:
     pattern: "subprocess.*shell=True"
     severity: CRITICAL
     message: "Never use shell=True with user input. Use yt-dlp Python API instead."
-  
+
   - name: "Validate paths before use"
     pattern: "Path\\([^)]*user|Path\\([^)]*request"
     severity: HIGH
     message: "Always validate user-provided paths to prevent traversal attacks."
-  
+
   - name: "No blocking I/O in async functions"
     pattern: "async def.*(?:time\\.sleep|requests\\.)"
     severity: HIGH
     message: "Use asyncio.sleep() and httpx instead of blocking calls."
-  
+
   - name: "Secrets must use environment variables"
     pattern: "(api_key|password|secret)\\s*=\\s*['\"]\\w+"
     severity: CRITICAL
     message: "Never hardcode secrets. Use environment variables or secrets management."
-  
+
   - name: "Log redaction for sensitive data"
     pattern: "logger.*(?:password|secret|key|token)"
     severity: HIGH
@@ -271,7 +271,7 @@ output:
 rate_limiting:
   max_reviews_per_day: 30  # Stay well under free tier limit
   batch_small_changes: true  # Combine small PRs into single review
-  
+
 # Version Control
 config_version: "1.0.0"
 last_updated: "2025-11-07"
