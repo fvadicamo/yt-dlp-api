@@ -16,12 +16,7 @@ This project is currently under development following a spec-driven development 
 
 ## Development Setup
 
-### Prerequisites
-
-- Python 3.11+
-- Virtual environment (venv, virtualenv, or conda)
-
-### Installation
+### Quick Start
 
 1. Clone the repository:
 ```bash
@@ -40,19 +35,64 @@ venv\Scripts\activate  # On Windows
 3. Install dependencies:
 ```bash
 pip install -r requirements-dev.txt
+# or
+pip install -e ".[dev]"
 ```
+
+4. Setup pre-commit hooks:
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+Or use the Makefile for quick setup:
+```bash
+make setup
+```
+
+### Development Tools
+
+This project uses a comprehensive set of development tools:
+
+- **Black** - Code formatting
+- **isort** - Import sorting
+- **Flake8** - Linting (with plugins: bugbear, comprehensions, simplify, docstrings, pep8-naming)
+- **mypy** - Type checking
+- **Bandit** - Security scanning
+- **pytest** - Testing with coverage
+- **pre-commit** - Git hooks for automated quality checks
+
+All tools are configured in `pyproject.toml` for centralized configuration.
+
+For detailed setup instructions, tool usage, and best practices, see [Development Setup Guide](docs/DEVELOPMENT_SETUP.md).
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run all tests with coverage
 pytest
-
-# Run with coverage
-pytest --cov=app --cov-report=term-missing
+# or
+make test-cov
 
 # Run specific test file
 pytest tests/unit/test_config.py -v
+
+# Run all quality checks
+make check
+```
+
+### Common Commands
+
+```bash
+make help           # Show all available commands
+make format         # Format code with Black and isort
+make lint           # Run Flake8 linter
+make type-check     # Run mypy type checker
+make security       # Run Bandit security scanner
+make test           # Run tests
+make test-cov       # Run tests with coverage
+make check          # Run all checks
+make clean          # Clean cache files
 ```
 
 ## Project Structure
@@ -130,25 +170,37 @@ export APP_LOGGING_LEVEL=DEBUG
 
 ## Development Guidelines
 
-### Virtual Environment
+### Code Quality
 
-**Always use a virtual environment for Python development.** Never use system/global Python.
+This project enforces code quality through:
 
-See `.kiro/steering/python-venv-requirement.md` for detailed guidelines.
+- **Pre-commit hooks** - Automated checks before each commit
+- **90% test coverage** - Minimum coverage requirement
+- **Type safety** - Full mypy type checking
+- **Security scanning** - Bandit security checks
+- **Consistent formatting** - Black + isort
 
 ### Git Workflow
 
 - Work on feature branches: `feature/<task-name>`
 - Commit frequently with descriptive messages
 - Follow Conventional Commits format
+- Pre-commit hooks run automatically on commit
+- Full test suite runs on push
 - Merge to `develop` branch via merge commit (no squash/rebase)
 
 ### Testing
 
 - Write tests for all new functionality
 - Maintain high test coverage (>90%)
-- Run tests before committing
+- Tests run automatically via pre-commit on push
 - Use pytest fixtures for common setup
+
+### Virtual Environment
+
+**Always use a virtual environment for Python development.** Never use system/global Python.
+
+See `.kiro/steering/python-venv-requirement.md` for detailed guidelines.
 
 ## License
 

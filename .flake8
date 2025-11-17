@@ -1,0 +1,30 @@
+# Flake8 configuration
+# Note: Flake8 doesn't support pyproject.toml natively yet
+# This file mirrors the configuration in pyproject.toml [tool.flake8]
+
+[flake8]
+max-line-length = 100
+extend-ignore = 
+    E203,  # Whitespace before ':' (conflicts with Black)
+    E501,  # Line too long (handled by Black)
+    W503,  # Line break before binary operator (conflicts with Black)
+    D100,  # Missing docstring in public module
+    D104,  # Missing docstring in public package
+
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    env,
+    .pytest_cache,
+    build,
+    dist,
+    *.egg-info,
+
+per-file-ignores =
+    __init__.py:F401,D103
+    tests/*:D103,S101
+
+docstring-convention = google
+max-complexity = 10

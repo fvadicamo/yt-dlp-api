@@ -29,9 +29,13 @@ ENV/
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+coverage.xml
 .tox/
 .hypothesis/
+*.cover
+.cache
 
 # IDEs
 .vscode/
@@ -56,3 +60,18 @@ cookies/
 # Environment variables
 .env
 .env.local
+
+# Pre-commit
+.pre-commit-config.yaml.bak
+.pre-commit-hooks.yaml
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Linting
+.ruff_cache/
+
+# Bandit
+.bandit
