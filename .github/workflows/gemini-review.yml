@@ -83,7 +83,7 @@ jobs:
       - name: Run tests
         run: |
           if [ -f pytest.ini ] || [ -d tests ]; then
-            python -m pytest --cov=app --cov-report=term --cov-report=json
+            python -m pytest --cov=app --cov-report=term --cov-report=json --cov-report=html
           fi
         continue-on-error: true
         id: tests
