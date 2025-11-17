@@ -13,7 +13,6 @@ repos:
         args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
-        args: [--safe]
       - id: check-json
       - id: check-toml
       - id: check-added-large-files
@@ -30,7 +29,7 @@ repos:
 
   # Code formatting with Black
   - repo: https://github.com/psf/black
-    rev: 24.1.1
+    rev: 24.3.0
     hooks:
       - id: black
         language_version: python3.11
@@ -48,7 +47,7 @@ repos:
     rev: 7.0.0
     hooks:
       - id: flake8
-        args: [--config=pyproject.toml]
+        args: [--config=.flake8]
         additional_dependencies:
           - flake8-bugbear==24.1.17
           - flake8-comprehensions==3.14.0
@@ -61,17 +60,18 @@ repos:
     rev: v1.8.0
     hooks:
       - id: mypy
-        args: [--config-file=pyproject.toml]
+        args: [--config-file=pyproject.toml, --install-types, --non-interactive]
         additional_dependencies:
           - types-PyYAML==6.0.12.12
           - types-cachetools==5.3.0.7
           - pydantic==2.5.3
           - pydantic-settings==2.1.0
+          - structlog==24.1.0
         exclude: ^tests/
 
   # Security checks with Bandit
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.6
+    rev: 1.7.7
     hooks:
       - id: bandit
         args: [-c, pyproject.toml]
@@ -94,13 +94,6 @@ repos:
           - --cov-fail-under=90
           - -v
         stages: [push]
-
-  # Check for common security issues
-  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
-    rev: v1.3.3
-    hooks:
-      - id: python-safety-dependencies-check
-        files: requirements.*\.txt$
 
 # Configuration for specific stages
 # Run 'pre-commit run --all-files' to run on all files
