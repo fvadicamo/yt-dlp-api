@@ -1,7 +1,6 @@
 """Configuration management with YAML and environment variable support"""
 
 import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
@@ -12,7 +11,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class ServerConfig(BaseSettings):
     """Server configuration"""
 
-    host: str = "0.0.0.0"
+    host: str = (
+        "0.0.0.0"  # nosec B104 - Intentional binding to all interfaces for containerized deployment
+    )
     port: int = 8000
     workers: int = 4
 
@@ -174,7 +175,7 @@ class ConfigService:
         # For pydantic-settings to properly handle env var overrides,
         # we need to use model_validate which respects the settings behavior
         import os
-        
+
         # Merge YAML data with environment variables
         # Environment variables take precedence
         def merge_with_env(section_data: Dict[str, Any], prefix: str) -> Dict[str, Any]:
@@ -190,37 +191,37 @@ class ConfigService:
                         result[key] = int(env_value)
                     except ValueError:
                         # Try bool
-                        if env_value.lower() in ('true', 'false'):
-                            result[key] = env_value.lower() == 'true'
+                        if env_value.lower() in ("true", "false"):
+                            result[key] = env_value.lower() == "true"
                         else:
                             result[key] = env_value
             return result
-        
+
         # Create nested config objects with env var merging
         server_data = merge_with_env(data.get("server", {}), "APP_SERVER_")
         server = ServerConfig(**server_data)
-        
+
         timeouts_data = merge_with_env(data.get("timeouts", {}), "APP_TIMEOUTS_")
         timeouts = TimeoutsConfig(**timeouts_data)
-        
+
         storage_data = merge_with_env(data.get("storage", {}), "APP_STORAGE_")
         storage = StorageConfig(**storage_data)
-        
+
         downloads_data = merge_with_env(data.get("downloads", {}), "APP_DOWNLOADS_")
         downloads = DownloadsConfig(**downloads_data)
-        
+
         rate_limiting_data = merge_with_env(data.get("rate_limiting", {}), "APP_RATE_LIMITING_")
         rate_limiting = RateLimitingConfig(**rate_limiting_data)
-        
+
         templates_data = merge_with_env(data.get("templates", {}), "APP_TEMPLATES_")
         templates = TemplatesConfig(**templates_data)
-        
+
         logging_data = merge_with_env(data.get("logging", {}), "APP_LOGGING_")
         logging_config = LoggingConfig(**logging_data)
-        
+
         security_data = merge_with_env(data.get("security", {}), "APP_SECURITY_")
         security = SecurityConfig(**security_data)
-        
+
         monitoring_data = merge_with_env(data.get("monitoring", {}), "APP_MONITORING_")
         monitoring = MonitoringConfig(**monitoring_data)
 

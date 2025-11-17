@@ -1,7 +1,5 @@
 """Tests for configuration management"""
 
-import os
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -45,7 +43,9 @@ class TestConfigService:
         assert config.timeouts.metadata == 10
         assert config.storage.max_file_size == 524288000
 
-    def test_environment_variable_override(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_environment_variable_override(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test environment variable overrides YAML configuration"""
         config_file = tmp_path / "config.yaml"
         config_data = {
@@ -109,9 +109,7 @@ class TestConfigService:
     def test_validation_requires_api_keys(self, tmp_path: Path) -> None:
         """Test validation requires at least one API key"""
         config_file = tmp_path / "config.yaml"
-        config_data = {
-            "security": {"api_keys": [], "allow_degraded_start": False}
-        }
+        config_data = {"security": {"api_keys": [], "allow_degraded_start": False}}
 
         with open(config_file, "w") as f:
             yaml.dump(config_data, f)
@@ -125,9 +123,7 @@ class TestConfigService:
     def test_validation_allows_degraded_start(self, tmp_path: Path) -> None:
         """Test validation allows empty API keys in degraded mode"""
         config_file = tmp_path / "config.yaml"
-        config_data = {
-            "security": {"api_keys": [], "allow_degraded_start": True}
-        }
+        config_data = {"security": {"api_keys": [], "allow_degraded_start": True}}
 
         with open(config_file, "w") as f:
             yaml.dump(config_data, f)

@@ -4,12 +4,15 @@
 
 [flake8]
 max-line-length = 100
-extend-ignore = 
-    E203,  # Whitespace before ':' (conflicts with Black)
-    E501,  # Line too long (handled by Black)
-    W503,  # Line break before binary operator (conflicts with Black)
-    D100,  # Missing docstring in public module
-    D104,  # Missing docstring in public package
+# Whitespace before ':' (conflicts with Black)
+# Line too long (handled by Black)
+# Line break before binary operator (conflicts with Black)
+# Missing docstring in public module
+# Missing docstring in public package
+# First line should end with period (too strict)
+# Multi-line docstring summary position
+# Missing docstring in public method (too strict for tests)
+extend-ignore = E203,E501,W503,D100,D104,D415,D212,D102,D107
 
 exclude =
     .git,

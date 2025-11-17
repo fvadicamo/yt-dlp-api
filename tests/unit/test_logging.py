@@ -1,12 +1,9 @@
 """Tests for structured logging"""
 
-import json
 import logging
 import re
-from io import StringIO
 
 import pytest
-import structlog
 
 from app.core.logging import (
     add_request_id,
@@ -15,7 +12,6 @@ from app.core.logging import (
     get_logger,
     get_request_id,
     hash_api_key,
-    request_id_var,
     set_request_id,
 )
 
@@ -154,8 +150,8 @@ class TestLoggingConfiguration:
 
         assert logger is not None
         # Logger is a BoundLoggerLazyProxy, which is the expected type
-        assert hasattr(logger, 'info')
-        assert hasattr(logger, 'error')
+        assert hasattr(logger, "info")
+        assert hasattr(logger, "error")
 
 
 class TestLogRedaction:
@@ -176,7 +172,7 @@ class TestLogRedaction:
         # Verify original key is not in any log records
         log_text = " ".join([record.message for record in caplog.records])
         assert api_key not in log_text
-        
+
         # The hash should be in the structured data (not necessarily in message)
         # This test verifies that we're using hashing, not that it appears in output
         assert hashed_key.startswith("sha256:")
