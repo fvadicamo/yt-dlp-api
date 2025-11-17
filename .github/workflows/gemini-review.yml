@@ -199,9 +199,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install linting tools
+      - name: Install dependencies
         run: |
-          pip install black flake8 isort mypy bandit
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Run Black (formatting check)
         run: black --check app/ tests/
@@ -212,7 +213,7 @@ jobs:
         continue-on-error: true
 
       - name: Run Flake8 (style check)
-        run: flake8 app/ tests/ --max-line-length=88
+        run: flake8 app/ tests/
         continue-on-error: true
 
       - name: Run mypy (type checking)
