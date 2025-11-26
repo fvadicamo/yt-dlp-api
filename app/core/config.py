@@ -159,93 +159,16 @@ class ConfigService:
 
         # Load from YAML file if it exists
         if os.path.exists(self.config_path):
-            with open(self.config_path, "r") as f:
+            with open(self.config_path, "r", encoding="utf-8") as f:
                 yaml_data = yaml.safe_load(f)
                 if yaml_data:
                     config_data = yaml_data
 
-        # Create config with environment variable overrides
-        # Pydantic Settings will automatically handle env var overrides
-        self._config = self._create_config_from_dict(config_data)
+        # Pydantic Settings will automatically handle env var overrides by reading
+        # from the environment after populating from the dictionary.
+        self._config = Config.model_validate(config_data)
 
         return self._config
-
-    def _create_config_from_dict(self, data: Dict[str, Any]) -> Config:
-        """Create Config object from dictionary with nested structure"""
-        # For pydantic-settings to properly handle env var overrides,
-        # we need to use model_validate which respects the settings behavior
-        import os
-
-        # Merge YAML data with environment variables
-        # Environment variables take precedence
-        def merge_with_env(section_data: Dict[str, Any], prefix: str) -> Dict[str, Any]:
-            """Merge section data with environment variables"""
-            result = section_data.copy()
-            for key in result.keys():
-                env_key = f"{prefix}{key.upper()}"
-                if env_key in os.environ:
-                    # Convert env var to appropriate type
-                    env_value = os.environ[env_key]
-                    # Try to convert to int if possible
-                    try:
-                        result[key] = int(env_value)
-                    except ValueError:
-                        # Try bool
-                        if env_value.lower() in ("true", "false"):
-                            result[key] = env_value.lower() == "true"
-                        else:
-                            result[key] = env_value
-            return result
-
-        # Create nested config objects with env var merging
-        server_data = merge_with_env(data.get("server", {}), "APP_SERVER_")
-        server = ServerConfig(**server_data)
-
-        timeouts_data = merge_with_env(data.get("timeouts", {}), "APP_TIMEOUTS_")
-        timeouts = TimeoutsConfig(**timeouts_data)
-
-        storage_data = merge_with_env(data.get("storage", {}), "APP_STORAGE_")
-        storage = StorageConfig(**storage_data)
-
-        downloads_data = merge_with_env(data.get("downloads", {}), "APP_DOWNLOADS_")
-        downloads = DownloadsConfig(**downloads_data)
-
-        rate_limiting_data = merge_with_env(data.get("rate_limiting", {}), "APP_RATE_LIMITING_")
-        rate_limiting = RateLimitingConfig(**rate_limiting_data)
-
-        templates_data = merge_with_env(data.get("templates", {}), "APP_TEMPLATES_")
-        templates = TemplatesConfig(**templates_data)
-
-        logging_data = merge_with_env(data.get("logging", {}), "APP_LOGGING_")
-        logging_config = LoggingConfig(**logging_data)
-
-        security_data = merge_with_env(data.get("security", {}), "APP_SECURITY_")
-        security = SecurityConfig(**security_data)
-
-        monitoring_data = merge_with_env(data.get("monitoring", {}), "APP_MONITORING_")
-        monitoring = MonitoringConfig(**monitoring_data)
-
-        # Handle providers
-        providers_data = data.get("providers", {})
-        youtube_data = merge_with_env(providers_data.get("youtube", {}), "APP_YOUTUBE_")
-        youtube_config = YouTubeProviderConfig(**youtube_data)
-        providers = ProvidersConfig(youtube=youtube_config)
-
-        # Create main config
-        config = Config(
-            server=server,
-            timeouts=timeouts,
-            storage=storage,
-            downloads=downloads,
-            rate_limiting=rate_limiting,
-            templates=templates,
-            providers=providers,
-            logging=logging_config,
-            security=security,
-            monitoring=monitoring,
-        )
-
-        return config
 
     def validate(self) -> bool:
         """Validate the loaded configuration"""
