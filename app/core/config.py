@@ -1,11 +1,13 @@
 """Configuration management with YAML and environment variable support"""
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypeVar
 
 import yaml
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+T = TypeVar("T", bound=BaseSettings)
 
 
 class ServerConfig(BaseSettings):
@@ -168,8 +170,8 @@ class ConfigService:
         # For BaseSettings, we need to let it initialize without kwargs to read env vars
         # Then we can override with YAML values that aren't overridden by env
         def create_config_section(
-            config_class: type[BaseSettings], yaml_data: Dict[str, Any], env_prefix: str
-        ) -> BaseSettings:
+            config_class: type[T], yaml_data: Dict[str, Any], env_prefix: str
+        ) -> T:
             """Create a config section with proper env var precedence"""
             # Check which fields have env var overrides
             init_data = {}
@@ -178,13 +180,11 @@ class ConfigService:
                 if env_var not in os.environ:
                     # Only use YAML value if no env var exists
                     init_data[field_name] = yaml_data[field_name]
-            
+
             # Create instance - it will read env vars automatically
             return config_class(**init_data)
 
-        server = create_config_section(
-            ServerConfig, config_data.get("server", {}), "APP_SERVER_"
-        )
+        server = create_config_section(ServerConfig, config_data.get("server", {}), "APP_SERVER_")
         timeouts = create_config_section(
             TimeoutsConfig, config_data.get("timeouts", {}), "APP_TIMEOUTS_"
         )
