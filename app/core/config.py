@@ -164,9 +164,72 @@ class ConfigService:
                 if yaml_data:
                     config_data = yaml_data
 
-        # Pydantic Settings will automatically handle env var overrides by reading
-        # from the environment after populating from the dictionary.
-        self._config = Config.model_validate(config_data)
+        # Create nested config objects by calling parse_obj which respects env vars
+        # For BaseSettings, we need to let it initialize without kwargs to read env vars
+        # Then we can override with YAML values that aren't overridden by env
+        def create_config_section(
+            config_class: type[BaseSettings], yaml_data: Dict[str, Any], env_prefix: str
+        ) -> BaseSettings:
+            """Create a config section with proper env var precedence"""
+            # Check which fields have env var overrides
+            init_data = {}
+            for field_name in yaml_data.keys():
+                env_var = f"{env_prefix}{field_name.upper()}"
+                if env_var not in os.environ:
+                    # Only use YAML value if no env var exists
+                    init_data[field_name] = yaml_data[field_name]
+            
+            # Create instance - it will read env vars automatically
+            return config_class(**init_data)
+
+        server = create_config_section(
+            ServerConfig, config_data.get("server", {}), "APP_SERVER_"
+        )
+        timeouts = create_config_section(
+            TimeoutsConfig, config_data.get("timeouts", {}), "APP_TIMEOUTS_"
+        )
+        storage = create_config_section(
+            StorageConfig, config_data.get("storage", {}), "APP_STORAGE_"
+        )
+        downloads = create_config_section(
+            DownloadsConfig, config_data.get("downloads", {}), "APP_DOWNLOADS_"
+        )
+        rate_limiting = create_config_section(
+            RateLimitingConfig, config_data.get("rate_limiting", {}), "APP_RATE_LIMITING_"
+        )
+        templates = create_config_section(
+            TemplatesConfig, config_data.get("templates", {}), "APP_TEMPLATES_"
+        )
+        logging_config = create_config_section(
+            LoggingConfig, config_data.get("logging", {}), "APP_LOGGING_"
+        )
+        security = create_config_section(
+            SecurityConfig, config_data.get("security", {}), "APP_SECURITY_"
+        )
+        monitoring = create_config_section(
+            MonitoringConfig, config_data.get("monitoring", {}), "APP_MONITORING_"
+        )
+
+        # Handle providers
+        providers_data = config_data.get("providers", {})
+        youtube_config = create_config_section(
+            YouTubeProviderConfig, providers_data.get("youtube", {}), "APP_YOUTUBE_"
+        )
+        providers = ProvidersConfig(youtube=youtube_config)
+
+        # Create main config
+        self._config = Config(
+            server=server,
+            timeouts=timeouts,
+            storage=storage,
+            downloads=downloads,
+            rate_limiting=rate_limiting,
+            templates=templates,
+            providers=providers,
+            logging=logging_config,
+            security=security,
+            monitoring=monitoring,
+        )
 
         return self._config
 
