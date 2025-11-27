@@ -1,16 +1,38 @@
 """Configuration management with YAML and environment variable support"""
 
 import os
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import yaml
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-T = TypeVar("T", bound=BaseSettings)
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 
-class ServerConfig(BaseSettings):
+class BaseConfigSection(BaseSettings):
+    """Base class for all config sections with correct environment variable precedence.
+
+    This class customizes the settings source priority to ensure that:
+    1. Environment variables have highest priority
+    2. Init kwargs (YAML data) have second priority
+    3. Default values have lowest priority
+
+    This allows environment variables to override YAML configuration as expected.
+    """
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+        """Customize settings source priority: env vars > init kwargs > defaults."""
+        return (env_settings, init_settings, dotenv_settings, file_secret_settings)
+
+
+class ServerConfig(BaseConfigSection):
     """Server configuration"""
 
     host: str = (
@@ -22,7 +44,7 @@ class ServerConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_SERVER_")
 
 
-class TimeoutsConfig(BaseSettings):
+class TimeoutsConfig(BaseConfigSection):
     """Operation timeout configuration"""
 
     metadata: int = 10  # seconds
@@ -32,7 +54,7 @@ class TimeoutsConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_TIMEOUTS_")
 
 
-class StorageConfig(BaseSettings):
+class StorageConfig(BaseConfigSection):
     """Storage and file management configuration"""
 
     output_dir: str = "/app/downloads"
@@ -51,7 +73,7 @@ class StorageConfig(BaseSettings):
         return v
 
 
-class DownloadsConfig(BaseSettings):
+class DownloadsConfig(BaseConfigSection):
     """Download queue configuration"""
 
     max_concurrent: int = 5
@@ -60,7 +82,7 @@ class DownloadsConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_DOWNLOADS_")
 
 
-class RateLimitingConfig(BaseSettings):
+class RateLimitingConfig(BaseConfigSection):
     """Rate limiting configuration"""
 
     metadata_rpm: int = 100  # requests per minute
@@ -70,7 +92,7 @@ class RateLimitingConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_RATE_LIMITING_")
 
 
-class TemplatesConfig(BaseSettings):
+class TemplatesConfig(BaseConfigSection):
     """Output template configuration"""
 
     default_output: str = "%(title)s-%(id)s.%(ext)s"
@@ -78,7 +100,7 @@ class TemplatesConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_TEMPLATES_")
 
 
-class YouTubeProviderConfig(BaseSettings):
+class YouTubeProviderConfig(BaseConfigSection):
     """YouTube provider configuration"""
 
     enabled: bool = True
@@ -89,13 +111,13 @@ class YouTubeProviderConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_YOUTUBE_")
 
 
-class ProvidersConfig(BaseSettings):
+class ProvidersConfig(BaseConfigSection):
     """Providers configuration"""
 
     youtube: YouTubeProviderConfig = Field(default_factory=YouTubeProviderConfig)
 
 
-class LoggingConfig(BaseSettings):
+class LoggingConfig(BaseConfigSection):
     """Logging configuration"""
 
     level: str = "INFO"
@@ -113,7 +135,7 @@ class LoggingConfig(BaseSettings):
         return v_upper
 
 
-class SecurityConfig(BaseSettings):
+class SecurityConfig(BaseConfigSection):
     """Security configuration"""
 
     api_keys: List[str] = Field(default_factory=list)
@@ -122,7 +144,7 @@ class SecurityConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_SECURITY_")
 
 
-class MonitoringConfig(BaseSettings):
+class MonitoringConfig(BaseConfigSection):
     """Monitoring configuration"""
 
     metrics_enabled: bool = True
@@ -156,7 +178,12 @@ class ConfigService:
         self._config: Optional[Config] = None
 
     def load(self) -> Config:
-        """Load configuration from YAML file with environment variable overrides"""
+        """Load configuration from YAML file with environment variable overrides.
+
+        Thanks to BaseConfigSection.settings_customise_sources(), environment variables
+        automatically take precedence over YAML values, which in turn take precedence
+        over defaults. No manual checking required.
+        """
         config_data: Dict[str, Any] = {}
 
         # Load from YAML file if it exists
@@ -166,55 +193,20 @@ class ConfigService:
                 if yaml_data:
                     config_data = yaml_data
 
-        # Create nested config objects by calling parse_obj which respects env vars
-        # For BaseSettings, we need to let it initialize without kwargs to read env vars
-        # Then we can override with YAML values that aren't overridden by env
-        def create_config_section(
-            config_class: type[T], yaml_data: Dict[str, Any], env_prefix: str
-        ) -> T:
-            """Create a config section with proper env var precedence"""
-            # Check which fields have env var overrides
-            init_data = {}
-            for field_name in yaml_data.keys():
-                env_var = f"{env_prefix}{field_name.upper()}"
-                if env_var not in os.environ:
-                    # Only use YAML value if no env var exists
-                    init_data[field_name] = yaml_data[field_name]
-
-            # Create instance - it will read env vars automatically
-            return config_class(**init_data)
-
-        server = create_config_section(ServerConfig, config_data.get("server", {}), "APP_SERVER_")
-        timeouts = create_config_section(
-            TimeoutsConfig, config_data.get("timeouts", {}), "APP_TIMEOUTS_"
-        )
-        storage = create_config_section(
-            StorageConfig, config_data.get("storage", {}), "APP_STORAGE_"
-        )
-        downloads = create_config_section(
-            DownloadsConfig, config_data.get("downloads", {}), "APP_DOWNLOADS_"
-        )
-        rate_limiting = create_config_section(
-            RateLimitingConfig, config_data.get("rate_limiting", {}), "APP_RATE_LIMITING_"
-        )
-        templates = create_config_section(
-            TemplatesConfig, config_data.get("templates", {}), "APP_TEMPLATES_"
-        )
-        logging_config = create_config_section(
-            LoggingConfig, config_data.get("logging", {}), "APP_LOGGING_"
-        )
-        security = create_config_section(
-            SecurityConfig, config_data.get("security", {}), "APP_SECURITY_"
-        )
-        monitoring = create_config_section(
-            MonitoringConfig, config_data.get("monitoring", {}), "APP_MONITORING_"
-        )
+        # Create nested config objects - BaseConfigSection handles env var precedence
+        server = ServerConfig(**config_data.get("server", {}))
+        timeouts = TimeoutsConfig(**config_data.get("timeouts", {}))
+        storage = StorageConfig(**config_data.get("storage", {}))
+        downloads = DownloadsConfig(**config_data.get("downloads", {}))
+        rate_limiting = RateLimitingConfig(**config_data.get("rate_limiting", {}))
+        templates = TemplatesConfig(**config_data.get("templates", {}))
+        logging_config = LoggingConfig(**config_data.get("logging", {}))
+        security = SecurityConfig(**config_data.get("security", {}))
+        monitoring = MonitoringConfig(**config_data.get("monitoring", {}))
 
         # Handle providers
         providers_data = config_data.get("providers", {})
-        youtube_config = create_config_section(
-            YouTubeProviderConfig, providers_data.get("youtube", {}), "APP_YOUTUBE_"
-        )
+        youtube_config = YouTubeProviderConfig(**providers_data.get("youtube", {}))
         providers = ProvidersConfig(youtube=youtube_config)
 
         # Create main config
