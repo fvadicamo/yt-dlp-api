@@ -8,7 +8,7 @@ echo ""
 
 # Check Python version
 echo "✓ Checking Python version..."
-python --version | grep "3.11" || (echo "❌ Python 3.11+ required" && exit 1)
+python3 --version | grep "3.11" || (echo "❌ Python 3.11+ required" && exit 1)
 
 # Check virtual environment
 echo "✓ Checking virtual environment..."
@@ -19,7 +19,7 @@ fi
 
 # Check if dependencies are installed
 echo "✓ Checking dependencies..."
-python -c "import black, isort, flake8, mypy, pytest, bandit" 2>/dev/null || \
+python3 -c "import black, isort, flake8, mypy, pytest, bandit" 2>/dev/null || \
     (echo "❌ Dependencies not installed. Run: make install-dev" && exit 1)
 
 # Check configuration files

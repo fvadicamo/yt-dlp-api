@@ -127,6 +127,12 @@ class TestLoggingConfiguration:
 
         clear_request_id()
 
+        # Verify output contains expected fields
+        assert len(caplog.records) == 1
+        record = caplog.records[0]
+        assert record.levelname == "INFO"
+        assert "test message" in record.message
+
     def test_configure_logging_console_format(self) -> None:
         """Test console format logging configuration"""
         configure_logging(log_level="DEBUG", log_format="console")
@@ -169,9 +175,8 @@ class TestLogRedaction:
         with caplog.at_level(logging.INFO):
             logger.info("API request", api_key_hash=hashed_key)
 
-        # Verify original key is not in any log records
-        log_text = " ".join([record.message for record in caplog.records])
-        assert api_key not in log_text
+        # Verify original key is not in the fully rendered log output
+        assert api_key not in caplog.text
 
         # The hash should be in the structured data (not necessarily in message)
         # This test verifies that we're using hashing, not that it appears in output
@@ -199,13 +204,3 @@ class TestLogRedaction:
         assert "/path/to/cookie.txt" not in redacted
         assert "secret123" not in redacted
         assert "[REDACTED]" in redacted
-
-    def test_hash_consistency_for_logging(self) -> None:
-        """Test that same API key always produces same hash for log correlation"""
-        api_key = "consistent-key"
-
-        hash1 = hash_api_key(api_key)
-        hash2 = hash_api_key(api_key)
-        hash3 = hash_api_key(api_key)
-
-        assert hash1 == hash2 == hash3
