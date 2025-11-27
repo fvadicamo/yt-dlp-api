@@ -30,7 +30,7 @@ templates:
 providers:
   youtube:
     enabled: true
-    cookie_path: "${YOUTUBE_COOKIE_PATH}"
+    cookie_path: null  # Override with APP_YOUTUBE_COOKIE_PATH env var
     retry_attempts: 3
     retry_backoff: [2, 4, 8]
 
@@ -39,9 +39,7 @@ logging:
   format: "json"
 
 security:
-  api_keys:
-    - "${API_KEY_1}"
-    - "${API_KEY_2}"
+  api_keys: []  # Override with APP_SECURITY_API_KEYS env var (JSON array format)
   allow_degraded_start: false
 
 monitoring:
