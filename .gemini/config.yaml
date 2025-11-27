@@ -1,0 +1,277 @@
+# Gemini Code Assist Configuration
+# Project: yt-dlp-api
+# Last Updated: 2025-11-07
+
+styleguide: .gemini/styleguide.md
+
+# Tone and Personality
+have_fun: false  # Professional tone for production-grade API
+
+# Code Review Settings
+code_review:
+  disable: false  # Enable code reviews on all PRs
+  comment_severity_threshold: LOW  # Catch all issues (security, bugs, style)
+  max_review_comments: 25  # Comprehensive reviews without overwhelming
+
+# Pull Request Automation
+pull_request_opened:
+  help: true  # Offer specific improvement suggestions
+  summary: true  # Auto-generate PR summary
+  code_review: true  # Full review on every PR
+  include_drafts: false  # Skip draft PRs (WIP)
+
+# File Patterns to Ignore
+# These files won't trigger reviews or count toward coverage
+ignore_patterns:
+  # Documentation (review only for major changes)
+  - "*.md"
+  - "docs/**"
+
+  # Auto-generated files
+  - "**/__pycache__/**"
+  - "*.pyc"
+  - ".pytest_cache/**"
+  - "*.egg-info/**"
+
+  # Test fixtures and data (review logic, not data)
+  - "tests/fixtures/**/*.json"
+  - "tests/fixtures/**/*.yaml"
+  - "tests/data/**"
+
+  # CI/CD metadata (Gemini reviews workflow logic, not metadata)
+  - ".github/ISSUE_TEMPLATE/**"
+  - ".github/PULL_REQUEST_TEMPLATE.md"
+
+  # Environment and secrets (never committed anyway)
+  - ".env*"
+  - "secrets/**"
+
+  # Temporary files
+  - "*.tmp"
+  - "*.log"
+  - ".coverage"
+  - "htmlcov/**"
+
+# File-Specific Review Settings
+file_rules:
+  # Docker files: Focus on security and optimization
+  - pattern: "Dockerfile*"
+    comment_severity_threshold: MEDIUM  # Security and best practices only
+    focus_areas:
+      - "Multi-stage build usage"
+      - "Non-root user enforcement"
+      - "Layer caching optimization"
+      - "Security vulnerabilities"
+      - "Image size concerns"
+
+  # Docker Compose: Focus on security and production readiness
+  - pattern: "docker-compose*.yml"
+    comment_severity_threshold: MEDIUM
+    focus_areas:
+      - "Health checks present"
+      - "Secrets management (no hardcoded values)"
+      - "Network isolation"
+      - "Volume security"
+      - "Resource limits"
+
+  # Config files: Focus on structure and secrets
+  - pattern: "config.yaml"
+    comment_severity_threshold: MEDIUM
+    focus_areas:
+      - "No hardcoded secrets"
+      - "Environment variable usage"
+      - "Schema validation"
+      - "Sensible defaults"
+
+  # Test files: Focus on logic and security, not style
+  - pattern: "tests/**/*.py"
+    comment_severity_threshold: MEDIUM
+    focus_areas:
+      - "Test logic correctness"
+      - "Security test coverage"
+      - "Async test patterns"
+      - "Mock/fixture usage"
+    ignore_style: true  # Tests can be "uglier" if they work
+
+  # Python source: Full review
+  - pattern: "app/**/*.py"
+    comment_severity_threshold: LOW  # Catch everything
+    focus_areas:
+      - "Security vulnerabilities"
+      - "Async/await correctness"
+      - "Type hint completeness"
+      - "Error handling"
+      - "Logging best practices"
+      - "Docstring completeness"
+
+  # Requirements: Focus on security
+  - pattern: "requirements*.txt"
+    comment_severity_threshold: HIGH  # Only critical security issues
+    focus_areas:
+      - "Known vulnerabilities in dependencies"
+      - "Version pinning"
+
+# Review Behavior Customization
+review_behavior:
+  # Advisory mode: Suggest improvements but don't block merges
+  # (You can switch to strict mode later when comfortable)
+  blocking: false
+
+  # Automatically suggest fixes where possible
+  auto_fix_suggestions: true
+
+  # Request changes if critical security issues found
+  request_changes_on_critical: true
+
+  # Provide educational context in comments
+  explain_reasoning: true
+
+  # Link to relevant documentation/best practices
+  include_references: true
+
+# Security Focus Areas (High Priority)
+security_checks:
+  enabled: true
+  severity: CRITICAL  # Block merges if critical vulnerabilities found
+
+  # yt-dlp API specific security concerns
+  focus:
+    - "Path traversal vulnerabilities"
+    - "Command injection (yt-dlp subprocess)"
+    - "Secrets exposure (API keys, passwords)"
+    - "Cookie file security (permissions, paths)"
+    - "Input validation (URLs, formats)"
+    - "Rate limiting implementation"
+    - "Authentication bypass"
+    - "Docker container escape risks"
+    - "Dependency vulnerabilities"
+
+# Testing Requirements
+testing:
+  # Enforce minimum coverage on new code
+  require_tests: true
+  minimum_coverage: 80  # Overall project minimum
+  critical_path_coverage: 95  # Auth, download, providers
+
+  # Test types to check for
+  required_test_types:
+    - "unit"  # Fast, isolated tests
+    - "integration"  # API endpoint tests
+
+  # Flag if tests are missing for new features
+  warn_missing_tests: true
+
+# Documentation Requirements
+documentation:
+  # Require docstrings for public APIs
+  require_docstrings:
+    - "**/*.py"  # All Python files
+
+  # Exempt test files and private functions
+  docstring_exemptions:
+    - "tests/**"
+    - "**/_*.py"  # Private modules
+
+  # Check for outdated documentation
+  check_outdated: true
+
+  # Suggest documentation improvements
+  suggest_improvements: true
+
+# Performance Monitoring
+performance:
+  # Flag potential performance issues
+  check_blocking_calls: true  # Detect sync calls in async functions
+  check_resource_leaks: true  # Unclosed files, connections
+  check_n_plus_one: true  # Database query patterns
+
+  # Suggest optimizations
+  suggest_async_alternatives: true
+  suggest_caching: true
+
+# Git Workflow Integration
+workflow:
+  # Target branch for PRs
+  base_branch: "develop"
+
+  # Auto-label PRs based on changes
+  auto_label: true
+  labels:
+    - pattern: "app/providers/**"
+      label: "provider"
+    - pattern: "tests/**"
+      label: "tests"
+    - pattern: "Dockerfile*"
+      label: "docker"
+    - pattern: "app/security/**"
+      label: "security"
+
+  # Require PR description
+  require_pr_description: true
+  minimum_description_length: 50
+
+# Notification Settings
+notifications:
+  # When to notify (don't spam)
+  notify_on:
+    - "critical_security_issue"
+    - "test_coverage_drop"
+    - "breaking_change_detected"
+
+  # Don't notify on minor style issues
+  suppress_style_notifications: true
+
+# Learning Mode (Experimental)
+learning:
+  # Adapt to your coding patterns over time
+  enabled: true
+
+  # Learn from accepted/rejected suggestions
+  feedback_learning: true
+
+  # Adjust strictness based on your responses
+  adaptive_severity: true
+
+# Custom Rules (Project-Specific)
+custom_rules:
+  # yt-dlp specific patterns
+  - name: "No shell commands with user input"
+    pattern: "subprocess.*shell=True"
+    severity: CRITICAL
+    message: "Never use shell=True with user input. Use yt-dlp Python API instead."
+
+  - name: "Validate paths before use"
+    pattern: "Path\\([^)]*user|Path\\([^)]*request"
+    severity: HIGH
+    message: "Always validate user-provided paths to prevent traversal attacks."
+
+  - name: "No blocking I/O in async functions"
+    pattern: "async def.*(?:time\\.sleep|requests\\.)"
+    severity: HIGH
+    message: "Use asyncio.sleep() and httpx instead of blocking calls."
+
+  - name: "Secrets must use environment variables"
+    pattern: "(api_key|password|secret)\\s*=\\s*['\"]\\w+"
+    severity: CRITICAL
+    message: "Never hardcode secrets. Use environment variables or secrets management."
+
+  - name: "Log redaction for sensitive data"
+    pattern: "logger.*(?:password|secret|key|token)"
+    severity: HIGH
+    message: "Ensure sensitive data is redacted before logging."
+
+# Output Format
+output:
+  format: "github"  # GitHub-flavored markdown
+  include_code_snippets: true
+  max_snippet_lines: 10
+  syntax_highlighting: true
+
+# Rate Limiting (respect Gemini API quotas)
+rate_limiting:
+  max_reviews_per_day: 30  # Stay well under free tier limit
+  batch_small_changes: true  # Combine small PRs into single review
+
+# Version Control
+config_version: "1.0.0"
+last_updated: "2025-11-07"
