@@ -235,7 +235,8 @@ class CookieService:
             mtime = path.stat().st_mtime
             age_seconds = time.time() - mtime
             return age_seconds / 3600
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to get cookie age", provider=provider, error=str(e))
             return None
 
     def validate_cookie_file(self, provider: str) -> None:
