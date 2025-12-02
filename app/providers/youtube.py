@@ -1,13 +1,15 @@
 """YouTube provider implementation."""
 
+import asyncio
+import json
 import re
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import structlog
 
 from app.models.video import DownloadResult, VideoFormat
 from app.providers.base import VideoProvider
-from app.providers.exceptions import InvalidURLError
+from app.providers.exceptions import DownloadError, InvalidURLError, VideoUnavailableError
 
 logger = structlog.get_logger(__name__)
 
@@ -27,17 +29,19 @@ class YouTubeProvider(VideoProvider):
     # Pattern to extract video ID
     VIDEO_ID_PATTERN = r"(?:v=|shorts/|embed/|youtu\.be/)([\w-]+)"
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, cookie_service: Optional[Any] = None):
         """
         Initialize YouTube provider.
 
         Args:
             config: Provider configuration dictionary
+            cookie_service: Optional CookieService instance for validation
         """
         self.config = config
         self.cookie_path: str = config.get("cookie_path", "/app/cookies/youtube.txt")
         self.retry_attempts: int = config.get("retry_attempts", 3)
         self.retry_backoff: list = config.get("retry_backoff", [2, 4, 8])
+        self.cookie_service = cookie_service
 
         logger.info(
             "YouTube provider initialized",
@@ -85,13 +89,11 @@ class YouTubeProvider(VideoProvider):
         logger.warning("Could not extract video ID", url=url)
         return None
 
-    async def get_info(
+    async def get_info(  # noqa: C901
         self, url: str, include_formats: bool = False, include_subtitles: bool = False
     ) -> Dict:
         """
         Extract video metadata.
-
-        This is a skeleton implementation. Full implementation will be in task 4.1.
 
         Args:
             url: YouTube video URL
@@ -103,6 +105,7 @@ class YouTubeProvider(VideoProvider):
 
         Raises:
             InvalidURLError: If URL is invalid
+            VideoUnavailableError: If video is not accessible
         """
         if not self.validate_url(url):
             raise InvalidURLError(f"Invalid YouTube URL: {url}")
@@ -111,7 +114,11 @@ class YouTubeProvider(VideoProvider):
         if not video_id:
             raise InvalidURLError(f"Could not extract video ID from URL: {url}")
 
-        logger.info(  # pragma: no cover
+        # Validate cookie before execution
+        if self.cookie_service:
+            await self.cookie_service.validate_cookie("youtube")
+
+        logger.info(
             "Getting video info",
             url=url,
             video_id=video_id,
@@ -119,23 +126,168 @@ class YouTubeProvider(VideoProvider):
             include_subtitles=include_subtitles,
         )
 
-        # Skeleton - actual implementation in task 4.1
-        raise NotImplementedError("get_info will be implemented in task 4.1")
+        # Build yt-dlp command
+        cmd = [
+            "yt-dlp",
+            "--dump-json",
+            "--no-download",
+            "--cookies",
+            self.cookie_path,
+            "--extractor-args",
+            "youtube:player_client=web",
+        ]
+
+        if not include_formats:
+            cmd.append("--skip-download")
+
+        cmd.append(url)
+
+        try:
+            # Execute with 10-second timeout
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10.0)
+
+            if process.returncode != 0:
+                error_msg = stderr.decode() if stderr else "Unknown error"
+                logger.error(
+                    "Failed to get video info",
+                    url=url,
+                    returncode=process.returncode,
+                    error=error_msg,
+                )
+
+                # Check for common errors
+                if "Video unavailable" in error_msg or "Private video" in error_msg:
+                    raise VideoUnavailableError(f"Video is not accessible: {error_msg}")
+
+                raise DownloadError(f"Failed to extract video info: {error_msg}")
+
+            # Parse JSON output
+            info = json.loads(stdout.decode())
+
+            # Transform to our format
+            video_info: Dict = {
+                "video_id": info.get("id", video_id),
+                "title": info.get("title", ""),
+                "duration": info.get("duration", 0),
+                "author": info.get("uploader", ""),
+                "upload_date": info.get("upload_date", ""),
+                "view_count": info.get("view_count", 0),
+                "thumbnail_url": info.get("thumbnail", ""),
+                "description": info.get("description", ""),
+            }
+
+            # Add formats if requested
+            if include_formats and "formats" in info:
+                video_info["formats"] = self._parse_formats(info["formats"])
+
+            # Add subtitles if requested
+            if include_subtitles and "subtitles" in info:
+                video_info["subtitles"] = self._parse_subtitles(info.get("subtitles", {}))
+
+            logger.info("Video info extracted successfully", video_id=video_id)
+            return video_info
+
+        except asyncio.TimeoutError:
+            logger.error("Timeout getting video info", url=url)
+            raise DownloadError("Timeout while extracting video info (10s limit exceeded)")
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse yt-dlp output", error=str(e))
+            raise DownloadError(f"Failed to parse video info: {str(e)}")
+        except FileNotFoundError:
+            logger.error("yt-dlp not found")
+            raise DownloadError("yt-dlp is not installed or not in PATH")
+
+    def _parse_formats(self, formats: List[Dict]) -> List[Dict]:
+        """
+        Parse format information from yt-dlp output.
+
+        Args:
+            formats: List of format dictionaries from yt-dlp
+
+        Returns:
+            List of parsed format dictionaries
+        """
+        parsed_formats = []
+
+        for fmt in formats:
+            format_dict = {
+                "format_id": fmt.get("format_id", ""),
+                "ext": fmt.get("ext", ""),
+                "resolution": fmt.get("resolution"),
+                "audio_bitrate": fmt.get("abr"),
+                "video_codec": fmt.get("vcodec"),
+                "audio_codec": fmt.get("acodec"),
+                "filesize": fmt.get("filesize"),
+                "format_type": self._categorize_format(fmt),
+            }
+            parsed_formats.append(format_dict)
+
+        return parsed_formats
+
+    def _categorize_format(self, fmt: Dict) -> str:
+        """
+        Categorize format as video+audio, video-only, or audio-only.
+
+        Args:
+            fmt: Format dictionary from yt-dlp
+
+        Returns:
+            Format type string
+        """
+        has_video = fmt.get("vcodec") not in [None, "none"]
+        has_audio = fmt.get("acodec") not in [None, "none"]
+
+        if has_video and has_audio:
+            return "video+audio"
+        elif has_video:
+            return "video-only"
+        elif has_audio:
+            return "audio-only"
+        else:
+            return "unknown"
+
+    def _parse_subtitles(self, subtitles: Dict) -> List[Dict]:
+        """
+        Parse subtitle information from yt-dlp output.
+
+        Args:
+            subtitles: Subtitle dictionary from yt-dlp
+
+        Returns:
+            List of parsed subtitle dictionaries
+        """
+        parsed_subtitles = []
+
+        for lang, sub_list in subtitles.items():
+            for sub in sub_list:
+                subtitle_dict = {
+                    "language": lang,
+                    "format": sub.get("ext", ""),
+                    "auto_generated": sub.get("name", "").startswith("auto-generated"),
+                }
+                parsed_subtitles.append(subtitle_dict)
+
+        return parsed_subtitles
 
     async def list_formats(self, url: str) -> List[VideoFormat]:
         """
         List all available formats.
 
-        This is a skeleton implementation. Full implementation will be in task 4.2.
-
         Args:
             url: YouTube video URL
 
         Returns:
-            List of available formats
+            List of available formats sorted by quality
 
         Raises:
             InvalidURLError: If URL is invalid
+            VideoUnavailableError: If video is not accessible
         """
         if not self.validate_url(url):
             raise InvalidURLError(f"Invalid YouTube URL: {url}")
@@ -144,12 +296,68 @@ class YouTubeProvider(VideoProvider):
         if not video_id:
             raise InvalidURLError(f"Could not extract video ID from URL: {url}")
 
-        logger.info("Listing formats", url=url, video_id=video_id)  # pragma: no cover
+        logger.info("Listing formats", url=url, video_id=video_id)
 
-        # Skeleton - actual implementation in task 4.2
-        raise NotImplementedError("list_formats will be implemented in task 4.2")
+        # Get video info with formats
+        info = await self.get_info(url, include_formats=True, include_subtitles=False)
 
-    async def download(
+        # Extract and convert formats
+        formats_data = info.get("formats", [])
+        formats = []
+
+        for fmt_dict in formats_data:
+            video_format = VideoFormat(
+                format_id=fmt_dict["format_id"],
+                ext=fmt_dict["ext"],
+                resolution=fmt_dict.get("resolution"),
+                audio_bitrate=fmt_dict.get("audio_bitrate"),
+                video_codec=fmt_dict.get("video_codec"),
+                audio_codec=fmt_dict.get("audio_codec"),
+                filesize=fmt_dict.get("filesize"),
+                format_type=fmt_dict["format_type"],
+            )
+            formats.append(video_format)
+
+        # Sort by quality (highest to lowest)
+        # Priority: resolution > filesize > format_id
+        formats.sort(
+            key=lambda f: (self._get_resolution_value(f.resolution), f.filesize or 0, f.format_id),
+            reverse=True,
+        )
+
+        logger.info("Formats listed", video_id=video_id, count=len(formats))
+        return formats
+
+    def _get_resolution_value(self, resolution: Optional[str]) -> int:
+        """
+        Extract numeric value from resolution string for sorting.
+
+        Args:
+            resolution: Resolution string (e.g., "1920x1080", "audio only")
+
+        Returns:
+            Numeric value for sorting (height in pixels)
+        """
+        if not resolution:
+            return 0
+
+        # Handle "audio only" case
+        if "audio" in resolution.lower():
+            return 0
+
+        # Extract height from resolution (e.g., "1920x1080" -> 1080)
+        match = re.search(r"(\d+)x(\d+)", resolution)
+        if match:
+            return int(match.group(2))  # Return height
+
+        # Try to extract any number
+        match = re.search(r"(\d+)", resolution)
+        if match:
+            return int(match.group(1))
+
+        return 0
+
+    async def download(  # noqa: C901
         self,
         url: str,
         format_id: Optional[str] = None,
@@ -161,8 +369,6 @@ class YouTubeProvider(VideoProvider):
     ) -> DownloadResult:
         """
         Download video/audio.
-
-        This is a skeleton implementation. Full implementation will be in task 4.4.
 
         Args:
             url: YouTube video URL
@@ -178,6 +384,7 @@ class YouTubeProvider(VideoProvider):
 
         Raises:
             InvalidURLError: If URL is invalid
+            DownloadError: If download fails
         """
         if not self.validate_url(url):
             raise InvalidURLError(f"Invalid YouTube URL: {url}")
@@ -186,7 +393,11 @@ class YouTubeProvider(VideoProvider):
         if not video_id:
             raise InvalidURLError(f"Could not extract video ID from URL: {url}")
 
-        logger.info(  # pragma: no cover
+        # Validate cookie before execution
+        if self.cookie_service:
+            await self.cookie_service.validate_cookie("youtube")
+
+        logger.info(
             "Starting download",
             url=url,
             video_id=video_id,
@@ -195,8 +406,148 @@ class YouTubeProvider(VideoProvider):
             audio_format=audio_format,
         )
 
-        # Skeleton - actual implementation in task 4.4
-        raise NotImplementedError("download will be implemented in task 4.4")
+        # Build yt-dlp command
+        cmd = [
+            "yt-dlp",
+            "--cookies",
+            self.cookie_path,
+            "--extractor-args",
+            "youtube:player_client=web",
+            "--print",
+            "after_move:filepath",  # Print final file path
+        ]
+
+        # Format selection
+        if format_id:
+            cmd.extend(["-f", format_id])
+
+        # Audio extraction
+        if extract_audio:
+            cmd.extend(["-x", "--audio-format", audio_format or "mp3"])
+            if audio_format in ["mp3", "m4a"]:
+                cmd.extend(["--audio-quality", "0"])  # Best quality
+
+        # Output template
+        if output_template:
+            cmd.extend(["-o", output_template])
+
+        # Subtitles
+        if include_subtitles:
+            cmd.append("--write-subs")
+            if subtitle_lang:
+                cmd.extend(["--sub-langs", subtitle_lang])
+
+        cmd.append(url)
+
+        # Log command with redaction (Req 17A)
+        logger.debug("Executing yt-dlp", command=self._redact_command(cmd))
+
+        start_time = asyncio.get_event_loop().time()
+
+        try:
+            # Execute command
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            # Log execution results (Req 17A)
+            logger.debug(
+                "yt-dlp execution completed",
+                command=self._redact_command(cmd),
+                exit_code=process.returncode,
+                stdout_lines=len(stdout.decode().split("\n")) if stdout else 0,
+                stderr_preview=stderr.decode()[:500] if stderr else None,
+            )
+
+            if process.returncode != 0:
+                error_msg = stderr.decode() if stderr else "Unknown error"
+                logger.error(
+                    "Download failed",
+                    url=url,
+                    returncode=process.returncode,
+                    error=error_msg,
+                )
+                raise DownloadError(f"Download failed: {error_msg}")
+
+            # Extract file path from output
+            file_path = self._extract_file_path(stdout.decode())
+            if not file_path:
+                raise DownloadError("Could not determine output file path")
+
+            # Get file size
+            from pathlib import Path
+
+            file_size = Path(file_path).stat().st_size
+            duration = asyncio.get_event_loop().time() - start_time
+
+            logger.info(
+                "Download completed",
+                video_id=video_id,
+                file_path=file_path,
+                file_size=file_size,
+                duration=duration,
+            )
+
+            return DownloadResult(
+                file_path=file_path,
+                file_size=file_size,
+                duration=duration,
+                format_id=format_id or "best",
+            )
+
+        except FileNotFoundError:
+            logger.error("yt-dlp not found")
+            raise DownloadError("yt-dlp is not installed or not in PATH")
+
+    def _redact_command(self, cmd: List[str]) -> List[str]:
+        """
+        Redact sensitive information from command.
+
+        Args:
+            cmd: Command list
+
+        Returns:
+            Redacted command list
+        """
+        redacted = []
+        skip_next = False
+
+        for arg in cmd:
+            if skip_next:
+                redacted.append("[REDACTED]")
+                skip_next = False
+            elif arg in ["--cookies", "--password", "--username"]:
+                redacted.append(arg)
+                skip_next = True
+            else:
+                redacted.append(arg)
+
+        return redacted
+
+    def _extract_file_path(self, output: str) -> Optional[str]:
+        """
+        Extract file path from yt-dlp output.
+
+        Args:
+            output: yt-dlp stdout
+
+        Returns:
+            File path if found, None otherwise
+        """
+        lines = output.strip().split("\n")
+
+        # Look for the filepath line (printed by --print after_move:filepath)
+        for line in reversed(lines):
+            line = line.strip()
+            if line and not line.startswith("["):
+                # This should be the file path
+                return line
+
+        return None
 
     def get_cookie_path(self) -> Optional[str]:
         """
