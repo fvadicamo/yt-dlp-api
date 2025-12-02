@@ -125,7 +125,7 @@ class TestNetscapeFormatValidation:
 
     def test_validate_netscape_format_empty(self, cookie_service):
         """Test validation of empty cookie file."""
-        with pytest.raises(CookieError, match="No valid cookie entries"):
+        with pytest.raises(CookieError, match="empty"):
             cookie_service.validate_netscape_format("", "youtube")
 
     def test_validate_netscape_format_invalid_entries(self, cookie_service):

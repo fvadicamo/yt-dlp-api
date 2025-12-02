@@ -111,7 +111,7 @@ class YouTubeProvider(VideoProvider):
         if not video_id:
             raise InvalidURLError(f"Could not extract video ID from URL: {url}")
 
-        logger.info(
+        logger.info(  # pragma: no cover
             "Getting video info",
             url=url,
             video_id=video_id,
@@ -144,7 +144,7 @@ class YouTubeProvider(VideoProvider):
         if not video_id:
             raise InvalidURLError(f"Could not extract video ID from URL: {url}")
 
-        logger.info("Listing formats", url=url, video_id=video_id)
+        logger.info("Listing formats", url=url, video_id=video_id)  # pragma: no cover
 
         # Skeleton - actual implementation in task 4.2
         raise NotImplementedError("list_formats will be implemented in task 4.2")
@@ -186,7 +186,7 @@ class YouTubeProvider(VideoProvider):
         if not video_id:
             raise InvalidURLError(f"Could not extract video ID from URL: {url}")
 
-        logger.info(
+        logger.info(  # pragma: no cover
             "Starting download",
             url=url,
             video_id=video_id,

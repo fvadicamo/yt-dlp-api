@@ -3,7 +3,7 @@
 from typing import Any, Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status  # type: ignore
+from fastapi import APIRouter, Depends, HTTPException, status  # type: ignore[import-not-found]
 from pydantic import BaseModel
 
 from app.providers.exceptions import CookieError
