@@ -29,12 +29,18 @@ These branches are PROTECTED and require Pull Requests for all changes.
 git checkout develop
 git pull origin develop
 
-# 2. Create a new feature branch
+# 2. Create a new feature branch with upstream tracking
 git checkout -b feature/<task-name>
 
-# 3. Verify you're on the feature branch
+# 3. Set up upstream tracking for the new branch
+git push -u origin feature/<task-name>
+
+# 4. Verify you're on the feature branch with tracking
 git branch --show-current  # Should show feature/<task-name>
+git branch -vv  # Should show [origin/feature/<task-name>]
 ```
+
+**CRITICAL:** Always create branches with upstream tracking to prevent "no tracking information" errors.
 
 ### During Task Implementation:
 
@@ -43,15 +49,21 @@ git branch --show-current  # Should show feature/<task-name>
 git add <files>
 git commit -m "type: description"
 
-# Push to remote feature branch
-git push origin feature/<task-name>
+# Push to remote feature branch (tracking already set up)
+git push
+
+# If tracking is not set up, use:
+git push -u origin feature/<task-name>
+
+# Verify tracking status anytime with:
+git branch -vv
 ```
 
 ### After Task Completion:
 
 ```bash
-# 1. Push final changes
-git push origin feature/<task-name>
+# 1. Push final changes (tracking already set)
+git push
 
 # 2. Open Pull Request on GitHub/GitLab
 #    - Source: feature/<task-name>
@@ -62,6 +74,7 @@ git push origin feature/<task-name>
 git checkout develop
 git pull origin develop
 git branch -d feature/<task-name>
+git push origin --delete feature/<task-name>  # Delete remote branch
 ```
 
 ## Commit Message Format (Conventional Commits)
@@ -100,6 +113,24 @@ chore: wip - partial implementation of rate limiter
 - Push commits regularly
 - Delete feature branch after PR merge
 
+## Branch Tracking Verification
+
+Always ensure your feature branch has upstream tracking configured:
+
+```bash
+# Check tracking status
+git branch -vv
+
+# If tracking is missing, set it up:
+git branch --set-upstream-to=origin/feature/<task-name>
+
+# Or push with -u flag:
+git push -u origin feature/<task-name>
+```
+
+**Common Error:** "There is no tracking information for the current branch"
+**Solution:** Always use `git push -u origin <branch-name>` on first push
+
 ## Emergency Recovery
 
 If you accidentally committed to `develop`:
@@ -107,6 +138,7 @@ If you accidentally committed to `develop`:
 ```bash
 # 1. Create a feature branch with the changes
 git checkout -b feature/<task-name>
+git push -u origin feature/<task-name>  # Set up tracking
 
 # 2. Reset develop to remote state
 git checkout develop
@@ -122,12 +154,58 @@ Before every push, verify:
 
 - [ ] I am NOT on `develop` or `main` branch
 - [ ] I am on a `feature/*` branch
+- [ ] Branch has upstream tracking configured (`git branch -vv`)
 - [ ] Commit messages follow conventional commits format
 - [ ] All tests pass (if applicable)
 - [ ] Code is formatted and linted
+
+## Quick Reference: Git Commands
+
+### Creating a New Feature Branch
+
+```bash
+# From develop
+git checkout develop
+git pull origin develop
+git checkout -b feature/<task-name>
+git push -u origin feature/<task-name>  # CRITICAL: Set up tracking
+```
+
+### Working on Existing Feature Branch
+
+```bash
+# Switch to branch
+git checkout feature/<task-name>
+
+# Verify tracking
+git branch -vv
+
+# If no tracking, set it up
+git push -u origin feature/<task-name>
+
+# Regular commits and pushes
+git add .
+git commit -m "feat: description"
+git push  # Works because tracking is set
+```
+
+### Checking Branch Status
+
+```bash
+# Show current branch
+git branch --show-current
+
+# Show all branches with tracking info
+git branch -vv
+
+# Show remote branches
+git branch -r
+```
 
 ## Enforcement
 
 This workflow is MANDATORY for all development work. No exceptions.
 
 **Remember: Protected branches = Feature branches + Pull Requests ALWAYS!**
+
+**Key Rule:** Always use `git push -u origin <branch-name>` on the first push to set up tracking.
