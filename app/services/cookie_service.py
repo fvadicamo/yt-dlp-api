@@ -125,7 +125,7 @@ class CookieService:
         lines = content.strip().split("\n")
 
         # Check for Netscape header
-        if not lines:
+        if not content.strip():
             raise CookieError(f"Cookie file for {provider} is empty")
 
         # Netscape format should start with comment or have the header
