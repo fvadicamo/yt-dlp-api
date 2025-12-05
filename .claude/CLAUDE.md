@@ -1,0 +1,334 @@
+# Claude Code Context - yt-dlp REST API
+
+**Last Updated**: 2025-12-05
+**Branch**: `feature/youtube-provider-implementation`
+**Task**: 4.7 - YouTube Provider Tests (CRITICAL)
+
+---
+
+## 📚 Quick Links to Source of Truth
+
+### Project Specifications
+- **Requirements**: [.kiro/specs/yt-dlp-rest-api/requirements.md](../.kiro/specs/yt-dlp-rest-api/requirements.md)
+  47 requisiti funzionali con pattern EARS
+- **Design**: [.kiro/specs/yt-dlp-rest-api/design.md](../.kiro/specs/yt-dlp-rest-api/design.md)
+  Architettura completa, data models, provider interface
+- **Tasks**: [.kiro/specs/yt-dlp-rest-api/tasks.md](../.kiro/specs/yt-dlp-rest-api/tasks.md)
+  15 task principali con 80+ subtask, progresso tracciato
+
+### Workflow & Standards
+- **Git Workflow**: [.kiro/steering/git-workflow.md](../.kiro/steering/git-workflow.md)
+  **CRITICAL**: NEVER commit to main/develop, feature branches ALWAYS
+- **Python venv**: [.kiro/steering/python-venv-requirement.md](../.kiro/steering/python-venv-requirement.md)
+  Uso obbligatorio virtual environment
+- **Documentation Policy**: [.kiro/steering/documentation-policy.md](../.kiro/steering/documentation-policy.md)
+  Policy minimalista: evitare doc files non necessari
+
+### Code Review & Standards
+- **Style Guide**: [.gemini/styleguide.md](../.gemini/styleguide.md)
+  Python 3.11+, PEP 8, Black 88 chars, type hints obbligatori
+- **Gemini Config**: [.gemini/config.yaml](../.gemini/config.yaml)
+  Auto-review su PR, coverage 80%+ enforcement
+
+---
+
+## 🚀 Quick Reference Commands
+
+### Development Setup
+```bash
+# Virtual environment (ALWAYS required)
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+### Testing
+```bash
+# Run all tests
+make test
+
+# Run with coverage
+make test-cov
+
+# Run specific test file
+pytest tests/unit/test_youtube_provider.py -v
+
+# Run with coverage for specific module
+pytest tests/unit/test_youtube_provider.py \
+  --cov=app/providers/youtube \
+  --cov-report=term-missing
+
+# Open HTML coverage report
+open htmlcov/index.html
+```
+
+### Quality Checks
+```bash
+# Run all checks (format, lint, type, security, test)
+make check
+
+# Individual checks
+make format         # Black + isort
+make lint           # Flake8
+make type-check     # Mypy
+make security       # Bandit
+```
+
+### Git Workflow
+```bash
+# BEFORE starting work - verify branch
+git branch --show-current
+git branch -vv  # Check tracking
+
+# Create new feature branch (from develop)
+git checkout develop
+git pull origin develop
+git checkout -b feature/<task-name>
+git push -u origin feature/<task-name>  # CRITICAL: Set tracking
+
+# Commit with conventional format
+git add <files>
+git commit -m "type: description"
+# Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+
+# Push (tracking already set)
+git push
+```
+
+### After PR Merge (manual by user)
+```bash
+git checkout develop
+git pull origin develop
+git branch -d feature/<task-name>
+git push origin --delete feature/<task-name>
+```
+
+---
+
+## ⚠️ Critical Discoveries & Known Issues
+
+### Issue #1: Retry Logic NOT Implemented (Task 4.6)
+**Status**: Task 4.6 marcato come "✅ complete" nel HANDOFF.md ma **retry logic è MISSING** nel codice
+
+**Evidence**:
+- File: `app/providers/youtube.py`
+- Configuration presente: `self.retry_attempts`, `self.retry_backoff` (lines 42-43)
+- Design.md mostra metodo `_execute_with_retry()` completo (lines 1649-1694)
+- **Metodo NON esiste nell'implementazione reale**
+- `get_info()` e `download()` eseguono yt-dlp UNA volta senza retry
+
+**Impact**:
+- Requirement 18 (Retry logic con exponential backoff) NON soddisfatto
+- Test di retry logic NON implementabili fino a fix
+- Task 4.7 (tests) completo senza retry tests
+
+**Next Steps**:
+- Task 4.7: Implementare tutti i test ECCETTO retry
+- Creare Task 4.8: "Implement retry logic + comprehensive tests"
+- Aprire PR con nota esplicita su missing retry
+
+---
+
+## 📊 Project Status
+
+**Coverage**: 86.19% (target: 85%, goal: 90%)
+**Tests Passing**: 70 tests
+**Branch**: `feature/youtube-provider-implementation`
+
+**Task 4 Status (YouTube Provider Implementation)**:
+- ✅ 4.1: Metadata extraction
+- ✅ 4.2: Format listing
+- ✅ 4.3: Subtitle discovery
+- ✅ 4.4: Video download
+- ✅ 4.5: Audio extraction
+- ⚠️ 4.6: Retry logic (MARKED COMPLETE but NOT IMPLEMENTED)
+- ⏳ 4.7: Tests (CURRENT TASK - IN PROGRESS)
+
+**MVP Critical Tests**:
+- ✅ 1.4: Configuration and logging tests
+- ✅ 3.4: Cookie management tests (CRITICAL)
+- ⏳ 4.7: YouTube provider tests (CRITICAL) - **IN PROGRESS**
+- ⏳ 5.4: Security tests (CRITICAL)
+- ⏳ 11.4: Startup validation tests
+- ⏳ 15.3: Basic security validation
+
+---
+
+## 🎯 Current Task Details: 4.7 YouTube Provider Tests
+
+**File to Create**: `tests/unit/test_youtube_provider.py`
+**Estimated Size**: ~500-700 lines
+**Test Cases**: 30-40 tests
+**Coverage Target**: 95%+ for `app/providers/youtube.py`
+
+**Test Classes to Implement**:
+1. `TestURLValidation` - URL patterns, video ID extraction
+2. `TestMetadataExtraction` - get_info() with all scenarios
+3. `TestFormatListing` - Format parsing, categorization, sorting
+4. `TestDownload` - Download with various parameters
+5. `TestCommandRedaction` - Security: sensitive data redaction (REQ 17A - CRITICAL)
+6. `TestErrorHandling` - All exception types
+7. `TestCookieIntegration` - Cookie validation calls
+8. `TestLogging` - Structured logging verification
+
+**NOT in Scope** (retry logic missing):
+- Retry logic tests (cannot test until implemented)
+- Integration tests with real yt-dlp (optional, post-MVP)
+
+**Pattern Reference**: `tests/unit/test_cookie_service.py` (457 lines, Task 3.4)
+
+---
+
+## 🔍 Key Implementation Patterns
+
+### Async Test Pattern (from Task 3.4)
+```python
+@pytest.mark.asyncio
+async def test_method_name(self, youtube_provider):
+    """Test description."""
+    with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        stdout = json.dumps(sample_data).encode()
+        mock_process.communicate = AsyncMock(return_value=(stdout, b""))
+        mock_subprocess.return_value = mock_process
+
+        result = await youtube_provider.method()
+
+        assert result["expected_key"] == "expected_value"
+```
+
+### Error Test Pattern
+```python
+@pytest.mark.asyncio
+async def test_error_scenario(self, youtube_provider):
+    """Test error handling."""
+    with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+        mock_process = AsyncMock()
+        mock_process.returncode = 1
+        mock_process.communicate = AsyncMock(
+            return_value=(b"", b"ERROR: Specific error message")
+        )
+        mock_subprocess.return_value = mock_process
+
+        with pytest.raises(SpecificError, match="error message"):
+            await youtube_provider.method()
+```
+
+### Parametrized Test Pattern
+```python
+@pytest.mark.parametrize("url,expected", [
+    ("https://youtube.com/watch?v=abc", True),
+    ("https://vimeo.com/123", False),
+])
+def test_validate_url(self, youtube_provider, url, expected):
+    """Test URL validation."""
+    assert youtube_provider.validate_url(url) == expected
+```
+
+---
+
+## 📝 Workflow Notes
+
+### When to Commit
+- After each major test class implementation
+- After coverage improvements
+- Before running `make check`
+- Use conventional commit format: `test: add X tests for Y`
+
+### Before Opening PR
+- [ ] All tests passing: `pytest tests/unit/test_youtube_provider.py`
+- [ ] Coverage >= 95% for youtube.py
+- [ ] `make check` passes (lint, type, security)
+- [ ] `tasks.md` updated (Task 4.7 marked complete)
+- [ ] Branch tracking configured: `git branch -vv`
+- [ ] Conventional commit messages used
+
+### PR Template
+See plan file § 4.1 for complete PR body template with:
+- Test coverage summary
+- Note on missing retry logic
+- Checklist
+- Testing commands
+
+---
+
+## 🔗 Important Files
+
+### Source Files
+- `app/providers/youtube.py` - YouTube provider implementation (to test)
+- `app/providers/base.py` - Provider abstract interface
+- `app/providers/exceptions.py` - Exception types
+- `app/models/video.py` - Data models (VideoFormat, DownloadResult)
+
+### Test Files
+- `tests/conftest.py` - Shared fixtures
+- `tests/unit/test_cookie_service.py` - Pattern reference (Task 3.4)
+- `tests/unit/test_youtube_provider.py` - **TO CREATE**
+
+### Config Files
+- `pyproject.toml` - Pytest config, coverage settings
+- `requirements-dev.txt` - Test dependencies
+- `Makefile` - Development commands
+
+---
+
+## 💡 Claude-Specific Tips
+
+### Context Refresh
+When starting a new session, read:
+1. This file (`.claude/CLAUDE.md`) for overview
+2. `.kiro/specs/yt-dlp-rest-api/tasks.md` for current task status
+3. Plan file if active: `.claude/plans/*.md`
+
+### Common Commands
+```bash
+# Check current branch and tracking
+git branch -vv
+
+# Quick test of YouTube provider
+pytest tests/unit/test_youtube_provider.py -v -k "test_validate_url"
+
+# Coverage of specific file
+pytest --cov=app/providers/youtube --cov-report=term-missing
+
+# Find test pattern examples
+grep -r "@pytest.mark.asyncio" tests/unit/test_cookie_service.py
+```
+
+### Documentation Philosophy
+Per `.kiro/steering/documentation-policy.md`:
+- Evitare doc files non necessari
+- Code comments solo dove logica non è self-evident
+- Docstrings per public APIs (Google-style)
+- README only for deployment/setup
+
+---
+
+## 📚 References
+
+### Requirements
+- **Req 17A**: Command logging con redaction (CRITICAL - security)
+- **Req 18**: Retry logic con exponential backoff (NOT IMPLEMENTED)
+- **Req 35**: YouTube provider implementation
+
+### Design Patterns
+- Provider abstraction: `VideoProvider` ABC
+- Async operations: FastAPI + asyncio
+- Structured logging: structlog (JSON)
+- Testing: pytest + pytest-asyncio + pytest-mock
+
+### Tools & Versions
+- Python: 3.11+
+- FastAPI: Latest
+- pytest: 7.4.4
+- pytest-asyncio: 0.23.3
+- pytest-mock: 3.12.0
+- Black: 88 char line length
+- Coverage target: 85% minimum, 90% goal
+
+---
+
+**Note**: Questo file è un quick reference per Claude Code. Per la source of truth completa, fare sempre riferimento ai file in `.kiro/specs/` e `.kiro/steering/`.
+
+**Handoff completato**: Kiro AWS → Claude Sonnet 4.5 (2025-12-05)
