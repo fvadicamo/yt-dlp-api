@@ -282,17 +282,19 @@ class TestMetadataExtraction:
 
     @pytest.mark.asyncio
     async def test_get_info_timeout(self, youtube_provider):
-        """Test get_info raises DownloadError on timeout."""
+        """Test get_info raises DownloadError on timeout after retries."""
         with (
             patch("asyncio.create_subprocess_exec") as mock_subprocess,
             patch("asyncio.wait_for") as mock_wait_for,
+            patch("asyncio.sleep"),  # Skip actual sleep during retry
         ):
             mock_process = AsyncMock()
             mock_subprocess.return_value = mock_process
-            # Make wait_for raise TimeoutError
+            # Make wait_for raise TimeoutError on all attempts
             mock_wait_for.side_effect = asyncio.TimeoutError()
 
-            with pytest.raises(DownloadError, match="Timeout while extracting video info"):
+            # With retry logic, timeout triggers retries then fails with "Failed after X attempts"
+            with pytest.raises(DownloadError, match="Failed after 3 attempts.*Timeout"):
                 await youtube_provider.get_info("https://youtube.com/watch?v=test")
 
     @pytest.mark.asyncio
@@ -645,19 +647,27 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_ytdlp_not_installed(self, youtube_provider):
         """Test error when yt-dlp is not installed."""
-        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+        with (
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+            patch("asyncio.sleep"),  # Skip actual sleep during retry
+        ):
             mock_subprocess.side_effect = FileNotFoundError("yt-dlp not found")
 
-            with pytest.raises(DownloadError, match="yt-dlp is not installed or not in PATH"):
+            # With retry logic, FileNotFoundError is caught and converted to DownloadError
+            with pytest.raises(DownloadError, match="Unexpected error.*yt-dlp not found"):
                 await youtube_provider.get_info("https://youtube.com/watch?v=test")
 
     @pytest.mark.asyncio
     async def test_subprocess_creation_error(self, youtube_provider):
         """Test error during subprocess creation."""
-        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+        with (
+            patch("asyncio.create_subprocess_exec") as mock_subprocess,
+            patch("asyncio.sleep"),  # Skip actual sleep during retry
+        ):
             mock_subprocess.side_effect = OSError("Permission denied")
 
-            with pytest.raises(OSError, match="Permission denied"):
+            # With retry logic, OSError is caught and converted to DownloadError
+            with pytest.raises(DownloadError, match="Unexpected error.*Permission denied"):
                 await youtube_provider.get_info("https://youtube.com/watch?v=test")
 
 
@@ -794,3 +804,269 @@ class TestProviderConfiguration:
         # Should use defaults
         assert provider.retry_attempts == 3
         assert provider.retry_backoff == [2, 4, 8]
+
+
+# ============================================================================
+# RETRY LOGIC TESTS (Task 4.8 - Requirement 18)
+# ============================================================================
+
+
+class TestRetryLogic:
+    """Test retry logic with exponential backoff per Requirement 18."""
+
+    # -------------------------------------------------------------------------
+    # _is_retriable_error() tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "error_msg,expected",
+        [
+            ("HTTP Error 500 Internal Server Error", True),
+            ("HTTP Error 502 Bad Gateway", True),
+            ("HTTP Error 503 Service Unavailable", True),
+            ("Connection reset by peer", True),
+            ("Connection Timeout", True),
+            ("Too Many Requests", True),
+            ("HTTP Error 429 Too Many Requests", True),
+            ("Unable to connect to server", True),
+            ("Video unavailable", False),
+            ("Private video", False),
+            ("Invalid URL", False),
+            ("This video is not available", False),
+            ("", False),
+        ],
+    )
+    def test_is_retriable_error(self, youtube_provider, error_msg, expected):
+        """Test error classification for retry decisions."""
+        assert youtube_provider._is_retriable_error(error_msg) == expected
+
+    # -------------------------------------------------------------------------
+    # _execute_with_retry() tests
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_retry_success_first_attempt(self, youtube_provider):
+        """Test successful execution on first attempt (no retry needed)."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.returncode = 0
+            mock_process.communicate = AsyncMock(return_value=(b"success output", b""))
+            mock_subprocess.return_value = mock_process
+
+            result = await youtube_provider._execute_with_retry(["yt-dlp", "--version"])
+
+            assert result.returncode == 0
+            assert result.stdout == b"success output"
+            # Should only be called once (no retry)
+            assert mock_subprocess.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_success_after_one_failure(self, youtube_provider):
+        """Test retry succeeds after one retriable failure."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            # First call fails with retriable error, second succeeds
+            mock_process_fail = AsyncMock()
+            mock_process_fail.returncode = 1
+            mock_process_fail.communicate = AsyncMock(
+                return_value=(b"", b"HTTP Error 503 Service Unavailable")
+            )
+
+            mock_process_success = AsyncMock()
+            mock_process_success.returncode = 0
+            mock_process_success.communicate = AsyncMock(return_value=(b"success", b""))
+
+            mock_subprocess.side_effect = [mock_process_fail, mock_process_success]
+
+            with patch("asyncio.sleep") as mock_sleep:
+                result = await youtube_provider._execute_with_retry(["yt-dlp", "url"])
+
+                assert result.returncode == 0
+                assert mock_subprocess.call_count == 2
+                # Should have slept for 2 seconds (first backoff)
+                mock_sleep.assert_called_once_with(2)
+
+    @pytest.mark.asyncio
+    async def test_retry_success_after_two_failures(self, youtube_provider):
+        """Test retry succeeds on third attempt after two failures."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            # First two calls fail, third succeeds
+            mock_fail_1 = AsyncMock()
+            mock_fail_1.returncode = 1
+            mock_fail_1.communicate = AsyncMock(return_value=(b"", b"Connection reset by peer"))
+
+            mock_fail_2 = AsyncMock()
+            mock_fail_2.returncode = 1
+            mock_fail_2.communicate = AsyncMock(return_value=(b"", b"HTTP Error 502"))
+
+            mock_success = AsyncMock()
+            mock_success.returncode = 0
+            mock_success.communicate = AsyncMock(return_value=(b"ok", b""))
+
+            mock_subprocess.side_effect = [mock_fail_1, mock_fail_2, mock_success]
+
+            with patch("asyncio.sleep") as mock_sleep:
+                result = await youtube_provider._execute_with_retry(["cmd"])
+
+                assert result.returncode == 0
+                assert mock_subprocess.call_count == 3
+                # Should have slept twice: 2s then 4s
+                assert mock_sleep.call_count == 2
+                mock_sleep.assert_any_call(2)
+                mock_sleep.assert_any_call(4)
+
+    @pytest.mark.asyncio
+    async def test_retry_max_attempts_exceeded(self, youtube_provider):
+        """Test failure after all retry attempts exhausted."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            # All 3 attempts fail with retriable errors
+            mock_process = AsyncMock()
+            mock_process.returncode = 1
+            mock_process.communicate = AsyncMock(
+                return_value=(b"", b"HTTP Error 500 Internal Server Error")
+            )
+            mock_subprocess.return_value = mock_process
+
+            with (
+                patch("asyncio.sleep"),
+                pytest.raises(DownloadError, match="Failed after 3 attempts"),
+            ):
+                await youtube_provider._execute_with_retry(["yt-dlp", "url"])
+
+            # Should have tried 3 times
+            assert mock_subprocess.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_retry_non_retriable_error_fails_immediately(self, youtube_provider):
+        """Test non-retriable error fails without retry."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.returncode = 1
+            mock_process.communicate = AsyncMock(
+                return_value=(b"", b"Video unavailable: This video is private")
+            )
+            mock_subprocess.return_value = mock_process
+
+            with pytest.raises(DownloadError, match="Video unavailable"):
+                await youtube_provider._execute_with_retry(["yt-dlp", "url"])
+
+            # Should only try once (no retry for non-retriable errors)
+            assert mock_subprocess.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_with_timeout(self, youtube_provider):
+        """Test retry logic with timeout parameter."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.returncode = 0
+            mock_process.communicate = AsyncMock(return_value=(b"output", b""))
+            mock_subprocess.return_value = mock_process
+
+            with patch("asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for:
+                mock_wait_for.return_value = (b"output", b"")
+
+                await youtube_provider._execute_with_retry(["yt-dlp", "url"], timeout=10.0)
+
+                # wait_for should be called with timeout
+                mock_wait_for.assert_called()
+                args, kwargs = mock_wait_for.call_args
+                # Timeout is passed to wait_for
+                assert kwargs.get("timeout") == 10.0 or args[1] == 10.0
+
+    @pytest.mark.asyncio
+    async def test_retry_timeout_triggers_retry(self, youtube_provider):
+        """Test that timeout error triggers retry."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.communicate = AsyncMock()
+            mock_subprocess.return_value = mock_process
+
+            # First call times out, second succeeds
+            call_count = 0
+
+            async def mock_wait_for_side_effect(coro, timeout):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    raise asyncio.TimeoutError()
+                return (b"success", b"")
+
+            with (
+                patch("asyncio.wait_for", side_effect=mock_wait_for_side_effect),
+                patch("asyncio.sleep") as mock_sleep,
+            ):
+                # Need to also mock the returncode check
+                mock_process.returncode = 0
+
+                result = await youtube_provider._execute_with_retry(["cmd"], timeout=5.0)
+
+                assert result.returncode == 0
+                # Should have slept after timeout
+                mock_sleep.assert_called_once_with(2)
+
+    @pytest.mark.asyncio
+    async def test_retry_exponential_backoff_timing(self, youtube_provider):
+        """Test that backoff times follow configured pattern [2, 4, 8]."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            # All attempts fail
+            mock_process = AsyncMock()
+            mock_process.returncode = 1
+            mock_process.communicate = AsyncMock(return_value=(b"", b"Connection reset"))
+            mock_subprocess.return_value = mock_process
+
+            sleep_times = []
+
+            async def track_sleep(seconds):
+                sleep_times.append(seconds)
+
+            with patch("asyncio.sleep", side_effect=track_sleep), pytest.raises(DownloadError):
+                await youtube_provider._execute_with_retry(["cmd"])
+
+            # Should sleep twice (not after last attempt)
+            # Backoff values: [2, 4, 8] -> sleep 2 after 1st, 4 after 2nd
+            assert sleep_times == [2, 4]
+
+    # -------------------------------------------------------------------------
+    # Integration tests (retry in get_info and download)
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_get_info_uses_retry(self, youtube_provider, sample_video_metadata):
+        """Test that get_info uses retry logic."""
+        with patch.object(
+            youtube_provider, "_execute_with_retry", new_callable=AsyncMock
+        ) as mock_retry:
+            import subprocess
+
+            stdout = json.dumps(sample_video_metadata).encode()
+            mock_retry.return_value = subprocess.CompletedProcess(["yt-dlp"], 0, stdout, b"")
+
+            result = await youtube_provider.get_info("https://youtube.com/watch?v=dQw4w9WgXcQ")
+
+            # _execute_with_retry should be called with timeout
+            mock_retry.assert_called_once()
+            args, kwargs = mock_retry.call_args
+            assert kwargs.get("timeout") == 10.0
+            assert result["video_id"] == "dQw4w9WgXcQ"
+
+    @pytest.mark.asyncio
+    async def test_download_uses_retry(self, youtube_provider):
+        """Test that download uses retry logic."""
+        with patch.object(
+            youtube_provider, "_execute_with_retry", new_callable=AsyncMock
+        ) as mock_retry:
+            import subprocess
+
+            mock_retry.return_value = subprocess.CompletedProcess(
+                ["yt-dlp"], 0, b"/tmp/video.mp4", b""
+            )
+
+            with patch("pathlib.Path.stat") as mock_stat:
+                mock_stat.return_value = MagicMock(st_size=1024)
+
+                result = await youtube_provider.download("https://youtube.com/watch?v=test")
+
+                # _execute_with_retry should be called without timeout
+                mock_retry.assert_called_once()
+                args, kwargs = mock_retry.call_args
+                assert kwargs.get("timeout") is None
+                assert result.file_path == "/tmp/video.mp4"

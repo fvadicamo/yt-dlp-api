@@ -3,6 +3,7 @@
 import asyncio
 import json
 import re
+import subprocess  # nosec B404 - subprocess used for returning CompletedProcess
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -143,29 +144,9 @@ class YouTubeProvider(VideoProvider):
         cmd.append(url)
 
         try:
-            # Execute with 10-second timeout
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10.0)
-
-            if process.returncode != 0:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                logger.error(
-                    "Failed to get video info",
-                    url=url,
-                    returncode=process.returncode,
-                    error=error_msg,
-                )
-
-                # Check for common errors
-                if "Video unavailable" in error_msg or "Private video" in error_msg:
-                    raise VideoUnavailableError(f"Video is not accessible: {error_msg}")
-
-                raise DownloadError(f"Failed to extract video info: {error_msg}")
+            # Execute with retry logic and 10-second timeout per attempt
+            result = await self._execute_with_retry(cmd, timeout=10.0)
+            stdout = result.stdout
 
             # Parse JSON output
             info = json.loads(stdout.decode())
@@ -193,9 +174,12 @@ class YouTubeProvider(VideoProvider):
             logger.info("Video info extracted successfully", video_id=video_id)
             return video_info
 
-        except asyncio.TimeoutError:
-            logger.error("Timeout getting video info", url=url)
-            raise DownloadError("Timeout while extracting video info (10s limit exceeded)")
+        except DownloadError as e:
+            # Check if this is a video availability issue
+            error_str = str(e)
+            if "Video unavailable" in error_str or "Private video" in error_str:
+                raise VideoUnavailableError(f"Video is not accessible: {error_str}")
+            raise
         except json.JSONDecodeError as e:
             logger.error("Failed to parse yt-dlp output", error=str(e))
             raise DownloadError(f"Failed to parse video info: {str(e)}")
@@ -445,33 +429,19 @@ class YouTubeProvider(VideoProvider):
         start_time = asyncio.get_event_loop().time()
 
         try:
-            # Execute command
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
-            stdout, stderr = await process.communicate()
+            # Execute command with retry logic (no timeout for downloads)
+            result = await self._execute_with_retry(cmd)
+            stdout = result.stdout
+            stderr = result.stderr
 
             # Log execution results (Req 17A)
             logger.debug(
                 "yt-dlp execution completed",
                 command=self._redact_command(cmd),
-                exit_code=process.returncode,
+                exit_code=result.returncode,
                 stdout_lines=len(stdout.decode().split("\n")) if stdout else 0,
                 stderr_preview=stderr.decode()[:500] if stderr else None,
             )
-
-            if process.returncode != 0:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                logger.error(
-                    "Download failed",
-                    url=url,
-                    returncode=process.returncode,
-                    error=error_msg,
-                )
-                raise DownloadError(f"Download failed: {error_msg}")
 
             # Extract file path from output
             file_path = self._extract_file_path(stdout.decode())
@@ -548,6 +518,111 @@ class YouTubeProvider(VideoProvider):
                 return line
 
         return None
+
+    def _is_retriable_error(self, error_msg: str) -> bool:
+        """
+        Determine if error should trigger retry per Requirement 18.
+
+        Args:
+            error_msg: Error message from yt-dlp stderr
+
+        Returns:
+            True if error is retriable, False otherwise
+        """
+        retriable_patterns = [
+            "HTTP Error 5",  # Server errors (5xx)
+            "Connection reset",  # Network issues
+            "Timeout",  # Request timeout
+            "Too Many Requests",  # Rate limiting (429)
+            "HTTP Error 429",  # Rate limiting explicit
+            "Unable to connect",  # Connection failed
+        ]
+        return any(pattern in error_msg for pattern in retriable_patterns)
+
+    async def _execute_with_retry(  # noqa: C901
+        self,
+        cmd: List[str],
+        timeout: Optional[float] = None,
+    ) -> subprocess.CompletedProcess:
+        """
+        Execute command with retry logic per Requirement 18.
+
+        Implements exponential backoff with configurable retry attempts.
+        Distinguishes between retriable errors (network, 5xx) and
+        non-retriable errors (private video, invalid URL).
+
+        Args:
+            cmd: Command to execute as list of strings
+            timeout: Optional timeout in seconds for each attempt
+
+        Returns:
+            CompletedProcess with stdout and stderr
+
+        Raises:
+            DownloadError: If all retry attempts fail or non-retriable error occurs
+        """
+        last_error: Optional[str] = None
+
+        for attempt in range(self.retry_attempts):
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+
+                if timeout:
+                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+                else:
+                    stdout, stderr = await process.communicate()
+
+                if process.returncode == 0:
+                    return subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
+
+                # Non-zero return code - check if retriable
+                error_msg = stderr.decode() if stderr else "Unknown error"
+
+                if not self._is_retriable_error(error_msg):
+                    # Non-retriable error - fail immediately
+                    raise DownloadError(error_msg)
+
+                last_error = error_msg
+
+                # Retry with backoff if not last attempt
+                if attempt < self.retry_attempts - 1:
+                    wait_time = self.retry_backoff[attempt]
+                    logger.warning(
+                        "Retrying after retriable error",
+                        attempt=attempt + 1,
+                        max_attempts=self.retry_attempts,
+                        wait_seconds=wait_time,
+                        error=error_msg[:200],
+                    )
+                    await asyncio.sleep(wait_time)
+
+            except asyncio.TimeoutError:
+                last_error = f"Timeout after {timeout}s"
+                logger.warning(
+                    "Timeout during command execution",
+                    attempt=attempt + 1,
+                    max_attempts=self.retry_attempts,
+                    timeout=timeout,
+                )
+                # Timeout is retriable - continue to next attempt
+                if attempt < self.retry_attempts - 1:
+                    wait_time = self.retry_backoff[attempt]
+                    await asyncio.sleep(wait_time)
+
+            except DownloadError:
+                # Re-raise non-retriable errors immediately
+                raise
+
+            except Exception as e:
+                last_error = str(e)
+                if attempt == self.retry_attempts - 1:
+                    raise DownloadError(f"Unexpected error: {last_error}")
+
+        raise DownloadError(f"Failed after {self.retry_attempts} attempts: {last_error}")
 
     def get_cookie_path(self) -> Optional[str]:
         """

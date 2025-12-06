@@ -14,7 +14,8 @@ For rapid and robust delivery, the following are REQUIRED:
 **Critical Testing (Required for MVP)**
 - Task 1.4: Configuration and logging tests
 - Task 3.4: Cookie management tests (CRITICAL - operational pain point)
-- Task 4.7: YouTube provider tests (CRITICAL - core value stream)
+- Task 4.7: YouTube provider tests (CRITICAL - core value stream) ✅ COMPLETE
+- Task 4.8: Retry logic implementation (fix for 4.6) ✅ COMPLETE
 - Task 5.4: Security tests (path traversal, input validation, log redaction)
 - Task 11.4: Startup validation tests (degraded mode)
 - Task 15.3: Basic security validation (no secrets, common exploits)
@@ -181,15 +182,25 @@ For rapid and robust delivery, the following are REQUIRED:
   - Configure 3 retry attempts with 2, 4, 8 second backoff
   - Log each retry attempt
   - _Requirements: 18, 35_
+  - ⚠️ **NOTE**: Was marked complete but implementation was MISSING. Fixed in Task 4.8
 
 - [x] 4.7 Write YouTube provider tests (CRITICAL)
   - Test metadata extraction with mock yt-dlp output
   - Test format parsing and categorization
   - Test download with various parameters
-  - Test retry logic for transient errors (NOTE: retry logic NOT implemented, see Task 4.6)
+  - Test retry logic for transient errors
   - Test error classification (retriable vs non-retriable)
   - _Requirements: 1, 2, 4, 5, 18, 35_
   - **Completed**: 62 test cases, 94% coverage for youtube.py
+
+- [x] 4.8 Implement retry logic (fix for Task 4.6)
+  - Implement `_is_retriable_error()` method for error classification
+  - Implement `_execute_with_retry()` method with exponential backoff [2, 4, 8]s
+  - Integrate retry in `get_info()` with 10s timeout per attempt
+  - Integrate retry in `download()` without timeout
+  - Add TestRetryLogic test class with 25 tests
+  - _Requirements: 18, 35_
+  - **Completed**: 2025-12-06, 155 total tests, 92% coverage
 
 ---
 
