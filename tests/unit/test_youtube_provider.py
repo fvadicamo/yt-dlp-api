@@ -1067,3 +1067,93 @@ class TestRetryLogic:
                 args, kwargs = mock_retry.call_args
                 assert kwargs.get("timeout") is None
                 assert result.file_path == "/tmp/video.mp4"
+
+    # -------------------------------------------------------------------------
+    # Critical flaw prevention tests (Gemini review feedback)
+    # -------------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_filenotfounderror_fails_fast_no_retry(self, youtube_provider):
+        """
+        CRITICAL: FileNotFoundError must fail immediately without retry.
+
+        Prevents unnecessary retries when yt-dlp is not installed.
+        Regression test for Gemini review comment #1.
+        """
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_subprocess.side_effect = FileNotFoundError("yt-dlp not found")
+
+            with (
+                patch("asyncio.sleep") as mock_sleep,
+                pytest.raises(DownloadError, match="yt-dlp is not installed"),
+            ):
+                await youtube_provider._execute_with_retry(["yt-dlp", "--version"])
+
+            # Should only try ONCE (no retry for FileNotFoundError)
+            assert mock_subprocess.call_count == 1
+            # Should NOT sleep (fail-fast)
+            mock_sleep.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_generic_exception_uses_sleep_no_busyloop(self, youtube_provider):
+        """
+        CRITICAL: Generic exceptions must use sleep before retry.
+
+        Prevents busy-loop on unexpected errors.
+        Regression test for Gemini review comment #1 (busy-loop flaw).
+        """
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            # Simulate unexpected exception on all attempts
+            mock_subprocess.side_effect = RuntimeError("Unexpected system error")
+
+            sleep_times = []
+
+            async def track_sleep(seconds):
+                sleep_times.append(seconds)
+
+            with (
+                patch("asyncio.sleep", side_effect=track_sleep),
+                pytest.raises(DownloadError, match="Unexpected error"),
+            ):
+                await youtube_provider._execute_with_retry(["yt-dlp", "url"])
+
+            # Should have tried 3 times
+            assert mock_subprocess.call_count == 3
+            # CRITICAL: Must have slept between attempts (no busy-loop)
+            # Sleep after attempt 1 (2s) and attempt 2 (4s), not after last
+            assert len(sleep_times) == 2, "Must sleep between retries to prevent busy-loop"
+            assert sleep_times == [2, 4], "Must use exponential backoff"
+
+    @pytest.mark.asyncio
+    async def test_all_retry_paths_have_backoff(self, youtube_provider):
+        """
+        Verify all error types that retry use proper backoff.
+
+        This test ensures no path through the retry loop can busy-loop.
+        """
+        test_cases = [
+            # (exception_or_error, description)
+            (RuntimeError("System error"), "generic exception"),
+            (OSError("IO error"), "OS error"),
+        ]
+
+        for exception, description in test_cases:
+            with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+                mock_subprocess.side_effect = exception
+
+                sleep_called = False
+                # Capture description in default arg to avoid closure issue (B023)
+                desc = description
+
+                async def verify_sleep(seconds, desc=desc):
+                    nonlocal sleep_called
+                    sleep_called = True
+                    assert seconds > 0, f"Sleep time must be positive for {desc}"
+
+                with (
+                    patch("asyncio.sleep", side_effect=verify_sleep),
+                    pytest.raises(DownloadError),
+                ):
+                    await youtube_provider._execute_with_retry(["cmd"])
+
+                assert sleep_called, f"Must sleep on retry for {description}"

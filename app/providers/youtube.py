@@ -618,6 +618,9 @@ class YouTubeProvider(VideoProvider):
                 last_error = str(e)
                 if attempt == self.retry_attempts - 1:
                     raise DownloadError(f"Unexpected error: {last_error}")
+                # Sleep before retry to avoid busy-loop
+                wait_time = self.retry_backoff[attempt]
+                await asyncio.sleep(wait_time)
 
         raise DownloadError(f"Failed after {self.retry_attempts} attempts: {last_error}")
 
