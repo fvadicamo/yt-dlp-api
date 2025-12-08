@@ -1171,3 +1171,127 @@ class TestRetryLogic:
                     await youtube_provider._execute_with_retry(["cmd"])
 
                 assert sleep_called, f"Must sleep on retry for {description}"
+
+
+# ============================================================================
+# PROCESS CLEANUP TESTS (Zombie Prevention)
+# ============================================================================
+
+
+class TestProcessCleanup:
+    """Tests for _cleanup_process method to prevent zombie processes."""
+
+    @pytest.mark.asyncio
+    async def test_cleanup_process_with_none(self, youtube_provider):
+        """Test cleanup_process handles None process gracefully."""
+        # Should not raise any exception
+        await youtube_provider._cleanup_process(None)
+
+    @pytest.mark.asyncio
+    async def test_cleanup_process_already_terminated(self, youtube_provider):
+        """Test cleanup_process does nothing if process already terminated."""
+        mock_process = MagicMock()
+        mock_process.returncode = 0  # Already terminated
+
+        await youtube_provider._cleanup_process(mock_process)
+
+        # terminate() should NOT be called since process already exited
+        mock_process.terminate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_process_graceful_termination(self, youtube_provider):
+        """Test cleanup_process terminates process gracefully with SIGTERM."""
+        mock_process = MagicMock()
+        mock_process.returncode = None  # Still running
+        mock_process.wait = AsyncMock()
+
+        await youtube_provider._cleanup_process(mock_process)
+
+        # Should call terminate() (SIGTERM)
+        mock_process.terminate.assert_called_once()
+        # Should wait for process to exit
+        mock_process.wait.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_process_force_kill_on_timeout(self, youtube_provider):
+        """Test cleanup_process force kills if graceful termination times out."""
+        mock_process = MagicMock()
+        mock_process.returncode = None  # Still running
+        mock_process.wait = AsyncMock()
+
+        with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
+            await youtube_provider._cleanup_process(mock_process)
+
+        # Should call terminate() first
+        mock_process.terminate.assert_called_once()
+        # Should call kill() after timeout
+        mock_process.kill.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_process_handles_process_lookup_error(self, youtube_provider):
+        """Test cleanup_process handles ProcessLookupError gracefully."""
+        mock_process = MagicMock()
+        mock_process.returncode = None  # Appears running
+        mock_process.terminate.side_effect = ProcessLookupError()
+
+        # Should not raise - process already terminated between check and terminate
+        await youtube_provider._cleanup_process(mock_process)
+
+    @pytest.mark.asyncio
+    async def test_cleanup_process_logs_unexpected_errors(self, youtube_provider):
+        """Test cleanup_process logs but doesn't raise on unexpected errors."""
+        mock_process = MagicMock()
+        mock_process.returncode = None
+        # terminate() is synchronous, not async
+        mock_process.terminate.side_effect = RuntimeError("Unexpected error")
+
+        with patch("app.providers.youtube.logger") as mock_logger:
+            # Should not raise
+            await youtube_provider._cleanup_process(mock_process)
+            # Should log warning
+            mock_logger.warning.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_timeout_triggers_cleanup(self, youtube_provider):
+        """Test that timeout in _execute_with_retry calls _cleanup_process."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.returncode = None
+            mock_process.wait = AsyncMock()
+            mock_subprocess.return_value = mock_process
+
+            with (
+                patch.object(
+                    youtube_provider, "_cleanup_process", new_callable=AsyncMock
+                ) as mock_cleanup,
+                patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()),
+                patch("asyncio.sleep", new_callable=AsyncMock),
+                pytest.raises(DownloadError),
+            ):
+                await youtube_provider._execute_with_retry(["yt-dlp", "url"], timeout=1.0)
+
+            # Should have called cleanup for each timeout
+            assert mock_cleanup.call_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_generic_exception_triggers_cleanup(self, youtube_provider):
+        """Test that generic exceptions in _execute_with_retry call _cleanup_process."""
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.returncode = None
+            mock_subprocess.return_value = mock_process
+
+            # Simulate exception after process creation
+            mock_process.communicate = AsyncMock(side_effect=RuntimeError("Unexpected"))
+
+            with (
+                patch.object(
+                    youtube_provider, "_cleanup_process", new_callable=AsyncMock
+                ) as mock_cleanup,
+                patch("asyncio.sleep", new_callable=AsyncMock),
+                pytest.raises(DownloadError),
+            ):
+                await youtube_provider._execute_with_retry(["yt-dlp", "url"])
+
+            # Should have called cleanup on exception
+            assert mock_cleanup.call_count >= 1

@@ -554,6 +554,7 @@ class YouTubeProvider(VideoProvider):
             DownloadError: If all retry attempts fail or non-retriable error occurs
         """
         last_error: Optional[str] = None
+        process: Optional[asyncio.subprocess.Process] = None
 
         for attempt in range(self.retry_attempts):
             try:
@@ -594,6 +595,8 @@ class YouTubeProvider(VideoProvider):
 
             except asyncio.TimeoutError:
                 last_error = f"Timeout after {timeout}s"
+                # CRITICAL: Terminate process to avoid zombies
+                await self._cleanup_process(process)
                 logger.warning(
                     "Timeout during command execution",
                     attempt=attempt + 1,
@@ -616,6 +619,8 @@ class YouTubeProvider(VideoProvider):
 
             except Exception as e:
                 last_error = str(e)
+                # Cleanup process in case of unexpected errors
+                await self._cleanup_process(process)
                 if attempt == self.retry_attempts - 1:
                     raise DownloadError(f"Unexpected error: {last_error}")
                 # Sleep before retry to avoid busy-loop
@@ -623,6 +628,43 @@ class YouTubeProvider(VideoProvider):
                 await asyncio.sleep(wait_time)
 
         raise DownloadError(f"Failed after {self.retry_attempts} attempts: {last_error}")
+
+    async def _cleanup_process(self, process: Optional[asyncio.subprocess.Process]) -> None:
+        """
+        Safely terminate and cleanup a subprocess to avoid zombies.
+
+        This method ensures proper cleanup of subprocess resources by:
+        1. Checking if process exists and is still running
+        2. Attempting graceful termination with SIGTERM
+        3. Forcefully killing with SIGKILL if process doesn't respond
+        4. Waiting for process exit to collect exit status (prevents zombies)
+
+        Args:
+            process: The subprocess to cleanup, or None if not created
+        """
+        if process is None:
+            return
+
+        if process.returncode is not None:
+            # Process already terminated
+            return
+
+        try:
+            # Try graceful termination first (SIGTERM)
+            process.terminate()
+            try:
+                # Give process 5 seconds to terminate gracefully
+                await asyncio.wait_for(process.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                # Process didn't respond to SIGTERM, force kill (SIGKILL)
+                process.kill()
+                await process.wait()
+        except ProcessLookupError:
+            # Process already terminated between check and terminate
+            pass
+        except Exception as e:
+            # Log but don't raise - cleanup should not fail the main operation
+            logger.warning("Error during process cleanup", error=str(e))
 
     def get_cookie_path(self) -> Optional[str]:
         """
