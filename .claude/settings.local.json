@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest:*)",
+      "Bash(source venv/bin/activate:*)",
+      "Bash(pytest:*)",
+      "Bash(make check:*)",
+      "Bash(black:*)",
+      "Bash(isort:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

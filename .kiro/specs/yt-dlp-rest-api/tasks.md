@@ -14,7 +14,8 @@ For rapid and robust delivery, the following are REQUIRED:
 **Critical Testing (Required for MVP)**
 - Task 1.4: Configuration and logging tests
 - Task 3.4: Cookie management tests (CRITICAL - operational pain point)
-- Task 4.7: YouTube provider tests (CRITICAL - core value stream)
+- Task 4.7: YouTube provider tests (CRITICAL - core value stream) ✅ COMPLETE
+- Task 4.8: Retry logic implementation (fix for 4.6) ✅ COMPLETE
 - Task 5.4: Security tests (path traversal, input validation, log redaction)
 - Task 11.4: Startup validation tests (degraded mode)
 - Task 15.3: Basic security validation (no secrets, common exploits)
@@ -138,7 +139,7 @@ For rapid and robust delivery, the following are REQUIRED:
   - Implement metadata extraction, format listing, and download functionality
   - _Requirements: 1, 2, 3, 4, 5, 6, 35_
 
-- [ ] 4.1 Implement metadata extraction
+- [x] 4.1 Implement metadata extraction
   - Create get_info method using yt-dlp --dump-json
   - Parse JSON output to VideoInfo format
   - Add optional format and subtitle inclusion
@@ -146,20 +147,20 @@ For rapid and robust delivery, the following are REQUIRED:
   - Add cookie validation before execution
   - _Requirements: 1, 35_
 
-- [ ] 4.2 Implement format listing
+- [x] 4.2 Implement format listing
   - Create list_formats method to extract available formats
   - Parse format information (ID, extension, resolution, codecs, filesize)
   - Categorize formats as video+audio, video-only, audio-only
   - Sort formats by quality (highest to lowest)
   - _Requirements: 2, 35_
 
-- [ ] 4.3 Implement subtitle discovery
+- [x] 4.3 Implement subtitle discovery
   - Add subtitle parsing from yt-dlp output
   - Extract language, format (VTT/SRT), and auto-generated flag
   - Integrate with get_info method
   - _Requirements: 3, 35_
 
-- [ ] 4.4 Implement video download
+- [x] 4.4 Implement video download
   - Create download method with format selection
   - Add output template processing
   - Implement subtitle download with language selection
@@ -168,27 +169,38 @@ For rapid and robust delivery, the following are REQUIRED:
   - Log stdout, stderr, and exit code after execution
   - _Requirements: 4, 6, 17A, 35_
 
-- [ ] 4.5 Implement audio extraction
+- [x] 4.5 Implement audio extraction
   - Add audio-only download with format conversion
   - Support MP3, M4A, WAV, OPUS formats
   - Implement quality selection (128kbps, 192kbps, 320kbps)
   - Add video track removal logic
   - _Requirements: 5, 35_
 
-- [ ] 4.6 Add retry logic with exponential backoff
+- [x] 4.6 Add retry logic with exponential backoff
   - Implement _execute_with_retry method
   - Add retriable error detection (network timeout, HTTP 5xx)
   - Configure 3 retry attempts with 2, 4, 8 second backoff
   - Log each retry attempt
   - _Requirements: 18, 35_
+  - ⚠️ **NOTE**: Was marked complete but implementation was MISSING. Fixed in Task 4.8
 
-- [ ] 4.7 Write YouTube provider tests (CRITICAL)
+- [x] 4.7 Write YouTube provider tests (CRITICAL)
   - Test metadata extraction with mock yt-dlp output
   - Test format parsing and categorization
   - Test download with various parameters
   - Test retry logic for transient errors
   - Test error classification (retriable vs non-retriable)
   - _Requirements: 1, 2, 4, 5, 18, 35_
+  - **Completed**: 62 test cases, 94% coverage for youtube.py
+
+- [x] 4.8 Implement retry logic (fix for Task 4.6)
+  - Implement `_is_retriable_error()` method for error classification
+  - Implement `_execute_with_retry()` method with exponential backoff [2, 4, 8]s
+  - Integrate retry in `get_info()` with 10s timeout per attempt
+  - Integrate retry in `download()` without timeout
+  - Add TestRetryLogic test class with 25 tests
+  - _Requirements: 18, 35_
+  - **Completed**: 2025-12-06, 155 total tests, 92% coverage
 
 ---
 
