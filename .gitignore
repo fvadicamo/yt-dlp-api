@@ -75,4 +75,6 @@ dmypy.json
 
 # Bandit
 .bandit
+
+.archive
 .claude/settings.local.json
