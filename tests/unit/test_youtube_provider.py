@@ -647,14 +647,11 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_ytdlp_not_installed(self, youtube_provider):
         """Test error when yt-dlp is not installed."""
-        with (
-            patch("asyncio.create_subprocess_exec") as mock_subprocess,
-            patch("asyncio.sleep"),  # Skip actual sleep during retry
-        ):
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             mock_subprocess.side_effect = FileNotFoundError("yt-dlp not found")
 
-            # With retry logic, FileNotFoundError is caught and converted to DownloadError
-            with pytest.raises(DownloadError, match="Unexpected error.*yt-dlp not found"):
+            # FileNotFoundError is handled with fail-fast (no retries)
+            with pytest.raises(DownloadError, match="yt-dlp is not installed or not in PATH"):
                 await youtube_provider.get_info("https://youtube.com/watch?v=test")
 
     @pytest.mark.asyncio

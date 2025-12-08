@@ -4,6 +4,7 @@ import asyncio
 import json
 import re
 import subprocess  # nosec B404 - subprocess used for returning CompletedProcess
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -183,9 +184,6 @@ class YouTubeProvider(VideoProvider):
         except json.JSONDecodeError as e:
             logger.error("Failed to parse yt-dlp output", error=str(e))
             raise DownloadError(f"Failed to parse video info: {str(e)}")
-        except FileNotFoundError:
-            logger.error("yt-dlp not found")
-            raise DownloadError("yt-dlp is not installed or not in PATH")
 
     def _parse_formats(self, formats: List[Dict]) -> List[Dict]:
         """
@@ -428,50 +426,44 @@ class YouTubeProvider(VideoProvider):
 
         start_time = asyncio.get_event_loop().time()
 
-        try:
-            # Execute command with retry logic (no timeout for downloads)
-            result = await self._execute_with_retry(cmd)
-            stdout = result.stdout
-            stderr = result.stderr
+        # Execute command with retry logic (no timeout for downloads)
+        # _execute_with_retry handles FileNotFoundError and raises DownloadError
+        result = await self._execute_with_retry(cmd)
+        stdout = result.stdout
+        stderr = result.stderr
 
-            # Log execution results (Req 17A)
-            logger.debug(
-                "yt-dlp execution completed",
-                command=self._redact_command(cmd),
-                exit_code=result.returncode,
-                stdout_lines=len(stdout.decode().split("\n")) if stdout else 0,
-                stderr_preview=stderr.decode()[:500] if stderr else None,
-            )
+        # Log execution results (Req 17A)
+        logger.debug(
+            "yt-dlp execution completed",
+            command=self._redact_command(cmd),
+            exit_code=result.returncode,
+            stdout_lines=len(stdout.decode().split("\n")) if stdout else 0,
+            stderr_preview=stderr.decode()[:500] if stderr else None,
+        )
 
-            # Extract file path from output
-            file_path = self._extract_file_path(stdout.decode())
-            if not file_path:
-                raise DownloadError("Could not determine output file path")
+        # Extract file path from output
+        file_path = self._extract_file_path(stdout.decode())
+        if not file_path:
+            raise DownloadError("Could not determine output file path")
 
-            # Get file size
-            from pathlib import Path
+        # Get file size
+        file_size = Path(file_path).stat().st_size
+        duration = asyncio.get_event_loop().time() - start_time
 
-            file_size = Path(file_path).stat().st_size
-            duration = asyncio.get_event_loop().time() - start_time
+        logger.info(
+            "Download completed",
+            video_id=video_id,
+            file_path=file_path,
+            file_size=file_size,
+            duration=duration,
+        )
 
-            logger.info(
-                "Download completed",
-                video_id=video_id,
-                file_path=file_path,
-                file_size=file_size,
-                duration=duration,
-            )
-
-            return DownloadResult(
-                file_path=file_path,
-                file_size=file_size,
-                duration=duration,
-                format_id=format_id or "best",
-            )
-
-        except FileNotFoundError:
-            logger.error("yt-dlp not found")
-            raise DownloadError("yt-dlp is not installed or not in PATH")
+        return DownloadResult(
+            file_path=file_path,
+            file_size=file_size,
+            duration=duration,
+            format_id=format_id or "best",
+        )
 
     def _redact_command(self, cmd: List[str]) -> List[str]:
         """
@@ -616,6 +608,11 @@ class YouTubeProvider(VideoProvider):
             except DownloadError:
                 # Re-raise non-retriable errors immediately
                 raise
+
+            except FileNotFoundError:
+                # yt-dlp not installed - fail immediately, don't retry
+                logger.error("yt-dlp not found, ensure it is installed and in PATH")
+                raise DownloadError("yt-dlp is not installed or not in PATH")
 
             except Exception as e:
                 last_error = str(e)
