@@ -1172,6 +1172,63 @@ class TestRetryLogic:
 
                 assert sleep_called, f"Must sleep on retry for {description}"
 
+    @pytest.mark.asyncio
+    async def test_retry_backoff_array_shorter_than_attempts(self):
+        """
+        Test retry works when backoff array is shorter than retry_attempts.
+
+        With retry_attempts=4 and retry_backoff=[2,4], the third retry (index 2)
+        should use the last backoff value (4) instead of raising IndexError.
+        """
+        # Config with more retry attempts than backoff values
+        config = {
+            "cookie_path": "/app/cookies/youtube.txt",
+            "retry_attempts": 4,  # 4 attempts
+            "retry_backoff": [2, 4],  # Only 2 backoff values
+        }
+        provider = YouTubeProvider(config)
+
+        call_count = 0
+        sleep_values = []
+
+        async def mock_sleep(seconds):
+            sleep_values.append(seconds)
+
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.returncode = 1
+            mock_process.communicate = AsyncMock(
+                return_value=(b"", b"HTTP Error 500 Internal Server Error")
+            )
+            mock_subprocess.return_value = mock_process
+
+            def track_calls(*args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                return mock_process
+
+            mock_subprocess.side_effect = track_calls
+
+            with (
+                patch("asyncio.sleep", side_effect=mock_sleep),
+                pytest.raises(DownloadError, match="Failed after 4 attempts"),
+            ):
+                await provider._execute_with_retry(["yt-dlp", "--version"])
+
+        # Should have made 4 attempts (0, 1, 2, 3)
+        assert call_count == 4
+
+        # Should have slept 3 times (after attempts 0, 1, 2)
+        assert len(sleep_values) == 3
+
+        # Sleep values should be: [2, 4, 4]
+        # (index 2 should use min(2, 1) = 1 -> backoff[1] = 4)
+        assert sleep_values == [2, 4, 4], (
+            f"Expected [2, 4, 4] but got {sleep_values}. "
+            "The third retry should use the last backoff value (4) "
+            "instead of raising IndexError."
+        )
+
 
 # ============================================================================
 # PROCESS CLEANUP TESTS (Zombie Prevention)

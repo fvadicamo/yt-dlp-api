@@ -583,7 +583,8 @@ class YouTubeProvider(VideoProvider):
 
                 # Retry with backoff if not last attempt
                 if attempt < self.retry_attempts - 1:
-                    wait_time = self.retry_backoff[attempt]
+                    backoff_index = min(attempt, len(self.retry_backoff) - 1)
+                    wait_time = self.retry_backoff[backoff_index]
                     logger.warning(
                         "Retrying after retriable error",
                         attempt=attempt + 1,
@@ -605,7 +606,8 @@ class YouTubeProvider(VideoProvider):
                 )
                 # Timeout is retriable - continue to next attempt
                 if attempt < self.retry_attempts - 1:
-                    wait_time = self.retry_backoff[attempt]
+                    backoff_index = min(attempt, len(self.retry_backoff) - 1)
+                    wait_time = self.retry_backoff[backoff_index]
                     await asyncio.sleep(wait_time)
 
             except DownloadError:
@@ -624,7 +626,8 @@ class YouTubeProvider(VideoProvider):
                 if attempt == self.retry_attempts - 1:
                     raise DownloadError(f"Unexpected error: {last_error}")
                 # Sleep before retry to avoid busy-loop
-                wait_time = self.retry_backoff[attempt]
+                backoff_index = min(attempt, len(self.retry_backoff) - 1)
+                wait_time = self.retry_backoff[backoff_index]
                 await asyncio.sleep(wait_time)
 
         raise DownloadError(f"Failed after {self.retry_attempts} attempts: {last_error}")
