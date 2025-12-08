@@ -799,8 +799,22 @@ class TestProviderConfiguration:
         provider = YouTubeProvider({}, mock_cookie_service)
 
         # Should use defaults
+        assert provider.cookie_path == "/app/cookies/youtube.txt"
         assert provider.retry_attempts == 3
         assert provider.retry_backoff == [2, 4, 8]
+
+    def test_provider_with_null_cookie_path(self, mock_cookie_service):
+        """Test YouTubeProvider uses default when cookie_path is explicitly null.
+
+        Regression test: config.get("cookie_path", default) returns None when
+        the key exists with null value. The provider must handle this by using
+        `config.get("cookie_path") or default` pattern.
+        """
+        config = {"cookie_path": None, "retry_attempts": 3}
+        provider = YouTubeProvider(config, mock_cookie_service)
+
+        # Should use default despite explicit null
+        assert provider.cookie_path == "/app/cookies/youtube.txt"
 
 
 # ============================================================================

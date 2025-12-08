@@ -40,7 +40,7 @@ class YouTubeProvider(VideoProvider):
             cookie_service: Optional CookieService instance for validation
         """
         self.config = config
-        self.cookie_path: str = config.get("cookie_path", "/app/cookies/youtube.txt")
+        self.cookie_path: str = config.get("cookie_path") or "/app/cookies/youtube.txt"
         self.retry_attempts: int = config.get("retry_attempts", 3)
         self.retry_backoff: list = config.get("retry_backoff", [2, 4, 8])
         self.cookie_service = cookie_service
