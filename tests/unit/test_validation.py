@@ -101,6 +101,28 @@ class TestURLValidator:
         result = validator.validate("https://youtube.com:443/watch?v=abc")
         assert result.is_valid is True
 
+    def test_url_with_embedded_credentials_rejected(self, validator: URLValidator):
+        """Test that URLs with embedded credentials are correctly rejected."""
+        # Attack: URL with credentials that makes netloc look like youtube.com
+        # but actually points to evil.com
+        malicious_url = "https://youtube.com:x@evil.com/malicious"
+        result = validator.validate(malicious_url)
+        assert result.is_valid is False
+        # Should reject evil.com, not accept youtube.com
+        assert (
+            "evil.com" in result.error_message or "not in the allowed list" in result.error_message
+        )
+
+    def test_url_with_credentials_and_port_rejected(self, validator: URLValidator):
+        """Test that URLs with both credentials and port are handled correctly."""
+        # Another attack vector: credentials + port
+        malicious_url = "https://youtube.com:password@evil.com:443/malicious"
+        result = validator.validate(malicious_url)
+        assert result.is_valid is False
+        assert (
+            "evil.com" in result.error_message or "not in the allowed list" in result.error_message
+        )
+
     def test_custom_allowed_domains(self):
         """Test validator with custom domain whitelist."""
         custom_validator = URLValidator(allowed_domains={"example.com", "test.org"})

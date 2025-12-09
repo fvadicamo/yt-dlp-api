@@ -126,8 +126,15 @@ class URLValidator:
         if not netloc:
             return ValidationResult(is_valid=False, error_message="URL must include a valid domain")
 
-        # Remove port number if present
-        domain = netloc.split(":")[0]
+        # Extract hostname using parsed.hostname to correctly handle
+        # URLs with embedded credentials or port numbers
+        # parsed.hostname automatically strips credentials and port
+        domain = parsed.hostname
+        if domain:
+            domain = domain.lower()
+        else:
+            # Fallback to netloc parsing if hostname is None (shouldn't happen with valid URLs)
+            domain = netloc.split(":")[0].split("@")[-1]
 
         # Check if domain is in whitelist
         if domain not in self.allowed_domains:
