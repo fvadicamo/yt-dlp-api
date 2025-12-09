@@ -307,19 +307,30 @@ class TestCookieValidationWithCache:
             assert mock_auth.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_validate_cookie_caches_failure(self, cookie_service):
-        """Test that validation failures are also cached."""
+    async def test_validate_cookie_does_not_cache_failure(self, cookie_service):
+        """Test that validation failures are NOT cached.
+
+        This ensures consistent behavior: validate_cookie() always raises
+        CookieError on failure, never returns False from cache.
+        """
         with patch.object(
             cookie_service, "_test_youtube_authentication", new_callable=AsyncMock
         ) as mock_auth:
             mock_auth.side_effect = CookieError("Auth failed")
 
-            # First call should fail
+            # First call should fail and raise
             with pytest.raises(CookieError):
                 await cookie_service.validate_cookie("youtube")
 
-            # Result should be cached as False
-            assert cookie_service.validation_cache.get("youtube") is False
+            # Result should NOT be cached
+            assert "youtube" not in cookie_service.validation_cache
+
+            # Second call should also raise (not return False from cache)
+            with pytest.raises(CookieError):
+                await cookie_service.validate_cookie("youtube")
+
+            # Both calls should have attempted validation
+            assert mock_auth.call_count == 2
 
 
 class TestYouTubeAuthentication:

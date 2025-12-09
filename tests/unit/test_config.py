@@ -91,7 +91,16 @@ class TestConfigService:
             yaml.dump(config_data, f)
 
         service = ConfigService(str(config_file))
-        with pytest.raises(ValueError, match="cleanup_threshold must be between 0 and 100"):
+        with pytest.raises(ValueError, match="cleanup_threshold must be between 1 and 100"):
+            service.load()
+
+        # Test invalid threshold = 0 (should be rejected)
+        config_data = {"storage": {"cleanup_threshold": 0}}
+        with open(config_file, "w") as f:
+            yaml.dump(config_data, f)
+
+        service = ConfigService(str(config_file))
+        with pytest.raises(ValueError, match="cleanup_threshold must be between 1 and 100"):
             service.load()
 
     def test_validation_log_level(self, tmp_path: Path) -> None:

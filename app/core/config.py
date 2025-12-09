@@ -68,8 +68,8 @@ class StorageConfig(BaseConfigSection):
     @field_validator("cleanup_threshold")
     @classmethod
     def validate_threshold(cls, v: int) -> int:
-        if not 0 <= v <= 100:
-            raise ValueError("cleanup_threshold must be between 0 and 100")
+        if not 0 < v <= 100:
+            raise ValueError("cleanup_threshold must be between 1 and 100")
         return v
 
 

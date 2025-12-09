@@ -67,6 +67,7 @@ repos:
           - pydantic==2.5.3
           - pydantic-settings==2.1.0
           - structlog==24.1.0
+          - fastapi==0.109.1
         exclude: ^tests/
 
   # Security checks with Bandit
