@@ -424,8 +424,9 @@ class CookieService:
             return validation_result
 
         except CookieError:
-            # Cache the failure
-            self.validation_cache[provider] = False
+            # Don't cache failures - always re-validate on error
+            # This ensures consistent behavior (always raises on failure)
+            # and allows users to fix issues and retry immediately
             raise
 
     async def _test_youtube_authentication(self) -> bool:
