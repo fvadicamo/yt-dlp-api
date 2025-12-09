@@ -112,11 +112,12 @@ class APIKeyAuth:
         if not path:
             path = "/"
 
-        # Check exact match or prefix match for docs paths
-        if path in self._excluded_paths:
-            return True
-
-        return any(path.startswith(excluded) for excluded in self._excluded_paths)
+        # Check for exact match or prefix match (e.g. /docs matching /docs/subpath).
+        # This is safer to avoid partial matches (e.g. /admin matching /admin_secret).
+        for excluded in self._excluded_paths:
+            if path == excluded or path.startswith(excluded + "/"):
+                return True
+        return False
 
     def validate_api_key(self, api_key: Optional[str]) -> bool:
         """
