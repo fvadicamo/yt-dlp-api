@@ -83,7 +83,7 @@ class TemplateProcessor:
         """
         self.output_dir = output_dir or "/app/downloads"
 
-    def sanitize_filename(self, filename: str) -> str:
+    def sanitize_filename(self, filename: str) -> str:  # noqa: C901
         """
         Sanitize a filename by removing/replacing illegal characters.
 
@@ -141,6 +141,15 @@ class TemplateProcessor:
                 filename = f"{name[:max_name_len]}.{ext}"
             else:
                 filename = filename[: self.MAX_FILENAME_LENGTH]
+
+            # Re-check Windows reserved names after truncation
+            # Truncation might create a reserved name (e.g., "AUXabc" -> "AUX")
+            name_without_ext = filename.rsplit(".", 1)[0] if "." in filename else filename
+            if name_without_ext.upper() in self.WINDOWS_RESERVED:
+                filename = f"_{filename}"
+                # If this makes it too long, truncate again (preserving the underscore)
+                if len(filename) > self.MAX_FILENAME_LENGTH:
+                    filename = filename[: self.MAX_FILENAME_LENGTH]
 
         # Ensure we have a valid filename
         if not filename or filename in (".", ".."):

@@ -68,7 +68,10 @@ class APIKeyAuth:
             excluded_paths: Paths that don't require authentication.
         """
         self._api_keys: Set[str] = set(api_keys) if api_keys else set()
-        self._excluded_paths = excluded_paths or self.DEFAULT_EXCLUDED_PATHS
+        # Use 'is None' to allow explicit empty set
+        self._excluded_paths = (
+            excluded_paths if excluded_paths is not None else self.DEFAULT_EXCLUDED_PATHS
+        )
         self._allow_all = len(self._api_keys) == 0
 
         if self._allow_all:
