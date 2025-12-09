@@ -131,11 +131,13 @@ class APIKeyAuth:
         """
         if self._allow_all:
             return True
-
         if not api_key:
             return False
 
-        return api_key in self._api_keys
+        for valid_key in self._api_keys:
+            if hashlib.compare_digest(api_key, valid_key):
+                return True
+        return False
 
     def authenticate(self, request: Request, api_key: Optional[str]) -> bool:
         """
