@@ -191,6 +191,8 @@ class FormatValidator:
             return ValidationResult(is_valid=False, error_message="Format ID is required")
 
         format_id = format_id.strip()
+        if not format_id:
+            return ValidationResult(is_valid=False, error_message="Format ID cannot be empty")
 
         if len(format_id) > self.MAX_FORMAT_ID_LENGTH:
             return ValidationResult(

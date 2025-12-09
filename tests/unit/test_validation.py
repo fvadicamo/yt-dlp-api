@@ -181,6 +181,20 @@ class TestFormatValidator:
         assert result.is_valid is False
         assert "required" in result.error_message.lower()
 
+    def test_whitespace_only_format_id_rejected(self, validator: FormatValidator):
+        """Test that format IDs containing only whitespace are rejected."""
+        result = validator.validate_format_id("   ")
+        assert result.is_valid is False
+        assert "cannot be empty" in result.error_message.lower()
+
+        result = validator.validate_format_id("\t\t")
+        assert result.is_valid is False
+        assert "cannot be empty" in result.error_message.lower()
+
+        result = validator.validate_format_id("\n\n")
+        assert result.is_valid is False
+        assert "cannot be empty" in result.error_message.lower()
+
     def test_none_format_id_rejected(self, validator: FormatValidator):
         """Test that None format ID is rejected."""
         result = validator.validate_format_id(None)
