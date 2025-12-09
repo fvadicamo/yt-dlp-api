@@ -94,7 +94,7 @@ class URLValidator:
 
         try:
             parsed = urlparse(url)
-        except Exception as e:
+        except ValueError as e:
             logger.warning("URL parsing failed", url=url, error=str(e))
             return ValidationResult(is_valid=False, error_message="Invalid URL format")
 
