@@ -4,6 +4,7 @@ This module provides API key authentication for protected endpoints.
 """
 
 import hashlib
+import hmac
 from typing import Callable, FrozenSet, List, Optional, Set
 
 import structlog
@@ -114,10 +115,9 @@ class APIKeyAuth:
 
         # Check for exact match or prefix match (e.g. /docs matching /docs/subpath).
         # This is safer to avoid partial matches (e.g. /admin matching /admin_secret).
-        for excluded in self._excluded_paths:
-            if path == excluded or path.startswith(excluded + "/"):
-                return True
-        return False
+        return any(
+            path == excluded or path.startswith(excluded + "/") for excluded in self._excluded_paths
+        )
 
     def validate_api_key(self, api_key: Optional[str]) -> bool:
         """
@@ -134,10 +134,7 @@ class APIKeyAuth:
         if not api_key:
             return False
 
-        for valid_key in self._api_keys:
-            if hashlib.compare_digest(api_key, valid_key):
-                return True
-        return False
+        return any(hmac.compare_digest(api_key, valid_key) for valid_key in self._api_keys)
 
     def authenticate(self, request: Request, api_key: Optional[str]) -> bool:
         """
