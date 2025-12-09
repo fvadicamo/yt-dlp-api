@@ -213,7 +213,7 @@ class TemplateProcessor:
 
             return TemplateResult(is_valid=True, processed_path=str(resolved_path))
 
-        except Exception as e:
+        except (ValueError, FileNotFoundError, RuntimeError) as e:
             logger.warning("Path validation failed", path=path, error=str(e))
             return TemplateResult(is_valid=False, error_message="Invalid path format")
 
