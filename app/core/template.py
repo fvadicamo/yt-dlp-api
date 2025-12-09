@@ -93,6 +93,9 @@ class TemplateProcessor:
         Returns:
             Sanitized filename safe for filesystem use
         """
+        # Save original filename for logging
+        original_filename = filename
+
         if not filename:
             return "unnamed"
 
@@ -122,6 +125,19 @@ class TemplateProcessor:
             if "." in filename:
                 name, ext = filename.rsplit(".", 1)
                 max_name_len = self.MAX_FILENAME_LENGTH - len(ext) - 1
+
+                # If extension alone exceeds limit, truncate extension too
+                if max_name_len < 1:
+                    # Extension is too long, truncate both name and extension
+                    # Reserve at least 1 char for name, 1 char for extension, 1 for dot
+                    max_ext_len = min(len(ext), self.MAX_FILENAME_LENGTH - 2)
+                    max_name_len = self.MAX_FILENAME_LENGTH - max_ext_len - 1
+                    ext = ext[:max_ext_len]
+
+                # Ensure name is not empty (at least 1 character)
+                if max_name_len < 1:
+                    max_name_len = 1
+
                 filename = f"{name[:max_name_len]}.{ext}"
             else:
                 filename = filename[: self.MAX_FILENAME_LENGTH]
@@ -130,7 +146,7 @@ class TemplateProcessor:
         if not filename or filename in (".", ".."):
             filename = "unnamed"
 
-        logger.debug("Filename sanitized", original=filename, result=filename)
+        logger.debug("Filename sanitized", original=original_filename, result=filename)
         return filename
 
     def validate_template(self, template: str) -> TemplateResult:
@@ -243,6 +259,11 @@ class TemplateProcessor:
             return TemplateResult(is_valid=False, error_message=f"Missing template variable: {e}")
         except ValueError as e:
             return TemplateResult(is_valid=False, error_message=f"Invalid template format: {e}")
+        except TypeError as e:
+            return TemplateResult(
+                is_valid=False,
+                error_message=f"Type mismatch in template variable: {e}",
+            )
 
         # Sanitize the result
         processed = self.sanitize_filename(processed)

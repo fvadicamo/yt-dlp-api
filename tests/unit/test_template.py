@@ -121,6 +121,35 @@ class TestSanitizeFilename(TestTemplateProcessor):
         assert len(result) <= processor.MAX_FILENAME_LENGTH
         assert result.endswith(".mp4")
 
+    def test_long_extension_truncated(self, processor: TemplateProcessor):
+        """Test that overly long extensions are truncated."""
+        # Extension longer than MAX_FILENAME_LENGTH
+        long_ext = "x" * 250
+        filename = f"test.{long_ext}"
+        result = processor.sanitize_filename(filename)
+
+        # Result should not exceed MAX_FILENAME_LENGTH
+        assert len(result) <= processor.MAX_FILENAME_LENGTH
+        # Result should not start with dot (invalid filename)
+        assert not result.startswith(".")
+        # Result should have at least one character before the dot
+        assert "." in result
+        name_part = result.rsplit(".", 1)[0]
+        assert len(name_part) >= 1
+
+    def test_filename_with_only_long_extension(self, processor: TemplateProcessor):
+        """Test filename that is only a long extension (edge case)."""
+        # Filename that is just a dot and very long extension
+        long_ext = "x" * 250
+        filename = f".{long_ext}"
+        result = processor.sanitize_filename(filename)
+
+        # Result should not exceed MAX_FILENAME_LENGTH
+        assert len(result) <= processor.MAX_FILENAME_LENGTH
+        # Result should not start with dot (invalid filename)
+        # If it would start with dot, it should be replaced with "unnamed"
+        assert not result.startswith(".") or result == "unnamed"
+
     def test_unicode_normalization(self, processor: TemplateProcessor):
         """Test Unicode normalization (NFKC)."""
         # Combining characters should be normalized
@@ -269,6 +298,27 @@ class TestProcessTemplate(TestTemplateProcessor):
         # Illegal chars should be replaced
         assert "<" not in result.processed_path
         assert ">" not in result.processed_path
+
+    def test_type_mismatch_error(self, processor: TemplateProcessor):
+        """Test that type mismatch in format specifier causes error."""
+        # Template with %d (integer) format but string value
+        template = "%(count)d items"
+        variables = {"count": "text"}
+
+        result = processor.process_template(template, variables)
+        assert result.is_valid is False
+        assert "type" in result.error_message.lower() or "mismatch" in result.error_message.lower()
+        assert result.processed_path is None
+
+    def test_type_mismatch_with_float_format(self, processor: TemplateProcessor):
+        """Test that type mismatch with float format specifier causes error."""
+        # Template with %f (float) format but string value
+        template = "Value: %(value)f"
+        variables = {"value": "not_a_number"}
+
+        result = processor.process_template(template, variables)
+        assert result.is_valid is False
+        assert "type" in result.error_message.lower() or "mismatch" in result.error_message.lower()
 
 
 class TestGetUniqueFilename(TestTemplateProcessor):

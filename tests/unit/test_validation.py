@@ -191,6 +191,31 @@ class TestFormatValidator:
         assert validator.is_valid_format_id("22") is True
         assert validator.is_valid_format_id("invalid;format") is False
 
+    def test_special_selectors_with_brackets(self, validator: FormatValidator):
+        """Test that special selectors with brackets are accepted (case-insensitive)."""
+        # Test lowercase
+        result = validator.validate_format_id("best[height<=720]")
+        assert result.is_valid is True
+        assert result.error_message is None
+
+        result = validator.validate_format_id("best[height<=1080]")
+        assert result.is_valid is True
+        assert result.error_message is None
+
+        # Test uppercase (should also work due to case-insensitive comparison)
+        result = validator.validate_format_id("BEST[HEIGHT<=720]")
+        assert result.is_valid is True
+        assert result.error_message is None
+
+        result = validator.validate_format_id("BEST[HEIGHT<=1080]")
+        assert result.is_valid is True
+        assert result.error_message is None
+
+        # Test mixed case
+        result = validator.validate_format_id("Best[Height<=720]")
+        assert result.is_valid is True
+        assert result.error_message is None
+
 
 class TestParameterValidator:
     """Tests for ParameterValidator class."""

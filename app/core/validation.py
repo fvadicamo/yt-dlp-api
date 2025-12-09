@@ -162,7 +162,7 @@ class FormatValidator:
     # Maximum length for format ID
     MAX_FORMAT_ID_LENGTH = 50
 
-    # Common special format selectors
+    # Common special format selectors (all values in lowercase for case-insensitive comparison)
     SPECIAL_SELECTORS: FrozenSet[str] = frozenset(
         {
             "best",
@@ -198,7 +198,7 @@ class FormatValidator:
                 error_message=f"Format ID exceeds maximum length of {self.MAX_FORMAT_ID_LENGTH}",
             )
 
-        # Allow special selectors
+        # Allow special selectors (case-insensitive comparison)
         if format_id.lower() in self.SPECIAL_SELECTORS:
             return ValidationResult(is_valid=True, sanitized_value=format_id)
 
