@@ -1,8 +1,8 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2025-12-06
-**Branch**: `feature/youtube-provider-implementation`
-**Task**: 4.8 - Retry Logic Implementation (COMPLETED)
+**Last Updated**: 2025-12-16
+**Branch**: `develop`
+**Current Task**: 6 - Rate Limiting System
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
 
 ---
@@ -13,18 +13,22 @@
 - [x] Task 1: Project setup and core infrastructure
 - [x] Task 2: Provider abstraction layer
 - [x] Task 3: Cookie management system (100% coverage)
-- [x] Task 4.1-4.5: YouTube provider core methods
-- [x] Task 4.6: Retry logic structure - FIXED in Task 4.8
-- [x] Task 4.7: YouTube provider tests (94% coverage, 62 tests)
-- [x] Task 4.8: Retry logic implementation + tests (155 tests, 92% coverage)
+- [x] Task 4: YouTube provider (all subtasks including retry logic)
+- [x] Task 5: Input Validation and Security (PR #5 merged)
+  - 5.1: Input validation utilities (URLValidator, FormatValidator)
+  - 5.2: Template processor (path traversal prevention)
+  - 5.3: API key authentication
+  - 5.4: Security tests (102 tests)
 
-### Criticità Risolte
-- ~~Issue #1: Retry logic (4.6) - NOT IMPLEMENTED~~ **RESOLVED in Task 4.8**
+### MVP Critical Completed
+- [x] Task 1.4: Configuration and logging tests
+- [x] Task 3.4: Cookie management tests (CRITICAL)
+- [x] Task 4.7: YouTube provider tests (CRITICAL)
+- [x] Task 5.4: Security tests (CRITICAL) - 102 tests
 
 ### MVP Critical Pending
-- [ ] Task 5.4: Security tests
 - [ ] Task 11.4: Startup validation tests
-- [ ] Task 15.3: Basic security validation
+- [ ] Task 15.3: Basic security validation (Docker scan)
 
 ---
 
@@ -48,9 +52,31 @@
 
 ### Code Review & Standards
 - **Style Guide**: [.gemini/styleguide.md](../.gemini/styleguide.md)
-  Python 3.11+, PEP 8, Black 88 chars, type hints obbligatori
+  Python 3.11+, PEP 8, Black 100 chars, type hints obbligatori
 - **Gemini Config**: [.gemini/config.yaml](../.gemini/config.yaml)
   Auto-review su PR, coverage 80%+ enforcement
+- **Cursor Rules**: [.cursorrules](../.cursorrules)
+  Operational rules for Cursor AI: commit format, code style, Git workflow, venv requirement
+---
+
+## 🤖 Cursor Configuration
+
+### Cursor Rules File
+The project includes a `.cursorrules` file in the root directory that configures Cursor AI to automatically follow project guidelines:
+
+- **Conventional Commits**: Enforces commit message format (`type: description`)
+- **Code Style**: Python PEP 8, 100 char line length, type hints, Google-style docstrings
+- **Git Workflow**: Prevents commits to main/develop, enforces feature branches
+- **Virtual Environment**: Reminds to use venv before Python/pip commands
+- **Documentation Policy**: Minimalist approach, avoid unnecessary doc files
+
+**Reference**: See [.cursorrules](../.cursorrules) for complete operational rules.
+
+For detailed guidelines, refer to:
+- Git workflow: `.kiro/steering/git-workflow.md`
+- Code style: `.gemini/styleguide.md`
+- Python venv: `.kiro/steering/python-venv-requirement.md`
+- Documentation policy: `.kiro/steering/documentation-policy.md`
 
 ---
 
@@ -144,61 +170,28 @@ git push origin --delete feature/<task-name>
 
 ## 📊 Project Status
 
-**Coverage**: 92.14% (target: 85%, goal: 90%) ✅
-**Tests Passing**: 155 tests ✅
-**Branch**: `feature/youtube-provider-implementation`
+**Coverage**: 92.65% (target: 85%, goal: 90%) ✅
+**Tests Passing**: 481 tests ✅
+**Branch**: `develop`
 
-**Task 4 Status (YouTube Provider Implementation)** - ALL COMPLETE ✅:
-- ✅ 4.1: Metadata extraction
-- ✅ 4.2: Format listing
-- ✅ 4.3: Subtitle discovery
-- ✅ 4.4: Video download
-- ✅ 4.5: Audio extraction
-- ✅ 4.6: Retry logic structure (FIXED in 4.8)
-- ✅ 4.7: Tests (94% coverage, 62 tests)
-- ✅ 4.8: Retry logic implementation + tests (COMPLETED 2025-12-06)
+### Remaining Tasks for MVP
 
-**MVP Critical Tests**:
-- ✅ 1.4: Configuration and logging tests
-- ✅ 3.4: Cookie management tests (CRITICAL)
-- ✅ 4.7: YouTube provider tests (CRITICAL) - COMPLETE
-- ⏳ 5.4: Security tests (CRITICAL)
-- ⏳ 11.4: Startup validation tests
-- ⏳ 15.3: Basic security validation
+**Core Implementation (6-13):**
+- [ ] Task 6: Rate Limiting System ← CURRENT
+- [ ] Task 7: Storage and File Management
+- [ ] Task 8: Job Management System
+- [ ] Task 9: API Endpoints Implementation
+- [ ] Task 10: Error Handling and Monitoring
+- [ ] Task 11: Startup Validation
+- [ ] Task 12: FastAPI Application Assembly
+- [ ] Task 13: Docker Containerization
 
----
+**Documentation (14):**
+- [ ] 14.1: README.md
+- [ ] 14.2: DEPLOYMENT.md
 
-## 🎯 Completed Task: 4.8 Retry Logic Implementation
-
-**Files Modified**:
-- `app/providers/youtube.py` - Added retry logic methods
-- `tests/unit/test_youtube_provider.py` - Added TestRetryLogic class
-
-**Implementation Details**:
-- `_is_retriable_error()`: Classifies HTTP 5xx, connection, timeout errors as retriable
-- `_execute_with_retry()`: Exponential backoff [2, 4, 8]s, max 3 attempts
-- Integrated in `get_info()` (10s timeout) and `download()` (no timeout)
-
-**Test Coverage**:
-- 13 parametrized tests for `_is_retriable_error()`
-- 10 tests for `_execute_with_retry()` behavior
-- 2 integration tests verifying retry in get_info/download
-
-**Test Classes Implemented** (Total: 12):
-1. `TestURLValidation` - URL patterns, video ID extraction
-2. `TestMetadataExtraction` - get_info() with all scenarios
-3. `TestFormatListing` - Format parsing, categorization, sorting
-4. `TestDownload` - Download with various parameters
-5. `TestCommandRedaction` - Security: sensitive data redaction (REQ 17A - CRITICAL)
-6. `TestErrorHandling` - All exception types
-7. `TestCookieIntegration` - Cookie validation calls
-8. `TestLogging` - Structured logging verification
-
-**NOT in Scope** (retry logic missing):
-- Retry logic tests (cannot test until implemented)
-- Integration tests with real yt-dlp (optional, post-MVP)
-
-**Pattern Reference**: `tests/unit/test_cookie_service.py` (457 lines, Task 3.4)
+**Final Validation (15):**
+- [ ] 15.3: Basic security validation (Docker scan)
 
 ---
 
@@ -279,15 +272,22 @@ See plan file § 4.1 for complete PR body template with:
 ## 🔗 Important Files
 
 ### Source Files
-- `app/providers/youtube.py` - YouTube provider implementation (to test)
+- `app/providers/youtube.py` - YouTube provider implementation
 - `app/providers/base.py` - Provider abstract interface
 - `app/providers/exceptions.py` - Exception types
 - `app/models/video.py` - Data models (VideoFormat, DownloadResult)
+- `app/core/validation.py` - URL and format validation
+- `app/core/template.py` - Template processor with security
+- `app/middleware/auth.py` - API key authentication
 
 ### Test Files
 - `tests/conftest.py` - Shared fixtures
-- `tests/unit/test_cookie_service.py` - Pattern reference (Task 3.4)
-- `tests/unit/test_youtube_provider.py` - **TO CREATE**
+- `tests/unit/test_cookie_service.py` - Cookie service tests
+- `tests/unit/test_youtube_provider.py` - YouTube provider tests
+- `tests/unit/test_security.py` - Security tests (102 tests)
+- `tests/unit/test_validation.py` - Validation tests
+- `tests/unit/test_template.py` - Template processor tests
+- `tests/unit/test_auth.py` - Authentication tests
 
 ### Config Files
 - `pyproject.toml` - Pytest config, coverage settings
@@ -331,9 +331,10 @@ Per `.kiro/steering/documentation-policy.md`:
 ## 📚 References
 
 ### Requirements
-- **Req 17A**: Command logging con redaction (CRITICAL - security)
-- **Req 18**: Retry logic con exponential backoff (NOT IMPLEMENTED)
-- **Req 35**: YouTube provider implementation
+- **Req 17A**: Command logging con redaction (CRITICAL - security) ✅
+- **Req 18**: Retry logic con exponential backoff ✅
+- **Req 27**: Rate limiting (Task 6 - CURRENT)
+- **Req 35**: YouTube provider implementation ✅
 
 ### Design Patterns
 - Provider abstraction: `VideoProvider` ABC
@@ -347,7 +348,7 @@ Per `.kiro/steering/documentation-policy.md`:
 - pytest: 7.4.4
 - pytest-asyncio: 0.23.3
 - pytest-mock: 3.12.0
-- Black: 88 char line length
+- Black: 100 char line length
 - Coverage target: 85% minimum, 90% goal
 
 ---
