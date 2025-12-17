@@ -84,20 +84,29 @@ class RateLimiter:
         "/api/v1/download": "download",
     }
 
+    # DoS protection: maximum number of unique API keys to track
+    MAX_API_KEYS: int = 10000
+
+    # Bucket inactivity threshold for cleanup (5 minutes)
+    BUCKET_INACTIVE_SECONDS: float = 300.0
+
     def __init__(
         self,
         limits: Optional[Dict[str, RateLimitConfig]] = None,
         endpoint_categories: Optional[Dict[str, str]] = None,
+        max_api_keys: Optional[int] = None,
     ) -> None:
         """Initialize rate limiter.
 
         Args:
             limits: Custom limits per category. Uses DEFAULT_LIMITS if not provided.
             endpoint_categories: Custom endpoint to category mapping.
+            max_api_keys: Maximum API keys to track. Prevents memory exhaustion DoS.
         """
         self.limits = limits or self.DEFAULT_LIMITS.copy()
         self.endpoint_categories = endpoint_categories or self.ENDPOINT_CATEGORIES.copy()
         self._buckets: Dict[str, Dict[str, TokenBucket]] = defaultdict(dict)
+        self._max_api_keys = max_api_keys or self.MAX_API_KEYS
 
     def configure_limits(
         self,
@@ -153,6 +162,34 @@ class RateLimiter:
 
         return None
 
+    def _cleanup_inactive_buckets(self) -> int:
+        """Remove buckets that haven't been used recently.
+
+        Returns:
+            Number of API keys removed
+        """
+        now = time.time()
+        threshold = now - self.BUCKET_INACTIVE_SECONDS
+        keys_to_remove = []
+
+        for api_key, categories in self._buckets.items():
+            # Check if all buckets for this key are inactive
+            all_inactive = all(bucket.last_refill < threshold for bucket in categories.values())
+            if all_inactive:
+                keys_to_remove.append(api_key)
+
+        for key in keys_to_remove:
+            del self._buckets[key]
+
+        if keys_to_remove:
+            logger.debug(
+                "rate_limiter_cleanup",
+                removed_keys=len(keys_to_remove),
+                remaining_keys=len(self._buckets),
+            )
+
+        return len(keys_to_remove)
+
     def _get_bucket(self, api_key: str, category: str) -> TokenBucket:
         """Get or create a token bucket for an API key and category.
 
@@ -163,6 +200,17 @@ class RateLimiter:
         Returns:
             TokenBucket for this key/category combination
         """
+        # DoS protection: cleanup inactive buckets if limit reached
+        if api_key not in self._buckets and len(self._buckets) >= self._max_api_keys:
+            self._cleanup_inactive_buckets()
+            # If still at limit after cleanup, log warning
+            if len(self._buckets) >= self._max_api_keys:
+                logger.warning(
+                    "rate_limiter_at_capacity",
+                    max_api_keys=self._max_api_keys,
+                    current_keys=len(self._buckets),
+                )
+
         if category not in self._buckets[api_key]:
             config = self.limits.get(category)
             if config is None:

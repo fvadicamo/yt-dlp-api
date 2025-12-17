@@ -56,7 +56,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """
         super().__init__(app)
         self.rate_limiter = rate_limiter or get_rate_limiter()
-        self.excluded_paths = excluded_paths or self.DEFAULT_EXCLUDED_PATHS
+        # Use 'is None' to allow explicit empty frozenset (rate limit all paths)
+        self.excluded_paths = (
+            excluded_paths if excluded_paths is not None else self.DEFAULT_EXCLUDED_PATHS
+        )
 
     def _is_excluded_path(self, path: str) -> bool:
         """Check if path should be excluded from rate limiting.
