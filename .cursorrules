@@ -1,0 +1,186 @@
+# Cursor Rules - yt-dlp REST API
+
+This file contains operational rules for Cursor AI to follow project guidelines.
+For complete details, consult documents in `.kiro/steering/` and `.gemini/styleguide.md`.
+
+## Git Workflow - CRITICAL
+
+### Branch Protection
+- **NEVER** commit directly to `main` or `develop`
+- **ALWAYS** work on feature branches: `feature/<task-name-kebab-case>`
+- Check current branch before every commit: `git branch --show-current`
+- If on main/develop, create feature branch before proceeding
+
+### Commit Messages - Conventional Commits
+Required format: `type[optional-scope]: short subject`
+
+**Valid types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation
+- `style`: Formatting (no logic change)
+- `refactor`: Code refactoring
+- `perf`: Performance improvement
+- `test`: Adding/modifying tests
+- `build`: Build system or dependencies
+- `ci`: CI/CD
+- `chore`: Other (e.g., dependencies, config)
+- `revert`: Revert commit
+
+**Rules:**
+- Subject: imperative form, max ~72 characters, no period, no emoji
+- Optional body: explain what and why
+- Optional footer: ticket references (e.g., `Refs TICKET-123`)
+
+**Examples:**
+```
+feat: add cookie validation service
+fix: handle null values in video metadata
+refactor: extract retry logic to utility function
+test: add unit tests for provider manager
+docs: update README with cookie setup instructions
+```
+
+**Complete reference:** `.kiro/steering/git-workflow.md`
+
+## Code Style - Python
+
+### Formatting
+- **Line length**: 100 characters (configured in `pyproject.toml`)
+- **Formatter**: Black (100 chars) + isort
+- **Linter**: Flake8 (max-line-length 100)
+- **PEP 8**: Strictly compliant
+
+### Type Hints
+- **Required** for:
+  - All public functions (API endpoints, provider methods, public utilities)
+  - Parameters and return types
+  - Public class attributes
+- **Optional but recommended** for private/helper functions
+
+### Docstrings
+- **Google-style** for:
+  - FastAPI API endpoints (route handlers)
+  - Public methods of provider classes
+  - Public utility functions in `app/utils/`
+  - Configuration loaders
+- **Optional** for private functions, data models (Pydantic has field descriptions)
+- **NOT required** for test functions (test name is documentation)
+
+**Docstring template:**
+```python
+def function_name(param: str) -> dict[str, Any]:
+    """Brief description.
+
+    Args:
+        param: Parameter description
+
+    Returns:
+        Return value description
+
+    Raises:
+        ExceptionType: When this happens
+
+    Example:
+        >>> result = function_name("example")
+    """
+```
+
+### Async/Await
+- Use `async def` and `await` for I/O operations
+- **NEVER** use `requests.get()` or `time.sleep()` in async functions
+- Use `httpx.AsyncClient` or `asyncio.create_subprocess_exec` for async operations
+
+### Security Patterns
+- **Path traversal**: Validate and sanitize all paths
+- **Command injection**: Use yt-dlp Python API, never shell commands with user input
+- **Secrets**: Never hardcoded, always environment variables
+- **Logging**: Never log secrets, use redaction
+
+**Complete reference:** `.gemini/styleguide.md` (Security Requirements section)
+
+## Virtual Environment
+
+### Mandatory Requirement
+- **ALWAYS** use virtual environment, never system Python
+- Before executing Python/pip commands:
+  1. Check if venv exists: `ls venv/` or `test -d venv`
+  2. If not exists, create: `python3 -m venv venv`
+  3. Activate: `source venv/bin/activate` (macOS/Linux) or `venv\Scripts\activate` (Windows)
+  4. Verify: `which python` must show `venv/bin/python`
+
+**Complete reference:** `.kiro/steering/python-venv-requirement.md`
+
+## Documentation Policy
+
+### Minimalism
+- **Avoid** creating unnecessary new documentation files
+- **Prefer** adding to README.md or existing documentation
+- **Do NOT create** documentation for:
+  - One-time fixes or bug resolutions
+  - Test results or CI/CD troubleshooting
+  - Temporary workarounds
+  - Implementation details that will change
+  - Information duplicated in commit messages
+
+- **Create** documentation only for:
+  - Reusable setup guides (e.g., DEVELOPMENT_SETUP.md)
+  - Long-term architectural decisions
+  - API contracts for external consumers
+  - Configuration references for complex systems
+
+**Complete reference:** `.kiro/steering/documentation-policy.md`
+
+## Testing Standards
+
+### Coverage
+- **Minimum**: 80% overall
+- **Critical paths**: 95%+ (authentication, download logic, provider abstraction)
+- Configured in `pyproject.toml`: `--cov-fail-under=85`
+
+### Test Structure
+- `tests/unit/`: Fast, isolated tests
+- `tests/integration/`: API endpoint tests, database interactions
+- Use pytest fixtures for common setup
+- Async pattern: `@pytest.mark.asyncio` + `AsyncMock`
+
+**Complete reference:** `.gemini/styleguide.md` (Testing Standards section)
+
+## Quality Checks
+
+Before commit/push, run:
+```bash
+make check  # Format, lint, type-check, security, test
+```
+
+Configured tools:
+- **Black**: Formatting (100 chars)
+- **isort**: Import sorting
+- **Flake8**: Linting (max-line-length 100)
+- **mypy**: Type checking
+- **Bandit**: Security scanning
+- **pytest**: Testing with coverage
+
+## Quick Reference
+
+### Configuration Files
+- `pyproject.toml`: Centralized configuration (Black, isort, pytest, mypy, Bandit)
+- `.flake8`: Flake8 configuration (max-line-length 100)
+- `.pre-commit-config.yaml`: Automatic git hooks
+
+### Complete Documentation
+- **Git Workflow**: `.kiro/steering/git-workflow.md`
+- **Code Style**: `.gemini/styleguide.md`
+- **Python venv**: `.kiro/steering/python-venv-requirement.md`
+- **Documentation Policy**: `.kiro/steering/documentation-policy.md`
+- **Project Specs**: `.kiro/specs/yt-dlp-rest-api/` (requirements, design, tasks)
+
+## When to Create New Files
+
+Before creating a new documentation file, ask:
+1. Can this go in README.md?
+2. Can this be added to an existing document?
+3. Will this be referenced more than once?
+4. Will this still be relevant in 6 months?
+
+If #3 or #4 is "no", **do NOT create the file**.
