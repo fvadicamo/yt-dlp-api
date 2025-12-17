@@ -69,10 +69,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """
         # Normalize path
         normalized = path.rstrip("/")
+        if not normalized:
+            normalized = "/"
 
-        # Direct match or prefix match
-        return normalized in self.excluded_paths or any(
-            normalized.startswith(excluded) for excluded in self.excluded_paths
+        # Exact match or proper subpath match (e.g. /docs matches /docs/subpath)
+        # Avoids partial matches like /docs matching /docs-admin
+        return any(
+            normalized == excluded or normalized.startswith(excluded + "/")
+            for excluded in self.excluded_paths
         )
 
     async def dispatch(

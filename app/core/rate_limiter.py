@@ -4,6 +4,7 @@ This module provides per-API-key, per-category rate limiting with burst support.
 Satisfies Requirement 27: Rate Limiting.
 """
 
+import math
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -27,12 +28,12 @@ class TokenBucket:
 
     capacity: int
     refill_rate: float
-    tokens: float = field(default=0.0)
+    tokens: float = field(default=math.nan)
     last_refill: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:
         """Initialize tokens to capacity if not set."""
-        if self.tokens == 0.0:
+        if math.isnan(self.tokens):
             self.tokens = float(self.capacity)
 
 
@@ -298,11 +299,10 @@ def configure_rate_limiter(
     Returns:
         The configured RateLimiter instance
     """
-    global _rate_limiter
-    _rate_limiter = RateLimiter()
-    _rate_limiter.configure_limits(
+    limiter = get_rate_limiter()
+    limiter.configure_limits(
         metadata_rpm=metadata_rpm,
         download_rpm=download_rpm,
         burst_capacity=burst_capacity,
     )
-    return _rate_limiter
+    return limiter
