@@ -42,12 +42,19 @@ class RateLimitConfig:
     """Configuration for a rate limit category.
 
     Attributes:
-        rpm: Requests per minute
-        burst_capacity: Maximum burst size (tokens)
+        rpm: Requests per minute (must be positive)
+        burst_capacity: Maximum burst size (tokens, must be positive)
     """
 
     rpm: int
     burst_capacity: int = 20
+
+    def __post_init__(self) -> None:
+        """Validate configuration values."""
+        if self.rpm <= 0:
+            raise ValueError(f"rpm must be positive, got {self.rpm}")
+        if self.burst_capacity <= 0:
+            raise ValueError(f"burst_capacity must be positive, got {self.burst_capacity}")
 
 
 class RateLimiter:
@@ -138,9 +145,10 @@ class RateLimiter:
         if path in self.endpoint_categories:
             return self.endpoint_categories[path]
 
-        # Prefix match for paths like /api/v1/info?url=...
+        # Safe prefix match for query params (?url=...) or subpaths (/details)
+        # Avoids partial matches like /api/v1/info matching /api/v1/information
         for endpoint, category in self.endpoint_categories.items():
-            if path.startswith(endpoint):
+            if path.startswith(endpoint + "?") or path.startswith(endpoint + "/"):
                 return category
 
         return None
@@ -210,7 +218,12 @@ class RateLimiter:
         else:
             # Calculate retry after
             tokens_needed = 1.0 - bucket.tokens
-            retry_after = tokens_needed / bucket.refill_rate
+            # Defensive check: avoid ZeroDivisionError if refill_rate is 0
+            if bucket.refill_rate > 0:
+                retry_after = tokens_needed / bucket.refill_rate
+            else:
+                # No refill configured, use 1 hour as fallback
+                retry_after = 3600.0
 
             logger.info(
                 "rate_limit_exceeded",
