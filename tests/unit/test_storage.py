@@ -490,13 +490,17 @@ class TestGlobalFunctions(TestStorageConfig):
 
     def test_get_storage_manager_not_configured(self) -> None:
         """Test get_storage_manager raises when not configured."""
-        # Reset global state
         import app.services.storage as storage_module
 
-        storage_module._storage_manager = None
+        # Save and restore global state to avoid side effects on other tests
+        original_manager = storage_module._storage_manager
+        try:
+            storage_module._storage_manager = None
 
-        with pytest.raises(RuntimeError, match="not configured"):
-            get_storage_manager()
+            with pytest.raises(RuntimeError, match="not configured"):
+                get_storage_manager()
+        finally:
+            storage_module._storage_manager = original_manager
 
 
 class TestCleanupResultDataclass:

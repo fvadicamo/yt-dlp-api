@@ -7,8 +7,10 @@ This module implements requirements 22, 24, and 25:
 """
 
 import asyncio
+import os
 import shutil
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional, Set
@@ -94,11 +96,12 @@ class StorageManager:
                 self.output_dir.mkdir(parents=True, exist_ok=True)
                 logger.info("output_directory_created", path=str(self.output_dir))
 
-            # Verify write permissions by creating a test file
-            test_file = self.output_dir / ".write_test"
+            # Verify write permissions by creating a test file with unique name
+            # to avoid race conditions in multi-worker scenarios
+            test_file = self.output_dir / f".write_test_{os.getpid()}_{uuid.uuid4().hex}"
             try:
                 test_file.touch()
-                test_file.unlink()
+                test_file.unlink(missing_ok=True)
             except PermissionError as e:
                 raise StorageError(
                     f"Insufficient permissions to write to output directory: {self.output_dir}"
