@@ -1,8 +1,8 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2025-12-16
+**Last Updated**: 2025-12-19
 **Branch**: `develop`
-**Current Task**: 6 - Rate Limiting System
+**Current Task**: 7 - Storage and File Management
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
 
 ---
@@ -19,6 +19,10 @@
   - 5.2: Template processor (path traversal prevention)
   - 5.3: API key authentication
   - 5.4: Security tests (102 tests)
+- [x] Task 6: Rate Limiting System (PR #6 merged)
+  - 6.1: Token bucket rate limiter
+  - 6.2: Rate limiting middleware
+  - 6.3: Rate limiter tests
 
 ### MVP Critical Completed
 - [x] Task 1.4: Configuration and logging tests

@@ -204,17 +204,17 @@ For rapid and robust delivery, the following are REQUIRED:
 
 ---
 
-- [ ] 5. Input Validation and Security
+- [x] 5. Input Validation and Security
   - Implement URL validation, template sanitization, and API key authentication
   - _Requirements: 7, 9, 31, 33_
 
-- [ ] 5.1 Implement input validation utilities
+- [x] 5.1 Implement input validation utilities
   - Create URL validator with domain whitelist (youtube.com, youtu.be)
   - Implement format ID regex validation
   - Add parameter type and range validation
   - _Requirements: 31_
 
-- [ ] 5.2 Implement template processor
+- [x] 5.2 Implement template processor
   - Create TemplateProcessor class for output templates
   - Add path traversal prevention
   - Implement filesystem character sanitization
@@ -222,7 +222,7 @@ For rapid and robust delivery, the following are REQUIRED:
   - Implement filename collision handling with numeric suffix
   - _Requirements: 7, 31_
 
-- [ ] 5.3 Implement API key authentication
+- [x] 5.3 Implement API key authentication
   - Create auth middleware for API key validation
   - Add API key extraction from X-API-Key header
   - Implement multi-key support
@@ -230,21 +230,22 @@ For rapid and robust delivery, the following are REQUIRED:
   - Exclude /health, /docs endpoints from authentication
   - _Requirements: 9, 33_
 
-- [ ] 5.4 Write security tests (CRITICAL)
+- [x] 5.4 Write security tests (CRITICAL)
   - Test path traversal prevention
   - Test URL validation with malicious inputs
   - Test API key authentication and rejection
   - Test sensitive data redaction in logs
   - Test template sanitization edge cases
   - _Requirements: 7, 9, 31, 33_
+  - **Completed**: PR #5 merged, 102 security tests
 
 ---
 
-- [ ] 6. Rate Limiting System
+- [x] 6. Rate Limiting System
   - Implement token bucket rate limiter with per-API-key limits
   - _Requirements: 27_
 
-- [ ] 6.1 Implement token bucket rate limiter
+- [x] 6.1 Implement token bucket rate limiter
   - Create TokenBucket dataclass with capacity, refill_rate, tokens
   - Implement RateLimiter class with per-API-key, per-category buckets
   - Add token refill logic based on elapsed time
@@ -252,19 +253,20 @@ For rapid and robust delivery, the following are REQUIRED:
   - Add burst capacity support (20 tokens)
   - _Requirements: 27_
 
-- [ ] 6.2 Create rate limiting middleware
+- [x] 6.2 Create rate limiting middleware
   - Implement rate_limit_middleware for FastAPI
   - Add endpoint category detection (metadata vs download)
   - Return HTTP 429 with Retry-After header when limit exceeded
   - Log rate limiting events with API key hash
   - _Requirements: 27_
 
-- [ ]* 6.3 Write rate limiter tests
+- [x] 6.3 Write rate limiter tests
   - Test token bucket refill logic
   - Test rate limit enforcement per category
   - Test burst allowance behavior
   - Test Retry-After header calculation
   - _Requirements: 27_
+  - **Completed**: PR #6 merged
 
 ---
 
