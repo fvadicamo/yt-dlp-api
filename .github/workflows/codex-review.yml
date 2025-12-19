@@ -1,0 +1,84 @@
+name: Codex Code Review
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  codex-review:
+    name: Codex Review
+    runs-on: ubuntu-latest
+
+    # Only run when someone comments "@codex review" on a PR
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@codex review')
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR details
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('head_sha', pr.data.head.sha);
+            core.setOutput('base_ref', pr.data.base.ref);
+
+      - name: Checkout PR head
+        run: git checkout ${{ steps.pr.outputs.head_sha }}
+
+      - name: React to comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'eyes'
+            });
+
+      - name: Run Codex Review
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: |
+            Review this pull request for:
+            - Security vulnerabilities (command injection, path traversal)
+            - Async/await correctness
+            - Type hint completeness
+            - Error handling
+            - Test coverage
+
+            Focus on actionable feedback. Be concise.
+
+            Changed files:
+            $(git diff ${{ steps.pr.outputs.base_ref }}...HEAD --name-only)
+          sandbox: read-only
+
+      - name: Post review comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const review = `${{ steps.codex.outputs.final-message }}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## Codex Code Review\n\n${review}\n\n---\n_Triggered by @${{ github.event.comment.user.login }}_`
+            });
