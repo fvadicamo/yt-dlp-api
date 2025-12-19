@@ -19,6 +19,8 @@
 2. **Path traversal**: Validate all user-provided paths
 3. **Secrets exposure**: Redact API keys, passwords in logs
 4. **Cookie security**: Proper file permissions, no path leaks
+5. **Denial of Service (DoS)**: Check for resource exhaustion (e.g., large file sizes, long-running requests). See `StorageManager` for existing controls.
+6. **Server-Side Request Forgery (SSRF)**: Ensure outgoing requests are to whitelisted domains. See `URLValidator` for existing controls.
 
 ### Code Quality
 
@@ -26,6 +28,7 @@
 - **Type hints**: Complete annotations on all public functions
 - **Error handling**: Structured exceptions, proper logging
 - **Test coverage**: Minimum 85%, critical paths 95%
+- **Complexity**: Adhere to complexity limits (McCabe complexity < 10) to keep functions maintainable
 
 ## Code Style
 
