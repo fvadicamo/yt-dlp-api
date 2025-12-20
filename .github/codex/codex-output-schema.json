@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "findings": {
+      "type": "array",
+      "description": "List of code review findings with exact file and line locations",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Brief summary of the issue"
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Detailed explanation and suggested fix"
+          },
+          "confidence_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Confidence in this finding (0-1)"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3,
+            "description": "Priority level: 0=critical, 1=high, 2=medium, 3=low"
+          },
+          "code_location": {
+            "type": "object",
+            "properties": {
+              "absolute_file_path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Path to the file relative to repository root"
+              },
+              "line_range": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Starting line number"
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Ending line number"
+                  }
+                },
+                "required": ["start", "end"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["absolute_file_path", "line_range"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["title", "body", "confidence_score", "priority", "code_location"],
+        "additionalProperties": false
+      }
+    },
+    "overall_explanation": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Summary of the overall review"
+    }
+  },
+  "required": ["findings", "overall_explanation"],
+  "additionalProperties": false
+}

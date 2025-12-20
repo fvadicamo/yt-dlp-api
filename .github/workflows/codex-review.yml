@@ -19,9 +19,6 @@ jobs:
       pull-requests: write
       issues: write
 
-    outputs:
-      final_message: ${{ steps.codex.outputs.final-message }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -72,49 +69,132 @@ jobs:
               content: 'eyes'
             });
 
+      - name: Prepare prompt file
+        run: |
+          # Replace placeholders in prompt template
+          sed -e "s|{{ PR_NUMBER }}|${{ github.event.issue.number }}|g" \
+              -e "s|{{ REPOSITORY }}|${{ github.repository }}|g" \
+              -e "s|{{ BASE_SHA }}|${{ steps.pr.outputs.base_sha }}|g" \
+              -e "s|{{ HEAD_SHA }}|${{ steps.pr.outputs.head_sha }}|g" \
+              -e "s|{{ PR_TITLE }}|${{ steps.pr.outputs.title }}|g" \
+              .github/codex/review-prompt.md > /tmp/codex-prompt.md
+
+          # Append PR body (handle multiline)
+          echo "" >> /tmp/codex-prompt.md
+          cat << 'PRBODY' >> /tmp/codex-prompt.md
+          ${{ steps.pr.outputs.body }}
+          PRBODY
+
+          # Append changed files
+          echo "" >> /tmp/codex-prompt.md
+          echo "Changed files:" >> /tmp/codex-prompt.md
+          echo "${{ steps.changed.outputs.files }}" >> /tmp/codex-prompt.md
+
       - name: Run Codex Review
         id: codex
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          prompt: |
-            This is PR #${{ github.event.issue.number }} for ${{ github.repository }}.
-
-            Review ONLY the changes introduced by the PR. Consider:
-              git log --oneline ${{ steps.pr.outputs.base_sha }}...${{ steps.pr.outputs.head_sha }}
-
-            Focus on:
-            - Security vulnerabilities (command injection, path traversal)
-            - Async/await correctness
-            - Type hint completeness
-            - Error handling
-            - Test coverage
-
-            Be concise and specific in your feedback.
-
-            Pull request title and body:
-            ----
-            ${{ steps.pr.outputs.title }}
-            ${{ steps.pr.outputs.body }}
-
-            Changed files:
-            ${{ steps.changed.outputs.files }}
+          prompt-file: /tmp/codex-prompt.md
+          output-schema-file: .github/codex/codex-output-schema.json
+          output-file: codex-output.json
           sandbox: read-only
           safety-strategy: drop-sudo
 
-      - name: Post review comment
-        if: steps.codex.outputs.final-message != ''
-        uses: actions/github-script@v7
+      - name: Post inline review comments
+        if: success()
         env:
-          CODEX_FINAL_MESSAGE: ${{ steps.codex.outputs.final-message }}
-          TRIGGER_USER: ${{ github.event.comment.user.login }}
-        with:
-          script: |
-            const message = process.env.CODEX_FINAL_MESSAGE;
-            const triggerUser = process.env.TRIGGER_USER;
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `## Codex Code Review\n\n${message}\n\n---\n_Triggered by @${triggerUser}_`
-            });
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          if [ ! -f codex-output.json ]; then
+            echo "No Codex output file found"
+            exit 0
+          fi
+
+          # Check if there are findings
+          FINDINGS_COUNT=$(jq '.findings | length' codex-output.json)
+          echo "Found $FINDINGS_COUNT findings"
+
+          if [ "$FINDINGS_COUNT" -eq 0 ]; then
+            echo "No findings to post"
+            # Post summary comment only
+            SUMMARY=$(jq -r '.overall_explanation' codex-output.json)
+            gh pr comment "$PR_NUMBER" --body "## Codex Code Review
+
+          No issues found.
+
+          **Summary**: $SUMMARY
+
+          ---
+          _Triggered by @${{ github.event.comment.user.login }}_"
+            exit 0
+          fi
+
+          # Post each finding as an inline comment
+          jq -c '.findings[]' codex-output.json | while IFS= read -r finding; do
+            TITLE=$(echo "$finding" | jq -r '.title')
+            BODY=$(echo "$finding" | jq -r '.body')
+            PRIORITY=$(echo "$finding" | jq -r '.priority')
+            CONFIDENCE=$(echo "$finding" | jq -r '.confidence_score')
+            FILE_PATH=$(echo "$finding" | jq -r '.code_location.absolute_file_path')
+            LINE_START=$(echo "$finding" | jq -r '.code_location.line_range.start')
+            LINE_END=$(echo "$finding" | jq -r '.code_location.line_range.end')
+
+            # Map priority to label
+            case $PRIORITY in
+              0) PRIORITY_LABEL="CRITICAL" ;;
+              1) PRIORITY_LABEL="HIGH" ;;
+              2) PRIORITY_LABEL="MEDIUM" ;;
+              3) PRIORITY_LABEL="LOW" ;;
+              *) PRIORITY_LABEL="INFO" ;;
+            esac
+
+            # Build comment body
+            COMMENT_BODY="**[$PRIORITY_LABEL]** $TITLE
+
+          $BODY
+
+          _Confidence: ${CONFIDENCE}_"
+
+            # Create payload for GitHub API
+            if [ "$LINE_START" -eq "$LINE_END" ]; then
+              # Single line comment
+              PAYLOAD=$(jq -n \
+                --arg body "$COMMENT_BODY" \
+                --arg commit_id "$HEAD_SHA" \
+                --arg path "$FILE_PATH" \
+                --argjson line "$LINE_END" \
+                '{body: $body, commit_id: $commit_id, path: $path, line: $line, side: "RIGHT"}')
+            else
+              # Multi-line comment
+              PAYLOAD=$(jq -n \
+                --arg body "$COMMENT_BODY" \
+                --arg commit_id "$HEAD_SHA" \
+                --arg path "$FILE_PATH" \
+                --argjson line "$LINE_END" \
+                --argjson start_line "$LINE_START" \
+                '{body: $body, commit_id: $commit_id, path: $path, line: $line, start_line: $start_line, side: "RIGHT", start_side: "RIGHT"}')
+            fi
+
+            # Post comment via GitHub API
+            echo "Posting comment on $FILE_PATH:$LINE_START-$LINE_END"
+            curl -sS -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" \
+              -d "$PAYLOAD" || echo "Failed to post comment (file may not be in diff)"
+          done
+
+          # Post summary comment
+          SUMMARY=$(jq -r '.overall_explanation' codex-output.json)
+          gh pr comment "$PR_NUMBER" --body "## Codex Code Review Summary
+
+          Found **$FINDINGS_COUNT** issue(s). See inline comments above.
+
+          **Overall**: $SUMMARY
+
+          ---
+          _Triggered by @${{ github.event.comment.user.login }}_"
