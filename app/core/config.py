@@ -78,6 +78,7 @@ class DownloadsConfig(BaseConfigSection):
 
     max_concurrent: int = 5
     queue_size: int = 100
+    job_ttl: int = 24  # hours - time to keep completed/failed jobs
 
     model_config = SettingsConfigDict(env_prefix="APP_DOWNLOADS_")
 
