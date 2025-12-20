@@ -8,8 +8,8 @@ This module implements requirement 15: Job Status Tracking.
 
 import asyncio
 import uuid
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable, Dict, List, Optional
 
 import structlog
 
@@ -31,14 +31,21 @@ class JobService:
     Jobs are retained for a configurable TTL (default 24 hours).
     """
 
-    def __init__(self, job_ttl_hours: int = 24) -> None:
+    def __init__(
+        self,
+        job_ttl_hours: int = 24,
+        on_job_expired: Optional[Callable[[str], None]] = None,
+    ) -> None:
         """Initialize the job service.
 
         Args:
             job_ttl_hours: Time-to-live for completed/failed jobs in hours.
+            on_job_expired: Optional callback called with job_id when a job expires.
+                           Used to unregister files from StorageManager.
         """
         self.job_ttl_hours = job_ttl_hours
         self._jobs: Dict[str, Job] = {}
+        self._on_job_expired = on_job_expired
 
         logger.debug(
             "job_service_initialized",
@@ -68,7 +75,7 @@ class JobService:
             params=params or {},
             max_retries=max_retries,
             status=JobStatus.PENDING,
-            created_at=datetime.now(),
+            created_at=datetime.now(timezone.utc),
         )
 
         self._jobs[job_id] = job
@@ -136,9 +143,9 @@ class JobService:
 
         # Update timestamp based on status transition
         if status == JobStatus.PROCESSING and old_status == JobStatus.PENDING:
-            job.started_at = datetime.now()
+            job.started_at = datetime.now(timezone.utc)
         elif status in (JobStatus.COMPLETED, JobStatus.FAILED):
-            job.completed_at = datetime.now()
+            job.completed_at = datetime.now(timezone.utc)
 
         # Update additional fields
         for key, value in kwargs.items():
@@ -321,7 +328,7 @@ class JobService:
         Returns:
             Number of jobs removed.
         """
-        cutoff = datetime.now() - timedelta(hours=self.job_ttl_hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=self.job_ttl_hours)
         terminal_statuses = {JobStatus.COMPLETED, JobStatus.FAILED}
 
         expired_ids = [
@@ -331,6 +338,9 @@ class JobService:
         ]
 
         for job_id in expired_ids:
+            # Call expiration callback before deleting (for StorageManager cleanup)
+            if self._on_job_expired is not None:
+                self._on_job_expired(job_id)
             del self._jobs[job_id]
 
         if expired_ids:
@@ -391,17 +401,25 @@ async def job_cleanup_scheduler(
 _job_service: Optional[JobService] = None
 
 
-def configure_job_service(job_ttl_hours: int = 24) -> JobService:
+def configure_job_service(
+    job_ttl_hours: int = 24,
+    on_job_expired: Optional[Callable[[str], None]] = None,
+) -> JobService:
     """Configure and initialize the global job service.
 
     Args:
         job_ttl_hours: Time-to-live for completed/failed jobs in hours.
+        on_job_expired: Optional callback called with job_id when a job expires.
+                       Used to unregister files from StorageManager.
 
     Returns:
         Configured JobService instance.
     """
     global _job_service
-    _job_service = JobService(job_ttl_hours=job_ttl_hours)
+    _job_service = JobService(
+        job_ttl_hours=job_ttl_hours,
+        on_job_expired=on_job_expired,
+    )
     return _job_service
 
 

@@ -4,7 +4,7 @@ This module implements requirement 15: Job Status Tracking.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
 
@@ -47,7 +47,7 @@ class Job:
     file_path: Optional[str] = None
     file_size: Optional[int] = None
     duration: Optional[float] = None  # download duration in seconds
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     queue_position: Optional[int] = None

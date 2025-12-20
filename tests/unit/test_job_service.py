@@ -1,6 +1,6 @@
 """Tests for job service."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -356,7 +356,7 @@ class TestJobServiceCleanup:
         service.complete_job(job.job_id, "/path", 1000, 10.0)
 
         # Mock the created_at to be 25 hours ago
-        job.created_at = datetime.now() - timedelta(hours=25)
+        job.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
 
         # Run cleanup
         count = service.cleanup_expired_jobs()
@@ -372,7 +372,7 @@ class TestJobServiceCleanup:
         job = service.create_job(url="https://youtube.com/watch?v=abc")
 
         # Mock the created_at to be 25 hours ago
-        job.created_at = datetime.now() - timedelta(hours=25)
+        job.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
 
         # Run cleanup
         count = service.cleanup_expired_jobs()
@@ -395,6 +395,32 @@ class TestJobServiceCleanup:
         # Job should be preserved because it's recent
         assert count == 0
         assert service.get_job(job.job_id) is not None
+
+    def test_cleanup_calls_on_job_expired_callback(self) -> None:
+        """Test that cleanup calls the on_job_expired callback for each expired job."""
+        expired_job_ids: list[str] = []
+
+        def on_expired(job_id: str) -> None:
+            expired_job_ids.append(job_id)
+
+        service = JobService(job_ttl_hours=24, on_job_expired=on_expired)
+
+        # Create and complete two jobs
+        job1 = service.create_job(url="https://youtube.com/watch?v=abc")
+        job2 = service.create_job(url="https://youtube.com/watch?v=def")
+        service.complete_job(job1.job_id, "/path1", 1000, 10.0)
+        service.complete_job(job2.job_id, "/path2", 2000, 20.0)
+
+        # Mock the created_at to be 25 hours ago
+        job1.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        job2.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
+
+        # Run cleanup
+        count = service.cleanup_expired_jobs()
+
+        assert count == 2
+        assert job1.job_id in expired_job_ids
+        assert job2.job_id in expired_job_ids
 
 
 class TestJobServiceGlobalInstance:
