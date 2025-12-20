@@ -1,8 +1,8 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2025-12-19
+**Last Updated**: 2025-12-20
 **Branch**: `develop`
-**Current Task**: 7 - Storage and File Management
+**Current Task**: 9 - API Endpoints Implementation
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
 
 ---
@@ -23,6 +23,17 @@
   - 6.1: Token bucket rate limiter
   - 6.2: Rate limiting middleware
   - 6.3: Rate limiter tests
+- [x] Task 7: Storage and File Management (PR #7 merged)
+  - 7.1: Storage manager with disk monitoring
+  - 7.2: Automatic cleanup with age-based deletion
+  - 7.3: Cleanup scheduler
+  - 7.4: Storage management tests
+- [x] Task 8: Job Management System (PR pending)
+  - 8.1: Job data model (JobStatus enum, Job dataclass)
+  - 8.2: JobService with in-memory storage and TTL
+  - 8.3: DownloadQueue with priority and concurrency control
+  - 8.4: DownloadWorker with retry logic
+  - 8.5: Job management tests (57 tests)
 
 ### MVP Critical Completed
 - [x] Task 1.4: Configuration and logging tests
@@ -174,17 +185,14 @@ git push origin --delete feature/<task-name>
 
 ## 📊 Project Status
 
-**Coverage**: 92.65% (target: 85%, goal: 90%) ✅
-**Tests Passing**: 481 tests ✅
+**Coverage**: 88.03% (target: 85%, goal: 90%) ✅
+**Tests Passing**: 627 tests ✅
 **Branch**: `develop`
 
 ### Remaining Tasks for MVP
 
-**Core Implementation (6-13):**
-- [ ] Task 6: Rate Limiting System ← CURRENT
-- [ ] Task 7: Storage and File Management
-- [ ] Task 8: Job Management System
-- [ ] Task 9: API Endpoints Implementation
+**Core Implementation (9-13):**
+- [ ] Task 9: API Endpoints Implementation ← NEXT
 - [ ] Task 10: Error Handling and Monitoring
 - [ ] Task 11: Startup Validation
 - [ ] Task 12: FastAPI Application Assembly
