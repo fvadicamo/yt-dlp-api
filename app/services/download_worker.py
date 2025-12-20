@@ -284,7 +284,22 @@ class DownloadWorker:
 
             # Re-queue the job for retry
             # Use same priority to maintain fairness
-            await self.download_queue.enqueue(job_id)
+            try:
+                await self.download_queue.enqueue(job_id)
+            except ValueError as queue_error:
+                # Queue is full, fail the job instead of leaving it in RETRYING
+                self.job_service.fail_job(
+                    job_id,
+                    f"Retry failed: queue full. Original error: {str(error)}",
+                )
+                logger.error(
+                    "job_retry_failed_queue_full",
+                    job_id=job_id,
+                    retry_count=job.retry_count,
+                    queue_error=str(queue_error),
+                    original_error=str(error),
+                )
+                return
 
         else:
             # Max retries exceeded
