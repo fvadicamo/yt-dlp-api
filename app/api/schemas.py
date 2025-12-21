@@ -58,8 +58,6 @@ class VideoInfoResponse(BaseModel):
 class FormatsResponse(BaseModel):
     """Response for formats endpoint."""
 
-    video_id: str
-    title: str
     formats: List[VideoFormatResponse]
     video_audio: List[VideoFormatResponse] = Field(
         default_factory=list, description="Formats with video and audio"

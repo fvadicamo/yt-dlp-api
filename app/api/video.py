@@ -227,11 +227,8 @@ async def get_video_formats(
         # Get provider for URL
         provider = provider_manager.get_provider_for_url(url)
 
-        # Get formats
+        # Get formats (single API call, no redundant get_info)
         formats = await provider.list_formats(url)
-
-        # Also get basic video info for context
-        info = await provider.get_info(url, include_formats=False, include_subtitles=False)
 
         # Convert to response format
         format_responses = [
@@ -254,8 +251,6 @@ async def get_video_formats(
         audio_only = [f for f in format_responses if f.format_type == "audio-only"]
 
         response = FormatsResponse(
-            video_id=info["video_id"],
-            title=info["title"],
             formats=format_responses,
             video_audio=video_audio,
             video_only=video_only,
@@ -264,7 +259,7 @@ async def get_video_formats(
 
         logger.info(
             "formats_retrieved",
-            video_id=info["video_id"],
+            url=url,
             total_formats=len(formats),
         )
 
