@@ -322,11 +322,9 @@ class TestFormatsEndpoint:
         self,
         app: FastAPI,
         mock_provider_manager: MagicMock,
-        sample_video_info: dict,
     ) -> None:
         """Test successful formats retrieval."""
         mock_provider = MagicMock()
-        mock_provider.get_info = AsyncMock(return_value=sample_video_info)
         mock_provider.list_formats = AsyncMock(
             return_value=[
                 VideoFormat(
@@ -399,7 +397,7 @@ class TestDownloadEndpoint:
             json={"url": "https://www.youtube.com/watch?v=abc123", "async": True},
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 202  # Accepted for async job creation
         data = response.json()
         assert data["job_id"] == "job-123"
         assert data["status"] == "pending"
@@ -457,6 +455,108 @@ class TestDownloadEndpoint:
         assert response.status_code == 503
         data = response.json()
         assert data["detail"]["error_code"] == "QUEUE_FULL"
+
+    def test_download_sync_success(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """Test successful synchronous download."""
+        from datetime import datetime, timezone
+
+        # Create completed job
+        completed_job = Job(
+            job_id="job-123",
+            url="https://www.youtube.com/watch?v=abc123",
+            status=JobStatus.COMPLETED,
+            params={},
+            progress=100,
+            retry_count=0,
+            max_retries=3,
+            error_message=None,
+            file_path="/app/downloads/video.mp4",
+            file_size=10000000,
+            duration=120.5,
+            created_at=datetime.now(timezone.utc),
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+            queue_position=None,
+        )
+
+        mock_job_service.create_job.return_value = sample_job
+        mock_job_service.get_job.return_value = completed_job
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+
+        app.dependency_overrides[download.get_provider_manager] = lambda: mock_provider_manager
+        app.dependency_overrides[download.get_job_service] = lambda: mock_job_service
+        app.dependency_overrides[download.get_download_queue] = lambda: mock_download_queue
+        app.dependency_overrides[download.get_download_worker] = lambda: mock_download_worker
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/download",
+            json={"url": "https://www.youtube.com/watch?v=abc123", "async": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["file_path"] == "/app/downloads/video.mp4"
+        assert data["file_size"] == 10000000
+        assert data["duration"] == 120.5
+
+    def test_download_sync_failed(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """Test failed synchronous download."""
+        from datetime import datetime, timezone
+
+        # Create failed job
+        failed_job = Job(
+            job_id="job-123",
+            url="https://www.youtube.com/watch?v=abc123",
+            status=JobStatus.FAILED,
+            params={},
+            progress=0,
+            retry_count=3,
+            max_retries=3,
+            error_message="Video unavailable",
+            file_path=None,
+            file_size=None,
+            duration=None,
+            created_at=datetime.now(timezone.utc),
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+            queue_position=None,
+        )
+
+        mock_job_service.create_job.return_value = sample_job
+        mock_job_service.get_job.return_value = failed_job
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+
+        app.dependency_overrides[download.get_provider_manager] = lambda: mock_provider_manager
+        app.dependency_overrides[download.get_job_service] = lambda: mock_job_service
+        app.dependency_overrides[download.get_download_queue] = lambda: mock_download_queue
+        app.dependency_overrides[download.get_download_worker] = lambda: mock_download_worker
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/download",
+            json={"url": "https://www.youtube.com/watch?v=abc123", "async": False},
+        )
+
+        assert response.status_code == 404
+        data = response.json()
+        assert data["detail"]["error_code"] == "VIDEO_UNAVAILABLE"
 
 
 # ============================================================================
@@ -576,7 +676,7 @@ class TestSchemaValidation:
             },
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 202  # Accepted for async job creation
 
     def test_download_request_audio_format_invalid(
         self,
