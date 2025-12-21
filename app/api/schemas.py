@@ -4,7 +4,7 @@ This module provides Pydantic models for API request validation
 and response serialization.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -140,7 +140,7 @@ class JobStatusResponse(BaseModel):
 class ComponentHealth(BaseModel):
     """Health status of a single component."""
 
-    status: str  # "healthy" or "unhealthy"
+    status: Literal["healthy", "unhealthy"]
     version: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
 
@@ -148,7 +148,7 @@ class ComponentHealth(BaseModel):
 class HealthResponse(BaseModel):
     """Detailed health check response."""
 
-    status: str  # "healthy" or "unhealthy"
+    status: Literal["healthy", "unhealthy"]
     timestamp: str
     version: str
     uptime_seconds: float
@@ -158,13 +158,13 @@ class HealthResponse(BaseModel):
 class LivenessResponse(BaseModel):
     """Simple liveness check response."""
 
-    status: str
+    status: Literal["alive"]
 
 
 class ReadinessResponse(BaseModel):
     """Readiness check response."""
 
-    status: str
+    status: Literal["ready", "not_ready"]
     ready: bool
     message: Optional[str] = None
 

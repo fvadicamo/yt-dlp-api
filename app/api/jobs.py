@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.schemas import JobStatusResponse
 from app.middleware.auth import require_api_key
+from app.models.job import JobStatus
 from app.services.download_queue import DownloadQueue
 from app.services.job_service import JobNotFoundError, JobService
 
@@ -80,7 +81,7 @@ async def get_job_status(
 
     # Get queue position if job is pending
     queue_position = None
-    if job.status.value == "pending":
+    if job.status == JobStatus.PENDING:
         queue_position = download_queue.get_queue_position(job_id)
 
     response = JobStatusResponse(

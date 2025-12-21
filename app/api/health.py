@@ -7,9 +7,10 @@ This module implements requirements 11, 30, and 37:
 """
 
 import asyncio
+import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 import structlog
 from fastapi import APIRouter, status
@@ -86,9 +87,10 @@ async def _check_ffmpeg() -> ComponentHealth:
         stdout, _ = await result.communicate()
 
         if result.returncode == 0:
-            # Extract version from first line
-            first_line = stdout.decode().split("\n")[0]
-            version = first_line.split(" ")[2] if len(first_line.split(" ")) > 2 else "unknown"
+            # Extract version using regex for robustness
+            output = stdout.decode()
+            match = re.search(r"ffmpeg version (\S+)", output)
+            version = match.group(1) if match else "unknown"
             return ComponentHealth(status="healthy", version=version)
 
         return ComponentHealth(
@@ -279,7 +281,7 @@ async def health_check() -> JSONResponse:
 
     # Determine overall status
     all_healthy = all(c.status == "healthy" for c in components.values())
-    overall_status = "healthy" if all_healthy else "unhealthy"
+    overall_status: Literal["healthy", "unhealthy"] = "healthy" if all_healthy else "unhealthy"
 
     uptime = time.time() - _start_time
 
