@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api import admin, download, health, jobs, video
-from app.core.config import ConfigService
+from app.core.config import ConfigService, SecurityConfig
 from app.core.logging import configure_logging
 from app.core.rate_limiter import configure_rate_limiter
 from app.middleware.auth import configure_auth
@@ -181,10 +181,12 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Add CORS middleware
+    # Add CORS middleware with configurable origins
+    # Default ["*"] for development; override via APP_SECURITY_CORS_ORIGINS env var
+    security_config = SecurityConfig()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure appropriately for production
+        allow_origins=security_config.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

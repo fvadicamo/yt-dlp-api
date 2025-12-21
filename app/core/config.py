@@ -141,6 +141,7 @@ class SecurityConfig(BaseConfigSection):
 
     api_keys: List[str] = Field(default_factory=list)
     allow_degraded_start: bool = False
+    cors_origins: List[str] = Field(default_factory=lambda: ["*"])
 
     model_config = SettingsConfigDict(env_prefix="APP_SECURITY_")
 
