@@ -4,10 +4,9 @@ This module implements requirement 14: Download Endpoint.
 - POST /api/v1/download with async and sync modes
 """
 
-from typing import Any
-
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 
 from app.api.schemas import DownloadRequest, DownloadResponse, SyncDownloadResponse
 from app.core.template import TemplateProcessor
@@ -53,7 +52,6 @@ async def get_download_worker() -> DownloadWorker:
 
 @router.post(
     "/download",
-    response_model=DownloadResponse,
     dependencies=[Depends(require_api_key)],
     responses={
         200: {"description": "Sync download completed", "model": SyncDownloadResponse},
@@ -69,13 +67,13 @@ async def download_video(  # noqa: C901
     job_service: JobService = Depends(get_job_service),  # noqa: B008
     download_queue: DownloadQueue = Depends(get_download_queue),  # noqa: B008
     download_worker: DownloadWorker = Depends(get_download_worker),  # noqa: B008
-) -> Any:
+) -> JSONResponse:
     """
     Download a video.
 
     Supports two modes:
-    - async=true (default): Returns immediately with job_id for tracking
-    - async=false: Waits for download to complete and returns result
+    - async=true (default): Returns HTTP 202 with job_id for tracking
+    - async=false: Waits for download and returns HTTP 200 with result
 
     Args:
         request: Download request parameters
@@ -85,7 +83,7 @@ async def download_video(  # noqa: C901
         download_worker: Download worker instance
 
     Returns:
-        DownloadResponse for async mode, SyncDownloadResponse for sync mode
+        JSONResponse with DownloadResponse (202) or SyncDownloadResponse (200)
 
     Raises:
         HTTPException: If request is invalid or download fails
@@ -179,12 +177,16 @@ async def download_video(  # noqa: C901
             queue_position=position,
         )
 
-        return DownloadResponse(
+        response = DownloadResponse(
             job_id=job.job_id,
             status=job.status.value,
             created_at=job.created_at.isoformat(),
             queue_position=position,
             message="Download job created and queued",
+        )
+        return JSONResponse(
+            content=response.model_dump(),
+            status_code=status.HTTP_202_ACCEPTED,
         )
 
     else:
@@ -214,11 +216,15 @@ async def download_video(  # noqa: C901
                     file_path=updated_job.file_path,
                 )
 
-                return SyncDownloadResponse(
+                sync_response = SyncDownloadResponse(
                     file_path=updated_job.file_path or "",
                     file_size=updated_job.file_size or 0,
                     duration=updated_job.duration or 0.0,
                     format_id=request.format_id or "best",
+                )
+                return JSONResponse(
+                    content=sync_response.model_dump(),
+                    status_code=status.HTTP_200_OK,
                 )
 
             elif updated_job.status == JobStatus.FAILED:
