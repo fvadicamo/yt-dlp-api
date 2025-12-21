@@ -1,8 +1,8 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2025-12-20
+**Last Updated**: 2025-12-21
 **Branch**: `develop`
-**Current Task**: 9 - API Endpoints Implementation
+**Current Task**: 10 - Error Handling and Monitoring
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
 
 ---
@@ -28,12 +28,20 @@
   - 7.2: Automatic cleanup with age-based deletion
   - 7.3: Cleanup scheduler
   - 7.4: Storage management tests
-- [x] Task 8: Job Management System (PR pending)
+- [x] Task 8: Job Management System (PR #9 merged)
   - 8.1: Job data model (JobStatus enum, Job dataclass)
   - 8.2: JobService with in-memory storage and TTL
   - 8.3: DownloadQueue with priority and concurrency control
   - 8.4: DownloadWorker with retry logic
   - 8.5: Job management tests (57 tests)
+- [x] Task 9: API Endpoints Implementation (PR pending)
+  - 9.1: Health check endpoints (GET /health, /liveness, /readiness)
+  - 9.2: Video info endpoint (GET /api/v1/info)
+  - 9.3: Formats endpoint (GET /api/v1/formats)
+  - 9.4: Download endpoint (POST /api/v1/download)
+  - 9.5: Job status endpoint (GET /api/v1/jobs/{job_id})
+  - 9.6: Admin endpoints (existing from Task 8)
+  - 9.7: API endpoint tests (18 tests)
 
 ### MVP Critical Completed
 - [x] Task 1.4: Configuration and logging tests
@@ -191,9 +199,9 @@ git push origin --delete feature/<task-name>
 
 ### Remaining Tasks for MVP
 
-**Core Implementation (9-13):**
-- [ ] Task 9: API Endpoints Implementation ← NEXT
-- [ ] Task 10: Error Handling and Monitoring
+**Core Implementation (10-13):**
+- [x] Task 9: API Endpoints Implementation ✅ COMPLETE
+- [ ] Task 10: Error Handling and Monitoring ← NEXT
 - [ ] Task 11: Startup Validation
 - [ ] Task 12: FastAPI Application Assembly
 - [ ] Task 13: Docker Containerization

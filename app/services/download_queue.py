@@ -185,6 +185,42 @@ class DownloadQueue:
                 active_count=len(self._active_jobs),
             )
 
+    async def acquire_slot_for_sync(self, job_id: str, timeout: float = 0.0) -> bool:
+        """Try to acquire a download slot for synchronous processing.
+
+        This method is used for sync downloads to respect concurrency limits.
+        Unlike enqueue, it doesn't add the job to the queue, just acquires a slot.
+
+        Args:
+            job_id: The job's unique identifier.
+            timeout: Maximum time to wait for a slot (0 = non-blocking).
+
+        Returns:
+            True if slot was acquired, False if no slots available.
+        """
+        try:
+            if timeout > 0:
+                await asyncio.wait_for(self._semaphore.acquire(), timeout=timeout)
+            else:
+                # Non-blocking acquire
+                if not self._semaphore.locked():
+                    await self._semaphore.acquire()
+                else:
+                    return False
+
+            async with self._lock:
+                self._active_jobs.add(job_id)
+
+            logger.debug(
+                "sync_slot_acquired",
+                job_id=job_id,
+                active_count=len(self._active_jobs),
+            )
+            return True
+
+        except asyncio.TimeoutError:
+            return False
+
     def _update_positions(self) -> None:
         """Update queue positions for all jobs.
 
