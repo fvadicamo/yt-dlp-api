@@ -35,19 +35,17 @@ def reset_start_time() -> None:
 
 async def _check_ytdlp() -> ComponentHealth:
     """Check yt-dlp availability and version."""
+    proc = None
     try:
-        result = await asyncio.wait_for(
-            asyncio.create_subprocess_exec(
-                "yt-dlp",
-                "--version",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            ),
-            timeout=5.0,
+        proc = await asyncio.create_subprocess_exec(
+            "yt-dlp",
+            "--version",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await result.communicate()
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
 
-        if result.returncode == 0:
+        if proc.returncode == 0:
             version = stdout.decode().strip()
             return ComponentHealth(status="healthy", version=version)
 
@@ -56,6 +54,9 @@ async def _check_ytdlp() -> ComponentHealth:
             details={"error": "yt-dlp returned non-zero exit code"},
         )
     except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+            await proc.wait()
         return ComponentHealth(
             status="unhealthy",
             details={"error": "yt-dlp check timed out"},
@@ -74,19 +75,17 @@ async def _check_ytdlp() -> ComponentHealth:
 
 async def _check_ffmpeg() -> ComponentHealth:
     """Check ffmpeg availability and version."""
+    proc = None
     try:
-        result = await asyncio.wait_for(
-            asyncio.create_subprocess_exec(
-                "ffmpeg",
-                "-version",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            ),
-            timeout=5.0,
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-version",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await result.communicate()
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
 
-        if result.returncode == 0:
+        if proc.returncode == 0:
             # Extract version using regex for robustness
             output = stdout.decode()
             match = re.search(r"ffmpeg version (\S+)", output)
@@ -98,6 +97,9 @@ async def _check_ffmpeg() -> ComponentHealth:
             details={"error": "ffmpeg returned non-zero exit code"},
         )
     except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+            await proc.wait()
         return ComponentHealth(
             status="unhealthy",
             details={"error": "ffmpeg check timed out"},
@@ -116,19 +118,17 @@ async def _check_ffmpeg() -> ComponentHealth:
 
 async def _check_nodejs() -> ComponentHealth:
     """Check Node.js availability and version."""
+    proc = None
     try:
-        result = await asyncio.wait_for(
-            asyncio.create_subprocess_exec(
-                "node",
-                "--version",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            ),
-            timeout=5.0,
+        proc = await asyncio.create_subprocess_exec(
+            "node",
+            "--version",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await result.communicate()
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
 
-        if result.returncode == 0:
+        if proc.returncode == 0:
             version = stdout.decode().strip()
             # Check version >= 20
             major_version = int(version.lstrip("v").split(".")[0])
@@ -145,6 +145,9 @@ async def _check_nodejs() -> ComponentHealth:
             details={"error": "node returned non-zero exit code"},
         )
     except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+            await proc.wait()
         return ComponentHealth(
             status="unhealthy",
             details={"error": "node check timed out"},

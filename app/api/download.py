@@ -191,6 +191,18 @@ async def download_video(  # noqa: C901
 
     else:
         # Sync mode: process immediately and wait for result
+        # First, acquire a concurrency slot to respect limits
+        slot_acquired = await download_queue.acquire_slot_for_sync(job.job_id)
+        if not slot_acquired:
+            job_service.fail_job(job.job_id, "No download slots available")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error_code": "NO_SLOTS_AVAILABLE",
+                    "message": "All download slots are in use. Try again later or use async mode.",
+                },
+            )
+
         logger.info("sync_download_started", job_id=job.job_id)
 
         try:
@@ -275,3 +287,6 @@ async def download_video(  # noqa: C901
                     "message": str(e),
                 },
             )
+        finally:
+            # Always release the concurrency slot
+            await download_queue.release_slot(job.job_id)

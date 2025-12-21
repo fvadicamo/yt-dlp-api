@@ -59,6 +59,8 @@ def mock_download_queue() -> MagicMock:
     queue = MagicMock()
     queue.enqueue = AsyncMock(return_value=1)
     queue.get_queue_position = MagicMock(return_value=1)
+    queue.acquire_slot_for_sync = AsyncMock(return_value=True)
+    queue.release_slot = AsyncMock()
     return queue
 
 
