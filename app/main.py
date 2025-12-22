@@ -6,7 +6,6 @@ Implements requirements 12, 16, 19, 20, 29, 39, and 46.
 
 import asyncio
 import contextlib
-import re
 import time
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -41,7 +40,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware to track HTTP request metrics.
 
     Records request count and duration for all endpoints,
-    normalizing paths to reduce metric cardinality.
+    using FastAPI route templates to normalize paths.
     """
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -50,8 +49,10 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         duration = time.time() - start_time
 
-        # Normalize endpoint path to reduce metric label cardinality
-        endpoint = self._normalize_endpoint(request.url.path)
+        # Use FastAPI route template for normalized endpoint path
+        # Falls back to raw path for unmatched routes (e.g., 404s)
+        route = request.scope.get("route")
+        endpoint = route.path if route else request.url.path
 
         MetricsCollector.record_request(
             method=request.method,
@@ -61,23 +62,6 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         )
 
         return response
-
-    def _normalize_endpoint(self, path: str) -> str:
-        """Normalize endpoint path by replacing IDs with placeholders.
-
-        Args:
-            path: The URL path.
-
-        Returns:
-            Normalized path with IDs replaced.
-        """
-        # Replace UUIDs and job IDs with placeholder
-        normalized = re.sub(
-            r"/jobs/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}",
-            "/jobs/{job_id}",
-            path,
-        )
-        return normalized
 
 
 # Global service instances

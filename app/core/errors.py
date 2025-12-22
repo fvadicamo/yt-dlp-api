@@ -7,7 +7,7 @@ Implements Requirement 16: Standardized Error Responses.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 import structlog
 from fastapi import HTTPException, Request
@@ -135,6 +135,22 @@ ERROR_SUGGESTIONS: Dict[str, str] = {
 }
 
 
+# Exception type to error code mapping
+# Order matters: subclasses must come before their base classes
+EXCEPTION_TO_ERROR_CODE: Dict[Type[Exception], str] = {
+    InvalidURLError: ErrorCode.INVALID_URL,
+    VideoUnavailableError: ErrorCode.VIDEO_UNAVAILABLE,
+    FormatNotFoundError: ErrorCode.FORMAT_NOT_FOUND,
+    TranscodingError: ErrorCode.TRANSCODING_FAILED,
+    AuthenticationError: ErrorCode.AUTH_FAILED,
+    CookieError: ErrorCode.COOKIE_EXPIRED,
+    DownloadError: ErrorCode.DOWNLOAD_FAILED,
+    JobNotFoundError: ErrorCode.JOB_NOT_FOUND,
+    # ProviderError must be last (after its subclasses)
+    ProviderError: ErrorCode.PROVIDER_ERROR,
+}
+
+
 class APIError(Exception):
     """Structured API error that can be converted to ErrorDetail response.
 
@@ -169,32 +185,19 @@ class APIError(Exception):
 def map_exception_to_api_error(exc: Exception) -> APIError:
     """Map provider and service exceptions to APIError.
 
+    Uses EXCEPTION_TO_ERROR_CODE dictionary for maintainable type-based dispatch.
+    Dictionary order ensures subclasses are checked before their base classes.
+
     Args:
         exc: The exception to map.
 
     Returns:
         An APIError with the appropriate error code and message.
     """
-    if isinstance(exc, InvalidURLError):
-        return APIError(ErrorCode.INVALID_URL, str(exc))
-    elif isinstance(exc, VideoUnavailableError):
-        return APIError(ErrorCode.VIDEO_UNAVAILABLE, str(exc))
-    elif isinstance(exc, FormatNotFoundError):
-        return APIError(ErrorCode.FORMAT_NOT_FOUND, str(exc))
-    elif isinstance(exc, TranscodingError):
-        return APIError(ErrorCode.TRANSCODING_FAILED, str(exc))
-    elif isinstance(exc, AuthenticationError):
-        return APIError(ErrorCode.AUTH_FAILED, str(exc))
-    elif isinstance(exc, CookieError):
-        return APIError(ErrorCode.COOKIE_EXPIRED, str(exc))
-    elif isinstance(exc, DownloadError):
-        return APIError(ErrorCode.DOWNLOAD_FAILED, str(exc))
-    elif isinstance(exc, ProviderError):
-        return APIError(ErrorCode.PROVIDER_ERROR, str(exc))
-    elif isinstance(exc, JobNotFoundError):
-        return APIError(ErrorCode.JOB_NOT_FOUND, str(exc))
-    else:
-        return APIError(ErrorCode.INTERNAL_ERROR, "An unexpected error occurred")
+    for exc_type, error_code in EXCEPTION_TO_ERROR_CODE.items():
+        if isinstance(exc, exc_type):
+            return APIError(error_code, str(exc))
+    return APIError(ErrorCode.INTERNAL_ERROR, "An unexpected error occurred")
 
 
 def _build_error_response(

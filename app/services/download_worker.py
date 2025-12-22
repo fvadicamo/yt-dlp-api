@@ -161,9 +161,11 @@ class DownloadWorker:
             retry_count=job.retry_count,
         )
 
-        # Track download start time for metrics
+        # Track download metrics (default to failed, updated on success)
         start_time = time.time()
         provider_name = "youtube"  # Default provider name
+        download_status = "failed"
+        download_size = 0
 
         try:
             # Update status to PROCESSING
@@ -177,7 +179,10 @@ class DownloadWorker:
             result = await self._execute_download(job_id, provider)
 
             if result:
-                # Download succeeded
+                # Download succeeded - update metrics tracking
+                download_status = "success"
+                download_size = result.file_size
+
                 file_path = Path(result.file_path)
 
                 # Register the file with storage manager
@@ -191,15 +196,6 @@ class DownloadWorker:
                     duration=result.duration,
                 )
 
-                # Record success metrics
-                download_duration = time.time() - start_time
-                MetricsCollector.record_download(
-                    provider=provider_name,
-                    status="success",
-                    duration=download_duration,
-                    size=result.file_size,
-                )
-
                 logger.info(
                     "job_completed_successfully",
                     job_id=job_id,
@@ -209,25 +205,9 @@ class DownloadWorker:
                 )
 
         except DownloadError as e:
-            # Record failure metrics
-            download_duration = time.time() - start_time
-            MetricsCollector.record_download(
-                provider=provider_name,
-                status="failed",
-                duration=download_duration,
-                size=0,
-            )
             await self._handle_download_error(job_id, e)
 
         except ProviderError as e:
-            # Record failure metrics
-            download_duration = time.time() - start_time
-            MetricsCollector.record_download(
-                provider=provider_name,
-                status="failed",
-                duration=download_duration,
-                size=0,
-            )
             # Non-retriable provider error
             self.job_service.fail_job(job_id, str(e))
             logger.error(
@@ -237,14 +217,6 @@ class DownloadWorker:
             )
 
         except Exception as e:
-            # Record failure metrics
-            download_duration = time.time() - start_time
-            MetricsCollector.record_download(
-                provider=provider_name,
-                status="failed",
-                duration=download_duration,
-                size=0,
-            )
             # Unexpected error
             self.job_service.fail_job(job_id, f"Unexpected error: {str(e)}")
             logger.error(
@@ -255,6 +227,14 @@ class DownloadWorker:
             )
 
         finally:
+            # Record metrics once in finally block (reduces duplication)
+            download_duration = time.time() - start_time
+            MetricsCollector.record_download(
+                provider=provider_name,
+                status=download_status,
+                duration=download_duration,
+                size=download_size,
+            )
             # Release the download slot
             await self.download_queue.release_slot(job_id)
 
