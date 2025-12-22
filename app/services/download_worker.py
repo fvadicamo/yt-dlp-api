@@ -1,18 +1,21 @@
 """Download worker for processing queued download jobs.
 
-This module implements requirements 14, 15, and 26:
+This module implements requirements 14, 15, 26, and 29:
 - Req 14: Download endpoint with async job support
 - Req 15: Job status tracking with progress
 - Req 26: Concurrent download management
+- Req 29: Download metrics collection
 """
 
 import asyncio
 import contextlib
+import time
 from pathlib import Path
 from typing import Optional
 
 import structlog
 
+from app.core.metrics import MetricsCollector
 from app.models.video import DownloadResult
 from app.providers.base import VideoProvider
 from app.providers.exceptions import DownloadError, ProviderError
@@ -158,12 +161,17 @@ class DownloadWorker:
             retry_count=job.retry_count,
         )
 
+        # Track download start time for metrics
+        start_time = time.time()
+        provider_name = "youtube"  # Default provider name
+
         try:
             # Update status to PROCESSING
             self.job_service.start_processing(job_id)
 
             # Get the appropriate provider for the URL
             provider = self.provider_manager.get_provider_for_url(job.url)
+            provider_name = getattr(provider, "name", "youtube")
 
             # Execute the download
             result = await self._execute_download(job_id, provider)
@@ -183,6 +191,15 @@ class DownloadWorker:
                     duration=result.duration,
                 )
 
+                # Record success metrics
+                download_duration = time.time() - start_time
+                MetricsCollector.record_download(
+                    provider=provider_name,
+                    status="success",
+                    duration=download_duration,
+                    size=result.file_size,
+                )
+
                 logger.info(
                     "job_completed_successfully",
                     job_id=job_id,
@@ -192,9 +209,25 @@ class DownloadWorker:
                 )
 
         except DownloadError as e:
+            # Record failure metrics
+            download_duration = time.time() - start_time
+            MetricsCollector.record_download(
+                provider=provider_name,
+                status="failed",
+                duration=download_duration,
+                size=0,
+            )
             await self._handle_download_error(job_id, e)
 
         except ProviderError as e:
+            # Record failure metrics
+            download_duration = time.time() - start_time
+            MetricsCollector.record_download(
+                provider=provider_name,
+                status="failed",
+                duration=download_duration,
+                size=0,
+            )
             # Non-retriable provider error
             self.job_service.fail_job(job_id, str(e))
             logger.error(
@@ -204,6 +237,14 @@ class DownloadWorker:
             )
 
         except Exception as e:
+            # Record failure metrics
+            download_duration = time.time() - start_time
+            MetricsCollector.record_download(
+                provider=provider_name,
+                status="failed",
+                duration=download_duration,
+                size=0,
+            )
             # Unexpected error
             self.job_service.fail_job(job_id, f"Unexpected error: {str(e)}")
             logger.error(

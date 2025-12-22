@@ -1,22 +1,28 @@
 """FastAPI application entry point.
 
 This module assembles all components and creates the main application.
-Implements requirements 12, 19, 20, 39, and 46.
+Implements requirements 12, 16, 19, 20, 29, 39, and 46.
 """
 
 import asyncio
 import contextlib
+import re
+import time
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import Response
 
 from app import __version__
-from app.api import admin, download, health, jobs, video
+from app.api import admin, download, health, jobs, metrics, video
 from app.core.config import ConfigService, SecurityConfig
+from app.core.errors import APIError, global_exception_handler
 from app.core.logging import configure_logging
+from app.core.metrics import MetricsCollector, initialize_metrics
 from app.core.rate_limiter import configure_rate_limiter
 from app.middleware.auth import configure_auth
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -29,6 +35,50 @@ from app.services.job_service import configure_job_service, get_job_service
 from app.services.storage import configure_storage
 
 logger = structlog.get_logger(__name__)
+
+
+class MetricsMiddleware(BaseHTTPMiddleware):
+    """Middleware to track HTTP request metrics.
+
+    Records request count and duration for all endpoints,
+    normalizing paths to reduce metric cardinality.
+    """
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        """Process request and record metrics."""
+        start_time = time.time()
+        response = await call_next(request)
+        duration = time.time() - start_time
+
+        # Normalize endpoint path to reduce metric label cardinality
+        endpoint = self._normalize_endpoint(request.url.path)
+
+        MetricsCollector.record_request(
+            method=request.method,
+            endpoint=endpoint,
+            status=response.status_code,
+            duration=duration,
+        )
+
+        return response
+
+    def _normalize_endpoint(self, path: str) -> str:
+        """Normalize endpoint path by replacing IDs with placeholders.
+
+        Args:
+            path: The URL path.
+
+        Returns:
+            Normalized path with IDs replaced.
+        """
+        # Replace UUIDs and job IDs with placeholder
+        normalized = re.sub(
+            r"/jobs/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}",
+            "/jobs/{job_id}",
+            path,
+        )
+        return normalized
+
 
 # Global service instances
 _provider_manager: ProviderManager | None = None
@@ -56,6 +106,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global _provider_manager, _cookie_service, _cleanup_task
 
     logger.info("Application starting", version=__version__)
+
+    # Initialize metrics with application version
+    initialize_metrics(__version__)
 
     # Load configuration
     config_service = ConfigService()
@@ -192,8 +245,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Add metrics middleware (before rate limiting to capture all requests)
+    app.add_middleware(MetricsMiddleware)
+
     # Add rate limiting middleware
     app.add_middleware(RateLimitMiddleware)
+
+    # Register global exception handlers
+    app.add_exception_handler(Exception, global_exception_handler)
+    app.add_exception_handler(APIError, global_exception_handler)
 
     # Override dependency injection for routers
 
@@ -219,6 +279,7 @@ def create_app() -> FastAPI:
     app.include_router(download.router)
     app.include_router(jobs.router)
     app.include_router(admin.router)
+    app.include_router(metrics.router)
 
     return app
 

@@ -131,12 +131,14 @@ class TestHealthEndpoints:
     @patch("app.api.health._check_ytdlp")
     @patch("app.api.health._check_ffmpeg")
     @patch("app.api.health._check_nodejs")
+    @patch("app.api.health._check_youtube_connectivity")
     @patch("app.api.health._check_storage")
     @patch("app.api.health._check_cookies")
     def test_health_all_healthy(
         self,
         mock_cookies: MagicMock,
         mock_storage: MagicMock,
+        mock_youtube: MagicMock,
         mock_nodejs: MagicMock,
         mock_ffmpeg: MagicMock,
         mock_ytdlp: MagicMock,
@@ -148,6 +150,7 @@ class TestHealthEndpoints:
         mock_ytdlp.return_value = ComponentHealth(status="healthy", version="2024.01.01")
         mock_ffmpeg.return_value = ComponentHealth(status="healthy", version="6.0")
         mock_nodejs.return_value = ComponentHealth(status="healthy", version="v20.0.0")
+        mock_youtube.return_value = ComponentHealth(status="healthy", details={"latency_ms": 500})
         mock_storage.return_value = ComponentHealth(
             status="healthy", details={"available_gb": 100.0, "used_percent": 50.0}
         )
@@ -162,6 +165,7 @@ class TestHealthEndpoints:
         data = response.json()
         assert data["status"] == "healthy"
         assert "components" in data
+        assert "youtube_connectivity" in data["components"]
 
     @patch("app.api.health._check_ytdlp")
     @patch("app.api.health._check_ffmpeg")
