@@ -1,18 +1,21 @@
 """Download worker for processing queued download jobs.
 
-This module implements requirements 14, 15, and 26:
+This module implements requirements 14, 15, 26, and 29:
 - Req 14: Download endpoint with async job support
 - Req 15: Job status tracking with progress
 - Req 26: Concurrent download management
+- Req 29: Download metrics collection
 """
 
 import asyncio
 import contextlib
+import time
 from pathlib import Path
 from typing import Optional
 
 import structlog
 
+from app.core.metrics import MetricsCollector
 from app.models.video import DownloadResult
 from app.providers.base import VideoProvider
 from app.providers.exceptions import DownloadError, ProviderError
@@ -158,18 +161,28 @@ class DownloadWorker:
             retry_count=job.retry_count,
         )
 
+        # Track download metrics (default to failed, updated on success)
+        start_time = time.time()
+        provider_name = "youtube"  # Default provider name
+        download_status = "failed"
+        download_size = 0
+
         try:
             # Update status to PROCESSING
             self.job_service.start_processing(job_id)
 
             # Get the appropriate provider for the URL
             provider = self.provider_manager.get_provider_for_url(job.url)
+            provider_name = getattr(provider, "name", "youtube")
 
             # Execute the download
             result = await self._execute_download(job_id, provider)
 
             if result:
-                # Download succeeded
+                # Download succeeded - update metrics tracking
+                download_status = "success"
+                download_size = result.file_size
+
                 file_path = Path(result.file_path)
 
                 # Register the file with storage manager
@@ -214,6 +227,14 @@ class DownloadWorker:
             )
 
         finally:
+            # Record metrics once in finally block (reduces duplication)
+            download_duration = time.time() - start_time
+            MetricsCollector.record_download(
+                provider=provider_name,
+                status=download_status,
+                duration=download_duration,
+                size=download_size,
+            )
             # Release the download slot
             await self.download_queue.release_slot(job_id)
 

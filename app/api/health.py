@@ -192,6 +192,77 @@ def _check_storage() -> ComponentHealth:
         )
 
 
+async def _check_youtube_connectivity() -> ComponentHealth:
+    """Check YouTube connectivity with a lightweight test.
+
+    Performs a quick yt-dlp simulation on a known public video
+    to verify YouTube is accessible and the API can communicate
+    with YouTube's servers.
+
+    Uses "Me at the zoo" (jNQXAC9IVRw) - the first YouTube video ever uploaded,
+    which is unlikely to be removed or made private.
+
+    Timeout: 2 seconds (per Req 30 acceptance criteria).
+    """
+    proc = None
+    start_time = time.time()
+    test_video_id = "jNQXAC9IVRw"
+    test_url = f"https://www.youtube.com/watch?v={test_video_id}"
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "yt-dlp",
+            "--simulate",
+            "--no-playlist",
+            "--skip-download",
+            "--print",
+            "id",
+            test_url,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=2.0)
+
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        if proc.returncode == 0 and test_video_id.encode() in stdout:
+            return ComponentHealth(
+                status="healthy",
+                details={"latency_ms": latency_ms},
+            )
+
+        # Log stderr server-side for debugging, don't expose to clients
+        if stderr:
+            logger.warning(
+                "youtube_connectivity_check_failed",
+                returncode=proc.returncode,
+                stderr=stderr.decode()[:500],
+            )
+
+        return ComponentHealth(
+            status="unhealthy",
+            details={"error": "YouTube connectivity test failed"},
+        )
+    except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+            await proc.wait()
+        return ComponentHealth(
+            status="unhealthy",
+            details={"error": "YouTube connectivity test timed out (>2s)"},
+        )
+    except FileNotFoundError:
+        return ComponentHealth(
+            status="unhealthy",
+            details={"error": "yt-dlp not found for YouTube connectivity test"},
+        )
+    except Exception as e:
+        return ComponentHealth(
+            status="unhealthy",
+            details={"error": f"YouTube connectivity test error: {str(e)}"},
+        )
+
+
 def _check_cookies() -> ComponentHealth:
     """Check cookie status for providers."""
     try:
@@ -257,17 +328,19 @@ async def health_check() -> JSONResponse:
     - Node.js >= 20 availability
     - Cookie file status
     - Storage availability
+    - YouTube connectivity (2s timeout)
 
     Returns HTTP 200 if all components are healthy,
     HTTP 503 if any component is unhealthy.
     """
-    # Run all checks concurrently
+    # Run all async checks concurrently
     ytdlp_task = _check_ytdlp()
     ffmpeg_task = _check_ffmpeg()
     nodejs_task = _check_nodejs()
+    youtube_task = _check_youtube_connectivity()
 
-    ytdlp_health, ffmpeg_health, nodejs_health = await asyncio.gather(
-        ytdlp_task, ffmpeg_task, nodejs_task
+    ytdlp_health, ffmpeg_health, nodejs_health, youtube_health = await asyncio.gather(
+        ytdlp_task, ffmpeg_task, nodejs_task, youtube_task
     )
 
     # These are sync checks
@@ -280,6 +353,7 @@ async def health_check() -> JSONResponse:
         "nodejs": nodejs_health,
         "storage": storage_health,
         "cookie": cookie_health,
+        "youtube_connectivity": youtube_health,
     }
 
     # Determine overall status

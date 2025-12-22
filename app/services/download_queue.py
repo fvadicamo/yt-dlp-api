@@ -1,9 +1,11 @@
 """Download queue with priority and concurrency control.
 
-This module implements requirement 26: Concurrent Downloads.
-- Priority queue (metadata priority 1, download priority 10)
-- Configurable max concurrent downloads (default 5)
-- Queue position tracking
+This module implements requirements 26 and 29:
+- Req 26: Concurrent Downloads
+  - Priority queue (metadata priority 1, download priority 10)
+  - Configurable max concurrent downloads (default 5)
+  - Queue position tracking
+- Req 29: Queue metrics collection
 """
 
 import asyncio
@@ -13,6 +15,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 import structlog
+
+from app.core.metrics import MetricsCollector
 
 logger = structlog.get_logger(__name__)
 
@@ -122,6 +126,9 @@ class DownloadQueue:
                 queue_size=len(self._queue),
             )
 
+            # Update queue metrics
+            self._update_metrics()
+
             return position
 
     async def dequeue(self) -> Optional[str]:
@@ -165,6 +172,9 @@ class DownloadQueue:
                 remaining_queue_size=len(self._queue),
             )
 
+            # Update queue metrics
+            self._update_metrics()
+
             return job_id
 
     async def release_slot(self, job_id: str) -> None:
@@ -184,6 +194,9 @@ class DownloadQueue:
                 job_id=job_id,
                 active_count=len(self._active_jobs),
             )
+
+            # Update queue metrics
+            self._update_metrics()
 
     async def acquire_slot_for_sync(self, job_id: str, timeout: float = 0.0) -> bool:
         """Try to acquire a download slot for synchronous processing.
@@ -232,6 +245,16 @@ class DownloadQueue:
         self._job_positions.clear()
         for idx, queued_job in enumerate(sorted_queue):
             self._job_positions[queued_job.job_id] = idx + 1  # 1-indexed
+
+    def _update_metrics(self) -> None:
+        """Update Prometheus queue metrics.
+
+        Must be called with lock held.
+        """
+        MetricsCollector.update_queue_metrics(
+            queue_size=len(self._queue),
+            active_downloads=len(self._active_jobs),
+        )
 
     def get_queue_position(self, job_id: str) -> Optional[int]:
         """Get a job's position in the queue.
