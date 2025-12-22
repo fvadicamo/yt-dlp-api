@@ -231,12 +231,17 @@ async def _check_youtube_connectivity() -> ComponentHealth:
                 details={"latency_ms": latency_ms},
             )
 
+        # Log stderr server-side for debugging, don't expose to clients
+        if stderr:
+            logger.warning(
+                "youtube_connectivity_check_failed",
+                returncode=proc.returncode,
+                stderr=stderr.decode()[:500],
+            )
+
         return ComponentHealth(
             status="unhealthy",
-            details={
-                "error": "YouTube connectivity test failed",
-                "stderr": stderr.decode()[:200] if stderr else "No error output",
-            },
+            details={"error": "YouTube connectivity test failed"},
         )
     except asyncio.TimeoutError:
         if proc:

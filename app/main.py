@@ -50,9 +50,9 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         duration = time.time() - start_time
 
         # Use FastAPI route template for normalized endpoint path
-        # Falls back to raw path for unmatched routes (e.g., 404s)
+        # Use fixed label for unmatched routes to prevent unbounded cardinality
         route = request.scope.get("route")
-        endpoint = route.path if route else request.url.path
+        endpoint = route.path if route else "/unmatched"
 
         MetricsCollector.record_request(
             method=request.method,
