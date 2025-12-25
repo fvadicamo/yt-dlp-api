@@ -48,8 +48,8 @@ services:
       - APP_SECURITY_API_KEYS=${API_KEY?API_KEY_required}
 
       # Provider configuration
-      - APP_PROVIDERS_YOUTUBE_ENABLED=true
-      - APP_PROVIDERS_YOUTUBE_COOKIE_PATH=/app/cookies/youtube.txt
+      - APP_YOUTUBE_ENABLED=true
+      - APP_YOUTUBE_COOKIE_PATH=/app/cookies/youtube.txt
 
       # Degraded mode - set to true to start without valid cookies
       - APP_SECURITY_ALLOW_DEGRADED_START=${ALLOW_DEGRADED_START:-false}
