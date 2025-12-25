@@ -31,13 +31,13 @@ This document describes the architecture and design of the yt-dlp REST API Backe
 graph TB
     Client[API Clients]
     LB[Load Balancer]
-    
+
     subgraph "API Backend Container"
         API[FastAPI Application]
         Auth[Auth Middleware]
         RateLimit[Rate Limiter]
         Router[Request Router]
-        
+
         subgraph "Core Services"
             VideoSvc[Video Service]
             DownloadSvc[Download Service]
@@ -45,28 +45,28 @@ graph TB
             CookieSvc[Cookie Service]
             ConfigSvc[Config Service]
         end
-        
+
         subgraph "Provider Layer"
             ProviderMgr[Provider Manager]
             YouTubeProvider[YouTube Provider]
             PluginLoader[Plugin Loader]
         end
-        
+
         subgraph "Infrastructure"
             Logger[Structured Logger]
             Metrics[Metrics Collector]
             Storage[File Storage Manager]
             Queue[Download Queue]
         end
-        
+
         YTDLP[yt-dlp CLI]
         FFmpeg[ffmpeg]
         NodeJS[Node.js Runtime]
     end
-    
+
     FileSystem[(File System)]
     CookieStore[(Cookie Files)]
-    
+
     Client -->|HTTPS| LB
     LB --> API
     API --> Auth
@@ -75,24 +75,24 @@ graph TB
     Router --> VideoSvc
     Router --> DownloadSvc
     Router --> JobSvc
-    
+
     VideoSvc --> ProviderMgr
     DownloadSvc --> ProviderMgr
     DownloadSvc --> Queue
-    
+
     ProviderMgr --> YouTubeProvider
     ProviderMgr --> PluginLoader
-    
+
     YouTubeProvider --> CookieSvc
     YouTubeProvider --> YTDLP
-    
+
     YTDLP --> NodeJS
     YTDLP --> FFmpeg
     YTDLP --> FileSystem
-    
+
     CookieSvc --> CookieStore
     Storage --> FileSystem
-    
+
     Logger -.-> API
     Metrics -.-> API
 ```
@@ -172,27 +172,27 @@ class DownloadResult:
 
 class VideoProvider(ABC):
     """Abstract base class for video platform providers"""
-    
+
     @abstractmethod
     def validate_url(self, url: str) -> bool:
         """Validate if URL belongs to this provider"""
         pass
-    
+
     @abstractmethod
     async def get_info(
-        self, 
-        url: str, 
+        self,
+        url: str,
         include_formats: bool = False,
         include_subtitles: bool = False
     ) -> Dict:
         """Extract video metadata"""
         pass
-    
+
     @abstractmethod
     async def list_formats(self, url: str) -> List[VideoFormat]:
         """List all available formats"""
         pass
-    
+
     @abstractmethod
     async def download(
         self,
@@ -206,7 +206,7 @@ class VideoProvider(ABC):
     ) -> DownloadResult:
         """Download video/audio"""
         pass
-    
+
     @abstractmethod
     def get_cookie_path(self) -> Optional[str]:
         """Get provider-specific cookie file path"""
@@ -386,7 +386,7 @@ providers:
 logging:
   level: "INFO"
   format: "json"
-  
+
 security:
   api_keys:
     - "${API_KEY_1}"
@@ -412,7 +412,7 @@ stateDiagram-v2
     Retrying --> Failed: Max Retries Exceeded
     Completed --> [*]
     Failed --> [*]
-    
+
     note right of Processing
         Progress: 0-100%
         Retries: 0-3
@@ -522,20 +522,20 @@ sequenceDiagram
     participant Service
     participant Provider
     participant YTDLP
-    
+
     Client->>API: Request
     API->>Service: Process
     Service->>Provider: Execute
     Provider->>YTDLP: Command
     YTDLP-->>Provider: Error
     Provider->>Provider: Classify Error
-    
+
     alt Retriable Error
         Provider->>Provider: Wait (backoff)
         Provider->>YTDLP: Retry Command
         YTDLP-->>Provider: Success/Error
     end
-    
+
     Provider-->>Service: Result/Error
     Service->>Service: Map to Error Code
     Service-->>API: Structured Error
@@ -674,31 +674,31 @@ services:
     image: ytdlp-api:latest
     container_name: ytdlp-api
     restart: unless-stopped
-    
+
     ports:
       - "8000:8000"
       - "9090:9090"  # Metrics
-    
+
     environment:
       - APP_SERVER_PORT=8000
       - APP_LOG_LEVEL=INFO
       - APP_API_KEY=${API_KEY}
       - YOUTUBE_COOKIE_PATH=/app/cookies/youtube.txt
       - APP_ALLOW_DEGRADED_START=false
-    
+
     volumes:
       - ./downloads:/app/downloads
       - ./cookies:/app/cookies:ro
       - ./config.yaml:/app/config.yaml:ro
       - ./logs:/app/logs
-    
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 10s
-    
+
     deploy:
       resources:
         limits:
@@ -707,10 +707,10 @@ services:
         reservations:
           cpus: '1.0'
           memory: 1G
-    
+
     security_opt:
       - no-new-privileges:true
-    
+
     read_only: true
     tmpfs:
       - /tmp
@@ -739,7 +739,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
-      
+
       containers:
       - name: ytdlp-api
         image: ytdlp-api:latest
@@ -748,14 +748,14 @@ spec:
           name: http
         - containerPort: 9090
           name: metrics
-        
+
         env:
         - name: APP_API_KEY
           valueFrom:
             secretKeyRef:
               name: ytdlp-secrets
               key: api-key
-        
+
         volumeMounts:
         - name: downloads
           mountPath: /app/downloads
@@ -766,7 +766,7 @@ spec:
           mountPath: /app/config.yaml
           subPath: config.yaml
           readOnly: true
-        
+
         resources:
           requests:
             memory: "1Gi"
@@ -774,21 +774,21 @@ spec:
           limits:
             memory: "2Gi"
             cpu: "2000m"
-        
+
         livenessProbe:
           httpGet:
             path: /liveness
             port: 8000
           initialDelaySeconds: 10
           periodSeconds: 30
-        
+
         readinessProbe:
           httpGet:
             path: /readiness
             port: 8000
           initialDelaySeconds: 5
           periodSeconds: 10
-      
+
       volumes:
       - name: downloads
         persistentVolumeClaim:
@@ -812,16 +812,16 @@ sequenceDiagram
     participant AuthMiddleware
     participant APIKeyStore
     participant Endpoint
-    
+
     Client->>AuthMiddleware: Request + X-API-Key header
     AuthMiddleware->>AuthMiddleware: Extract API Key
-    
+
     alt API Key Missing
         AuthMiddleware-->>Client: 401 Unauthorized
     end
-    
+
     AuthMiddleware->>APIKeyStore: Validate Key
-    
+
     alt Invalid Key
         AuthMiddleware->>AuthMiddleware: Log Attempt
         AuthMiddleware-->>Client: 401 Unauthorized
@@ -1044,7 +1044,7 @@ request_id_var = contextvars.ContextVar('request_id', default=None)
 async def request_id_middleware(request: Request, call_next):
     request_id = request.headers.get('X-Request-ID', str(uuid4()))
     request_id_var.set(request_id)
-    
+
     response = await call_next(request)
     response.headers['X-Request-ID'] = request_id
     return response
@@ -1124,11 +1124,11 @@ async def get_info_with_formats_and_subtitles(url: str):
     info_task = provider.get_info(url)
     formats_task = provider.list_formats(url)
     subtitles_task = provider.list_subtitles(url)
-    
+
     info, formats, subtitles = await asyncio.gather(
         info_task, formats_task, subtitles_task
     )
-    
+
     return {**info, "formats": formats, "subtitles": subtitles}
 ```
 
@@ -1143,20 +1143,20 @@ class CookieService:
     def __init__(self):
         self.validation_cache = TTLCache(maxsize=10, ttl=3600)  # 1 hour
         self.file_mtimes = {}
-    
+
     async def is_cookie_valid(self, provider: str) -> bool:
         cookie_path = self.get_cookie_path(provider)
         current_mtime = os.path.getmtime(cookie_path)
-        
+
         # Invalidate cache if file modified
         if self.file_mtimes.get(provider) != current_mtime:
             self.validation_cache.pop(provider, None)
             self.file_mtimes[provider] = current_mtime
-        
+
         # Check cache
         if provider in self.validation_cache:
             return self.validation_cache[provider]
-        
+
         # Validate and cache
         is_valid = await self._validate_cookie(provider)
         self.validation_cache[provider] = is_valid
@@ -1197,25 +1197,25 @@ class DownloadQueue:
         self.active_downloads = 0
         self.queue = []
         self.semaphore = asyncio.Semaphore(max_concurrent)
-    
+
     async def enqueue(self, job_id: str, params: dict, priority: int = 10):
         # Lower priority number = higher priority
         # Metadata operations: priority 1
         # Download operations: priority 10
         item = QueuedDownload(priority, job_id, params)
         heapq.heappush(self.queue, item)
-        
+
         if self.active_downloads < self.max_concurrent:
             await self._process_next()
-    
+
     async def _process_next(self):
         if not self.queue:
             return
-        
+
         async with self.semaphore:
             self.active_downloads += 1
             item = heapq.heappop(self.queue)
-            
+
             try:
                 await self._execute_download(item)
             finally:
@@ -1242,13 +1242,13 @@ class TokenBucket:
 class RateLimiter:
     def __init__(self):
         self.buckets = defaultdict(dict)
-        
+
         # Configure limits per endpoint category
         self.limits = {
             "metadata": {"rpm": 100, "burst_capacity": 20},
             "download": {"rpm": 10, "burst_capacity": 20}
         }
-    
+
     def _get_bucket(self, api_key: str, category: str) -> TokenBucket:
         if category not in self.buckets[api_key]:
             config = self.limits[category]
@@ -1259,18 +1259,18 @@ class RateLimiter:
                 last_refill=time.time()
             )
         return self.buckets[api_key][category]
-    
+
     def _refill_bucket(self, bucket: TokenBucket):
         now = time.time()
         elapsed = now - bucket.last_refill
         tokens_to_add = elapsed * bucket.refill_rate
-        
+
         bucket.tokens = min(bucket.capacity, bucket.tokens + tokens_to_add)
         bucket.last_refill = now
-    
+
     async def check_rate_limit(
-        self, 
-        api_key: str, 
+        self,
+        api_key: str,
         category: str
     ) -> tuple[bool, float]:
         """
@@ -1278,7 +1278,7 @@ class RateLimiter:
         """
         bucket = self._get_bucket(api_key, category)
         self._refill_bucket(bucket)
-        
+
         if bucket.tokens >= 1.0:
             bucket.tokens -= 1.0
             return True, 0.0
@@ -1293,9 +1293,9 @@ class RateLimiter:
 async def rate_limit_middleware(request: Request, call_next):
     api_key = request.headers.get("X-API-Key")
     category = get_endpoint_category(request.url.path)
-    
+
     allowed, retry_after = await rate_limiter.check_rate_limit(api_key, category)
-    
+
     if not allowed:
         return JSONResponse(
             status_code=429,
@@ -1306,7 +1306,7 @@ async def rate_limit_middleware(request: Request, call_next):
                 "retry_after": retry_after
             }
         )
-    
+
     return await call_next(request)
 ```
 
@@ -1329,7 +1329,7 @@ class StorageManager:
         self.cleanup_threshold = config["cleanup_threshold"]
         self.max_file_size = config["max_file_size"]
         self.active_jobs = {}  # {job_id: filename}
-    
+
     async def get_disk_usage(self) -> dict:
         """Get disk usage statistics"""
         stat = shutil.disk_usage(self.output_dir)
@@ -1339,69 +1339,69 @@ class StorageManager:
             "available_bytes": stat.free,
             "used_percent": (stat.used / stat.total) * 100
         }
-    
+
     async def should_cleanup(self) -> bool:
         """Check if cleanup should run"""
         usage = await self.get_disk_usage()
         return usage["used_percent"] >= self.cleanup_threshold
-    
+
     async def cleanup_old_files(self, dry_run: bool = False) -> dict:
         """Remove files older than retention period"""
         now = datetime.now()
         cutoff = now - self.cleanup_age
-        
+
         deleted_files = []
         reclaimed_bytes = 0
-        
+
         for file_path in self.output_dir.rglob("*"):
             if not file_path.is_file():
                 continue
-            
+
             # Skip files referenced by active jobs
             if await self.is_file_active(file_path):
                 continue
-            
+
             # Check file age
             mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
             if mtime < cutoff:
                 file_size = file_path.stat().st_size
-                
+
                 if not dry_run:
                     file_path.unlink()
-                
+
                 deleted_files.append({
                     "path": str(file_path),
                     "size": file_size,
                     "age_hours": (now - mtime).total_seconds() / 3600
                 })
                 reclaimed_bytes += file_size
-        
+
         return {
             "deleted_count": len(deleted_files),
             "reclaimed_bytes": reclaimed_bytes,
             "files": deleted_files
         }
-    
+
     async def validate_file_size(self, estimated_size: int) -> bool:
         """Check if file size is within limits"""
         if estimated_size > self.max_file_size:
             return False
-        
+
         # Check available space
         usage = await self.get_disk_usage()
         if estimated_size > usage["available_bytes"]:
             return False
-        
+
         return True
-    
+
     async def is_file_active(self, filepath: Path) -> bool:
         """Check if file is referenced by active job"""
         return filepath.name in self.active_jobs.values()
-    
+
     def register_active_job(self, job_id: str, filename: str):
         """Mark file as in-use by active job"""
         self.active_jobs[job_id] = filename
-    
+
     def unregister_active_job(self, job_id: str):
         """Remove file from active jobs"""
         self.active_jobs.pop(job_id, None)
@@ -1419,7 +1419,7 @@ async def cleanup_scheduler(storage_manager: StorageManager):
                 )
         except Exception as e:
             logger.error("Cleanup failed", error=str(e))
-        
+
         # Run every hour
         await asyncio.sleep(3600)
 ```
@@ -1434,30 +1434,30 @@ from pathlib import Path
 class TemplateProcessor:
     # Allowed template variables
     ALLOWED_VARS = {
-        "title", "id", "ext", "upload_date", 
+        "title", "id", "ext", "upload_date",
         "uploader", "resolution", "format_id"
     }
-    
+
     # Characters to sanitize
     INVALID_CHARS = r'[<>:"/\\|?*\x00-\x1f]'
-    
+
     def __init__(self, default_template: str):
         self.default_template = default_template
-    
+
     def sanitize_template(self, template: str) -> str:
         """Sanitize user-provided template"""
         # Check for path traversal
         if ".." in template or template.startswith("/"):
             raise ValueError("Path traversal detected in template")
-        
+
         # Validate template variables
         vars_in_template = re.findall(r'%\((\w+)\)', template)
         invalid_vars = set(vars_in_template) - self.ALLOWED_VARS
         if invalid_vars:
             raise ValueError(f"Invalid template variables: {invalid_vars}")
-        
+
         return template
-    
+
     def apply_template(self, template: str, metadata: dict) -> str:
         """Apply template with metadata"""
         # Sanitize metadata values
@@ -1469,31 +1469,31 @@ class TemplateProcessor:
                 # Limit length
                 safe_value = safe_value[:200]
                 safe_metadata[key] = safe_value
-        
+
         # Apply template
         try:
             filename = template % safe_metadata
         except KeyError as e:
             raise ValueError(f"Missing metadata for template variable: {e}")
-        
+
         return filename
-    
+
     def handle_collision(self, filepath: Path) -> Path:
         """Handle filename collisions by appending number"""
         if not filepath.exists():
             return filepath
-        
+
         stem = filepath.stem
         suffix = filepath.suffix
         parent = filepath.parent
         counter = 1
-        
+
         while True:
             new_path = parent / f"{stem}_{counter}{suffix}"
             if not new_path.exists():
                 return new_path
             counter += 1
-            
+
             # Safety limit
             if counter > 1000:
                 raise ValueError("Too many filename collisions")
@@ -1519,28 +1519,28 @@ class YouTubeProvider(VideoProvider):
         r'(?:https?://)?youtu\.be/[\w-]+',
         r'(?:https?://)?m\.youtube\.com/watch\?v=[\w-]+'
     ]
-    
+
     def __init__(self, config: dict, cookie_service: CookieService):
         self.config = config
         self.cookie_service = cookie_service
         self.retry_attempts = config.get("retry_attempts", 3)
         self.retry_backoff = config.get("retry_backoff", [2, 4, 8])
-    
+
     def validate_url(self, url: str) -> bool:
         """Validate YouTube URL format"""
         import re
         return any(re.match(pattern, url) for pattern in self.URL_PATTERNS)
-    
+
     async def get_info(
-        self, 
-        url: str, 
+        self,
+        url: str,
         include_formats: bool = False,
         include_subtitles: bool = False
     ) -> Dict:
         """Extract video metadata using yt-dlp"""
         # Validate cookie before operation
         await self.cookie_service.validate_cookie("youtube")
-        
+
         cmd = [
             "yt-dlp",
             "--dump-json",
@@ -1548,18 +1548,18 @@ class YouTubeProvider(VideoProvider):
             "--cookies", self.get_cookie_path(),
             "--extractor-args", "youtube:player_client=web"
         ]
-        
+
         if not include_formats:
             cmd.append("--skip-download")
-        
+
         cmd.append(url)
-        
+
         # Execute with retry
         result = await self._execute_with_retry(cmd)
-        
+
         # Parse JSON output
         info = json.loads(result.stdout)
-        
+
         # Transform to our format
         video_info = {
             "video_id": info["id"],
@@ -1571,15 +1571,15 @@ class YouTubeProvider(VideoProvider):
             "thumbnail_url": info["thumbnail"],
             "description": info["description"]
         }
-        
+
         if include_formats:
             video_info["formats"] = self._parse_formats(info["formats"])
-        
+
         if include_subtitles:
             video_info["subtitles"] = self._parse_subtitles(info.get("subtitles", {}))
-        
+
         return video_info
-    
+
     async def download(
         self,
         url: str,
@@ -1592,40 +1592,40 @@ class YouTubeProvider(VideoProvider):
     ) -> DownloadResult:
         """Download video/audio"""
         await self.cookie_service.validate_cookie("youtube")
-        
+
         cmd = [
             "yt-dlp",
             "--cookies", self.get_cookie_path(),
             "--extractor-args", "youtube:player_client=web",
             "--js-runtimes", "node"
         ]
-        
+
         if format_id:
             cmd.extend(["-f", format_id])
-        
+
         if extract_audio:
             cmd.extend(["-x", "--audio-format", audio_format or "mp3"])
             if audio_format in ["mp3", "m4a"]:
                 cmd.extend(["--audio-quality", "0"])  # Best quality
-        
+
         if output_template:
             cmd.extend(["-o", output_template])
-        
+
         if include_subtitles:
             cmd.append("--write-subs")
             if subtitle_lang:
                 cmd.extend(["--sub-langs", subtitle_lang])
-        
+
         cmd.append(url)
-        
+
         # Log command (redacted)
         logger.debug("Executing yt-dlp", command=self._redact_command(cmd))
-        
+
         # Execute with retry
         start_time = time.time()
         result = await self._execute_with_retry(cmd)
         duration = time.time() - start_time
-        
+
         # Log execution results (Req 17A)
         logger.debug(
             "yt-dlp execution completed",
@@ -1634,25 +1634,25 @@ class YouTubeProvider(VideoProvider):
             stdout_lines=len(result.stdout.decode().split('\n')),
             stderr_preview=result.stderr.decode()[:500] if result.stderr else None
         )
-        
+
         # Parse output to get file path
         file_path = self._extract_file_path(result.stdout)
         file_size = Path(file_path).stat().st_size
-        
+
         return DownloadResult(
             file_path=file_path,
             file_size=file_size,
             duration=duration,
             format_id=format_id or "best"
         )
-    
+
     async def _execute_with_retry(
-        self, 
+        self,
         cmd: List[str]
     ) -> subprocess.CompletedProcess:
         """Execute command with retry logic"""
         last_error = None
-        
+
         for attempt in range(self.retry_attempts):
             try:
                 result = await asyncio.create_subprocess_exec(
@@ -1660,21 +1660,21 @@ class YouTubeProvider(VideoProvider):
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE
                 )
-                
+
                 stdout, stderr = await result.communicate()
-                
+
                 if result.returncode == 0:
                     return subprocess.CompletedProcess(
                         cmd, result.returncode, stdout, stderr
                     )
-                
+
                 # Check if error is retriable
                 error_msg = stderr.decode()
                 if not self._is_retriable_error(error_msg):
                     raise DownloadError(error_msg)
-                
+
                 last_error = error_msg
-                
+
                 # Wait before retry
                 if attempt < self.retry_attempts - 1:
                     wait_time = self.retry_backoff[attempt]
@@ -1685,14 +1685,14 @@ class YouTubeProvider(VideoProvider):
                         error=error_msg
                     )
                     await asyncio.sleep(wait_time)
-            
+
             except Exception as e:
                 last_error = str(e)
                 if attempt == self.retry_attempts - 1:
                     raise
-        
+
         raise DownloadError(f"Failed after {self.retry_attempts} attempts: {last_error}")
-    
+
     def _is_retriable_error(self, error_msg: str) -> bool:
         """Determine if error should trigger retry"""
         retriable_patterns = [
@@ -1702,16 +1702,16 @@ class YouTubeProvider(VideoProvider):
             "Too Many Requests"
         ]
         return any(pattern in error_msg for pattern in retriable_patterns)
-    
+
     def get_cookie_path(self) -> str:
         """Get YouTube cookie file path"""
         return self.config.get("cookie_path", "/app/cookies/youtube.txt")
-    
+
     def _redact_command(self, cmd: List[str]) -> List[str]:
         """Redact sensitive information from command"""
         redacted = []
         skip_next = False
-        
+
         for i, arg in enumerate(cmd):
             if skip_next:
                 redacted.append("[REDACTED]")
@@ -1721,7 +1721,7 @@ class YouTubeProvider(VideoProvider):
                 skip_next = True
             else:
                 redacted.append(arg)
-        
+
         return redacted
 ```
 
@@ -1741,7 +1741,7 @@ class ConfigService:
         self.config_path = Path(config_path)
         self.config = {}
         self.env_prefix = "APP_"
-    
+
     def load(self) -> Dict[str, Any]:
         """Load configuration from YAML and environment variables"""
         # Load YAML
@@ -1751,15 +1751,15 @@ class ConfigService:
         else:
             logger.warning("Config file not found, using defaults")
             self.config = self._get_defaults()
-        
+
         # Override with environment variables
         self._apply_env_overrides()
-        
+
         # Validate configuration
         self._validate()
-        
+
         return self.config
-    
+
     def _get_defaults(self) -> Dict[str, Any]:
         """Get default configuration values"""
         return {
@@ -1814,7 +1814,7 @@ class ConfigService:
                 "metrics_port": 9090
             }
         }
-    
+
     def _apply_env_overrides(self):
         """Override config with environment variables"""
         # Mapping of env vars to config paths
@@ -1831,7 +1831,7 @@ class ConfigService:
             "APP_ALLOW_DEGRADED_START": ("security", "allow_degraded_start", bool),
             "YOUTUBE_COOKIE_PATH": ("providers", "youtube", "cookie_path", str),
         }
-        
+
         for env_var, (*path, type_func) in env_mappings.items():
             value = os.getenv(env_var)
             if value is not None:
@@ -1840,49 +1840,49 @@ class ConfigService:
                     value = value.lower() in ("true", "1", "yes")
                 else:
                     value = type_func(value)
-                
+
                 # Set in config
                 self._set_nested(self.config, path, value)
-        
+
         # Handle API keys (can be multiple)
         api_keys = []
         for i in range(1, 11):  # Support up to 10 API keys
             key = os.getenv(f"API_KEY_{i}")
             if key:
                 api_keys.append(key)
-        
+
         if api_keys:
             self.config["security"]["api_keys"] = api_keys
-    
+
     def _set_nested(self, d: dict, path: tuple, value: Any):
         """Set nested dictionary value"""
         for key in path[:-1]:
             d = d.setdefault(key, {})
         d[path[-1]] = value
-    
+
     def _validate(self):
         """Validate configuration"""
         # Check required fields
         if not self.config["security"]["api_keys"]:
             raise ValueError("At least one API key must be configured")
-        
+
         # Validate ranges
         if self.config["downloads"]["max_concurrent"] < 1:
             raise ValueError("max_concurrent must be at least 1")
-        
+
         if not 0 < self.config["storage"]["cleanup_threshold"] <= 100:
             raise ValueError("cleanup_threshold must be between 0 and 100")
-        
+
         # Validate paths exist or can be created
         output_dir = Path(self.config["storage"]["output_dir"])
         if not output_dir.exists():
             output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Validate provider cookie paths
         for provider_name, provider_config in self.config["providers"].items():
             if not provider_config.get("enabled", True):
                 continue
-            
+
             cookie_path = Path(provider_config.get("cookie_path", ""))
             if not cookie_path.exists():
                 if not self.config["security"]["allow_degraded_start"]:
@@ -1892,7 +1892,7 @@ class ConfigService:
                 else:
                     logger.warning(f"Cookie missing for {provider_name}, provider disabled")
                     provider_config["enabled"] = False
-        
+
         logger.info("Configuration validated successfully")
 ```
 
@@ -1908,27 +1908,27 @@ sequenceDiagram
     participant Components
     participant Health
     participant Server
-    
+
     Main->>Config: Load Configuration
     Config->>Config: Parse YAML
     Config->>Config: Apply Env Overrides
     Config->>Config: Validate
     Config-->>Main: Config Object
-    
+
     Main->>Components: Initialize Components
-    
+
     Components->>Components: Check yt-dlp
     alt yt-dlp not found
         Components-->>Main: Error
         Main->>Main: Exit
     end
-    
+
     Components->>Components: Check ffmpeg
     alt ffmpeg not found
         Components-->>Main: Error
         Main->>Main: Exit
     end
-    
+
     Components->>Components: Check Node.js >= 20
     alt Node.js not found
         alt Degraded Mode Allowed
@@ -1938,7 +1938,7 @@ sequenceDiagram
             Main->>Main: Exit
         end
     end
-    
+
     Components->>Components: Validate Cookie Files
     alt Cookie invalid
         alt Degraded Mode Allowed
@@ -1948,17 +1948,17 @@ sequenceDiagram
             Main->>Main: Exit
         end
     end
-    
+
     Components->>Components: Initialize Storage
     Components->>Components: Start Cleanup Scheduler
     Components->>Components: Initialize Metrics
-    
+
     Components-->>Main: Ready
-    
+
     Main->>Health: Register Health Checks
     Main->>Server: Start FastAPI Server
     Server-->>Main: Server Running
-    
+
     Main->>Main: Log Startup Complete
 ```
 
@@ -1975,7 +1975,7 @@ class StartupValidator:
         self.allow_degraded = config["security"]["allow_degraded_start"]
         self.errors = []
         self.warnings = []
-    
+
     async def validate_all(self) -> bool:
         """Run all startup validations"""
         checks = [
@@ -1986,14 +1986,14 @@ class StartupValidator:
             self._check_storage(),
             self._check_permissions()
         ]
-        
+
         results = await asyncio.gather(*checks, return_exceptions=True)
-        
+
         # Log results
         for result in results:
             if isinstance(result, Exception):
                 self.errors.append(str(result))
-        
+
         if self.errors:
             if self.allow_degraded:
                 logger.warning(
@@ -2007,13 +2007,13 @@ class StartupValidator:
                     errors=self.errors
                 )
                 return False
-        
+
         if self.warnings:
             logger.warning("Startup warnings", warnings=self.warnings)
-        
+
         logger.info("All startup checks passed")
         return True
-    
+
     async def _check_ytdlp(self):
         """Verify yt-dlp is installed"""
         try:
@@ -2027,7 +2027,7 @@ class StartupValidator:
             logger.info(f"yt-dlp version: {version}")
         except Exception as e:
             raise RuntimeError(f"yt-dlp not available: {e}")
-    
+
     async def _check_ffmpeg(self):
         """Verify ffmpeg is installed"""
         try:
@@ -2041,7 +2041,7 @@ class StartupValidator:
             logger.info(f"ffmpeg version: {version}")
         except Exception as e:
             raise RuntimeError(f"ffmpeg not available: {e}")
-    
+
     async def _check_nodejs(self):
         """Verify Node.js >= 20 is installed"""
         try:
@@ -2053,36 +2053,36 @@ class StartupValidator:
             )
             version = result.stdout.strip()
             major_version = int(version.lstrip('v').split('.')[0])
-            
+
             if major_version < 20:
                 raise RuntimeError(f"Node.js >= 20 required, found {version}")
-            
+
             logger.info(f"Node.js version: {version}")
         except Exception as e:
             raise RuntimeError(f"Node.js not available: {e}")
-    
+
     async def _check_cookies(self):
         """Verify cookie files exist and are valid"""
         for provider_name, provider_config in self.config["providers"].items():
             if not provider_config.get("enabled", True):
                 continue
-            
+
             cookie_path = Path(provider_config.get("cookie_path", ""))
-            
+
             if not cookie_path.exists():
                 raise RuntimeError(
                     f"Cookie file not found for {provider_name}: {cookie_path}"
                 )
-            
+
             # Check file age
             mtime = cookie_path.stat().st_mtime
             age_days = (time.time() - mtime) / 86400
-            
+
             if age_days > 7:
                 self.warnings.append(
                     f"Cookie file for {provider_name} is {age_days:.1f} days old"
                 )
-            
+
             # Test actual authentication with YouTube
             try:
                 result = subprocess.run(
@@ -2096,42 +2096,42 @@ class StartupValidator:
                     capture_output=True,
                     timeout=10
                 )
-                
+
                 if result.returncode != 0:
                     self.warnings.append(
                         f"Cookie validation test failed for {provider_name}"
                     )
             except Exception as e:
                 self.warnings.append(f"Could not test cookie for {provider_name}: {e}")
-            
+
             logger.info(
                 f"Cookie file validated for {provider_name}",
                 age_days=age_days
             )
-    
+
     async def _check_storage(self):
         """Verify storage directories exist and have space"""
         output_dir = Path(self.config["storage"]["output_dir"])
-        
+
         if not output_dir.exists():
             output_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"Created output directory: {output_dir}")
-        
+
         # Check disk space
         stat = shutil.disk_usage(output_dir)
         available_gb = stat.free / (1024 ** 3)
-        
+
         if available_gb < 1:
             raise RuntimeError(
                 f"Insufficient disk space: {available_gb:.2f} GB available"
             )
-        
+
         logger.info(f"Storage available: {available_gb:.2f} GB")
-    
+
     async def _check_permissions(self):
         """Verify file permissions"""
         output_dir = Path(self.config["storage"]["output_dir"])
-        
+
         # Test write permission
         test_file = output_dir / ".write_test"
         try:
@@ -2141,12 +2141,12 @@ class StartupValidator:
             raise RuntimeError(
                 f"No write permission in output directory: {e}"
             )
-        
+
         # Test cookie read permission
         for provider_name, provider_config in self.config["providers"].items():
             if not provider_config.get("enabled", True):
                 continue
-            
+
             cookie_path = Path(provider_config.get("cookie_path", ""))
             if cookie_path.exists():
                 try:
@@ -2571,4 +2571,3 @@ python -c "import browser_cookie3; browser_cookie3.chrome(domain_name='youtube.c
 - **Solution**: Run cleanup or increase disk space
 - **Check**: `df -h /app/downloads`
 - **Manual**: `POST /api/v1/admin/cleanup?dry_run=false`
-
