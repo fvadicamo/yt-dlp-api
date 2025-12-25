@@ -1,8 +1,8 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2025-12-22
+**Last Updated**: 2025-12-25
 **Branch**: `develop`
-**Current Task**: 11 - Startup Validation and Initialization
+**Current Task**: 12 - FastAPI Application Assembly
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
 
 ---
@@ -42,20 +42,25 @@
   - 9.5: Job status endpoint (GET /api/v1/jobs/{job_id})
   - 9.6: Admin endpoints (existing from Task 8)
   - 9.7: API endpoint tests (18 tests)
-- [x] Task 10: Error Handling and Monitoring (PR pending)
+- [x] Task 10: Error Handling and Monitoring (PR #11 merged)
   - 10.1: Error codes and global exception handler
   - 10.2: Prometheus metrics collection
   - 10.3: YouTube connectivity health check
   - 10.4: Monitoring tests (40 tests)
+- [x] Task 11: Startup Validation and Initialization (PR pending)
+  - 11.1: StartupValidator class with component checks
+  - 11.2: Degraded mode support (allow_degraded_start)
+  - 11.3: yt-dlp Node.js runtime configuration
+  - 11.4: Startup validation tests (38 tests)
 
 ### MVP Critical Completed
 - [x] Task 1.4: Configuration and logging tests
 - [x] Task 3.4: Cookie management tests (CRITICAL)
 - [x] Task 4.7: YouTube provider tests (CRITICAL)
 - [x] Task 5.4: Security tests (CRITICAL) - 102 tests
+- [x] Task 11.4: Startup validation tests (CRITICAL) - 38 tests
 
 ### MVP Critical Pending
-- [ ] Task 11.4: Startup validation tests
 - [ ] Task 15.3: Basic security validation (Docker scan)
 
 ---
