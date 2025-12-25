@@ -105,18 +105,31 @@ class TestMiddlewareChain:
         """Test that protected endpoints require authentication."""
         from app.api import video
         from app.core.errors import APIError, global_exception_handler
+        from app.middleware.auth import configure_auth
+        from app.providers.manager import ProviderManager
+
+        # Configure auth with a key to ensure it's not open by default
+        configure_auth(api_keys=["dummy-key-for-testing"])
 
         app = FastAPI()
         app.include_router(video.router)
         app.add_exception_handler(Exception, global_exception_handler)
         app.add_exception_handler(APIError, global_exception_handler)
 
-        # No authentication bypass - should fail
+        # Mock provider manager to isolate the authentication failure
+        mock_manager = MagicMock(spec=ProviderManager)
+        app.dependency_overrides[video.get_provider_manager] = lambda: mock_manager
+
+        # No authentication header provided - should fail with 401
         client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/info?url=https://www.youtube.com/watch?v=abc123")
 
-        # Should get 401 or 500 depending on how the dependency fails
-        assert response.status_code in (401, 500, 501)
+        assert response.status_code == 401
+        data = response.json()
+        assert data["detail"] == "Invalid or missing API key"
+
+        # Clean up global auth state after test
+        configure_auth(api_keys=None)
 
     def test_authenticated_request_passes(self, test_app: FastAPI) -> None:
         """Test that authenticated requests pass through middleware."""
@@ -550,10 +563,13 @@ class TestMetricsIntegration:
         response = client.get("/metrics")
 
         assert response.status_code == 200
-        # Prometheus format is text/plain with specific content
         content = response.text
-        # Should contain at least the app_info metric
-        assert "# HELP" in content or "# TYPE" in content or "app_" in content
+        # Should contain Prometheus format markers and specific metrics
+        assert "# HELP" in content
+        assert "# TYPE" in content
+        # Verify specific metrics are defined
+        assert "http_requests_total" in content
+        assert "errors_total" in content
 
 
 # ============================================================================
