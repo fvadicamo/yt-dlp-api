@@ -232,16 +232,79 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Application shutdown complete")
 
 
+API_DESCRIPTION = """
+## Overview
+
+REST API for video downloads and metadata extraction using yt-dlp.
+Supports YouTube video downloading with format selection, audio extraction,
+and subtitle downloading.
+
+## Authentication
+
+All endpoints except health checks require an API key in the `X-API-Key` header.
+
+```
+X-API-Key: your-api-key-here
+```
+
+## Rate Limiting
+
+- **Metadata operations** (info, formats): 100 requests/minute
+- **Download operations**: 10 requests/minute
+
+Rate limited responses include a `Retry-After` header.
+
+## Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `INVALID_URL` | 400 | URL is malformed or not from a supported domain |
+| `INVALID_FORMAT` | 400 | Format ID is invalid |
+| `INVALID_TEMPLATE` | 400 | Output template is invalid or contains path traversal |
+| `FORMAT_NOT_FOUND` | 400 | Requested format not available for this video |
+| `AUTH_FAILED` | 401 | API key is missing or invalid |
+| `JOB_NOT_FOUND` | 404 | Job ID does not exist or has expired |
+| `VIDEO_UNAVAILABLE` | 404 | Video is private, deleted, or geo-blocked |
+| `RATE_LIMIT_EXCEEDED` | 429 | Rate limit reached, check Retry-After header |
+| `DOWNLOAD_FAILED` | 500 | Download operation failed |
+| `PROVIDER_ERROR` | 500 | Video provider error |
+| `QUEUE_FULL` | 503 | Download queue is at capacity |
+| `STORAGE_FULL` | 503 | Insufficient disk space |
+
+## Async vs Sync Downloads
+
+- **Async mode** (default): Returns HTTP 202 with `job_id` immediately.
+  Poll `GET /api/v1/jobs/{job_id}` to track progress.
+- **Sync mode**: Waits for download completion and returns HTTP 200 with result.
+"""
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
         title="YT-DLP REST API",
-        description="REST API for video downloads and metadata extraction using yt-dlp",
+        description=API_DESCRIPTION,
         version=__version__,
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
         lifespan=lifespan,
+        contact={
+            "name": "API Support",
+            "url": "https://github.com/fvadicamo/yt-dlp-api",
+        },
+        license_info={
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT",
+        },
+        openapi_tags=[
+            {"name": "health", "description": "Health check endpoints for monitoring"},
+            {"name": "video", "description": "Video metadata and format listing"},
+            {"name": "download", "description": "Video download operations"},
+            {"name": "jobs", "description": "Job status tracking"},
+            {"name": "admin", "description": "Administrative operations (cookie management)"},
+            {"name": "metrics", "description": "Prometheus metrics endpoint"},
+        ],
     )
 
     # Add CORS middleware with configurable origins

@@ -2,7 +2,7 @@
 
 **Last Updated**: 2025-12-25
 **Branch**: `develop`
-**Current Task**: 12 - FastAPI Application Assembly
+**Current Task**: 13 - Docker Containerization
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
 
 ---
@@ -47,11 +47,16 @@
   - 10.2: Prometheus metrics collection
   - 10.3: YouTube connectivity health check
   - 10.4: Monitoring tests (40 tests)
-- [x] Task 11: Startup Validation and Initialization (PR pending)
+- [x] Task 11: Startup Validation and Initialization (PR #12 merged)
   - 11.1: StartupValidator class with component checks
   - 11.2: Degraded mode support (allow_degraded_start)
   - 11.3: yt-dlp Node.js runtime configuration
   - 11.4: Startup validation tests (38 tests)
+- [x] Task 12: FastAPI Application Assembly (PR pending)
+  - 12.1: FastAPI app with middleware, routers, exception handlers
+  - 12.2: Dependency injection with lifespan context manager
+  - 12.3: OpenAPI documentation with examples and error codes
+  - 12.4: Integration tests (22 tests)
 
 ### MVP Critical Completed
 - [x] Task 1.4: Configuration and logging tests
