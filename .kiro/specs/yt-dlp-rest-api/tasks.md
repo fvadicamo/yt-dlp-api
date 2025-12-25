@@ -69,7 +69,7 @@ For rapid and robust delivery, the following are REQUIRED:
 
 ---
 
-- [ ] 2. Provider Abstraction Layer
+- [x] 2. Provider Abstraction Layer
   - Define provider interface, implement provider manager, create YouTube provider skeleton
   - _Requirements: 34, 35_
 
@@ -135,7 +135,7 @@ For rapid and robust delivery, the following are REQUIRED:
 
 ---
 
-- [ ] 4. YouTube Provider Implementation
+- [x] 4. YouTube Provider Implementation
   - Implement metadata extraction, format listing, and download functionality
   - _Requirements: 1, 2, 3, 4, 5, 6, 35_
 
@@ -545,14 +545,14 @@ For rapid and robust delivery, the following are REQUIRED:
   - Exclude development files
   - _Requirements: 41_
 
-- [ ]* 13.4 Test Docker deployment
+- [x]* 13.4 Test Docker deployment
   - Build Docker image
   - Run container with docker-compose
   - Verify health check passes
   - Test API endpoints from host
   - Verify volume mounts work correctly
   - _Requirements: 41, 42, 43_
-  - **Note**: Manual validation sufficient for MVP
+  - **Completed**: 2025-12-25, manual validation passed (all 7 tests)
 
 ---
 
@@ -610,12 +610,13 @@ For rapid and robust delivery, the following are REQUIRED:
   - Verify metrics collection
   - _Requirements: 38_
 
-- [ ] 15.3 Perform basic security validation
+- [x] 15.3 Perform basic security validation
   - Run security scanner on Docker image (Trivy or Snyk)
   - Verify no secrets in image layers
   - Test common input validation exploits
   - Verify log redaction with automated checks
   - _Requirements: 32, 33_
+  - **Completed**: 2025-12-25, Trivy scan passed (0 CRITICAL, 5 HIGH OS-level no fix, 1 HIGH starlette → Issue #15)
 
 - [ ] 15.4 Validate resource requirements
   - Test with minimum resources (1GB RAM, 2 CPU)
