@@ -70,8 +70,8 @@ class ResourceCheckResult:
 
     passed: bool
     usage: ResourceUsage
-    errors: list
-    warnings: list
+    errors: list[str]
+    warnings: list[str]
 
 
 def get_current_usage(disk_path: Optional[str] = None) -> ResourceUsage:

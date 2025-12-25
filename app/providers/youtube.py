@@ -53,7 +53,7 @@ class YouTubeProvider(VideoProvider):
 
         # Capture test mode at construction time (env var may not be visible in async context)
         self._test_mode = _is_test_mode()
-        logger.warning(
+        logger.info(
             "youtube_provider_test_mode_check",
             test_mode=self._test_mode,
             env_value=os.environ.get("APP_TESTING_TEST_MODE"),
@@ -571,13 +571,13 @@ class YouTubeProvider(VideoProvider):
             DownloadError: If all retry attempts fail or non-retriable error occurs
         """
         # Check if test mode is enabled (captured at construction time)
-        logger.warning("_execute_with_retry: self._test_mode=%s", self._test_mode)
+        logger.debug("_execute_with_retry: self._test_mode=%s", self._test_mode)
         if self._test_mode:
             from app.testing.mock_ytdlp import MockYtdlpExecutor
 
             # Get output_dir from provider config (passed from main.py)
             output_dir = self.config.get("output_dir", "/app/downloads")
-            logger.warning("test_mode_execute", cmd=cmd, output_dir=output_dir)
+            logger.info("test_mode_execute", cmd=cmd, output_dir=output_dir)
             executor = MockYtdlpExecutor(output_dir=output_dir)
             result = await executor.execute(cmd, timeout)
             return subprocess.CompletedProcess(cmd, result.returncode, result.stdout, result.stderr)

@@ -139,7 +139,7 @@ class MockYtdlpExecutor:
         video_id = self._extract_video_id(url)
         output_template = self._extract_output_template(cmd)
 
-        logger.warning(
+        logger.info(
             "mock_download",
             video_id=video_id,
             output_template=output_template,
@@ -176,7 +176,7 @@ class MockYtdlpExecutor:
         mock_content = f"MOCK FILE: {video_id}\nTitle: {title}\nFormat: {ext}\n"
         output_path.write_text(mock_content)
 
-        logger.warning(
+        logger.info(
             "mock_download_complete",
             output_path=str(output_path),
             file_exists=output_path.exists(),
