@@ -52,16 +52,16 @@
   - 11.2: Degraded mode support (allow_degraded_start)
   - 11.3: yt-dlp Node.js runtime configuration
   - 11.4: Startup validation tests (38 tests)
-- [x] Task 12: FastAPI Application Assembly (PR pending)
+- [x] Task 12: FastAPI Application Assembly (PR #13 merged)
   - 12.1: FastAPI app with middleware, routers, exception handlers
   - 12.2: Dependency injection with lifespan context manager
   - 12.3: OpenAPI documentation with examples and error codes
   - 12.4: Integration tests (22 tests)
-- [x] Task 13: Docker Containerization (PR pending)
+- [x] Task 13: Docker Containerization (PR #14 merged)
   - 13.1: Multi-stage Dockerfile with Python 3.11-slim, ffmpeg, nodejs >= 20
   - 13.2: docker-compose.yml with service configuration
   - 13.3: .dockerignore file
-  - 13.4: Manual Docker testing (not automated)
+  - 13.4: Docker tests passed (build, components, health, auth, resources, shutdown)
 
 ### MVP Critical Completed
 - [x] Task 1.4: Configuration and logging tests
@@ -70,8 +70,8 @@
 - [x] Task 5.4: Security tests (CRITICAL) - 102 tests
 - [x] Task 11.4: Startup validation tests (CRITICAL) - 38 tests
 
-### MVP Critical Pending
-- [ ] Task 15.3: Basic security validation (Docker scan)
+### MVP Critical Completed (continued)
+- [x] Task 15.3: Basic security validation - Trivy scan passed (0 CRITICAL, Issue #15 for starlette)
 
 ---
 

@@ -1,214 +1,280 @@
-# YT-DLP REST API Backend
+# YT-DLP REST API
 
-A REST API backend for yt-dlp video downloads and metadata extraction from YouTube.
+A production-ready REST API for video downloads and metadata extraction using yt-dlp. Supports YouTube with cookie authentication, async job processing, and Prometheus metrics.
 
-## Project Status
+## Features
 
-This project is currently under development following a spec-driven development approach.
+- **Video Operations**: Metadata extraction, format listing, video/audio download
+- **Async Downloads**: Job queue with priority, progress tracking, retry logic
+- **Authentication**: API key authentication with multi-key support
+- **Rate Limiting**: Token bucket rate limiter (100 rpm metadata, 10 rpm downloads)
+- **Cookie Management**: Hot-reload, validation, 7-day expiry warnings
+- **Monitoring**: Prometheus metrics, structured JSON logging, health checks
+- **Security**: Non-root container, input validation, path traversal prevention
+- **Docker Ready**: Multi-stage build, docker-compose, resource limits
 
-### Completed Tasks
+## Quick Start
 
-- ✅ **Task 1: Project Setup and Core Infrastructure**
-  - Project structure initialized with proper Python package layout
-  - Configuration management with YAML and environment variable support
-  - Structured logging with JSON output and request_id propagation
-  - Comprehensive test suite with 97% coverage
+### Docker (Recommended)
 
-## Development Setup
-
-### Quick Start
-
-1. Clone the repository:
+1. **Clone and configure:**
 ```bash
-git clone <repository-url>
+git clone https://github.com/fvadicamo/yt-dlp-api.git
 cd yt-dlp-api
+
+# Create required directories
+mkdir -p downloads cookies logs
+
+# Create .env file with your API key
+echo 'API_KEY=["your-secure-api-key"]' > .env
+echo 'ALLOW_DEGRADED_START=true' >> .env  # Optional: start without cookies
 ```
 
-2. Create and activate virtual environment:
+2. **Start the service:**
 ```bash
+docker compose up -d
+```
+
+3. **Verify it's running:**
+```bash
+curl http://localhost:8000/health
+```
+
+### Local Development
+
+```bash
+# Create virtual environment
 python3 -m venv venv
-source venv/bin/activate  # On macOS/Linux
-# or
-venv\Scripts\activate  # On Windows
-```
+source venv/bin/activate
 
-3. Install dependencies:
-```bash
+# Install dependencies
 pip install -r requirements-dev.txt
-# or
-pip install -e ".[dev]"
+
+# Run the application
+uvicorn app.main:app --reload
 ```
 
-4. Setup pre-commit hooks:
-```bash
-pre-commit install
-pre-commit run --all-files
-```
+## API Usage
 
-Or use the Makefile for quick setup:
-```bash
-make setup
-```
+### Authentication
 
-### Development Tools
-
-This project uses a comprehensive set of development tools:
-
-- **Black** - Code formatting
-- **isort** - Import sorting
-- **Flake8** - Linting (with plugins: bugbear, comprehensions, simplify, docstrings, pep8-naming)
-- **mypy** - Type checking
-- **Bandit** - Security scanning
-- **pytest** - Testing with coverage
-- **pre-commit** - Git hooks for automated quality checks
-
-All tools are configured in `pyproject.toml` for centralized configuration.
-
-For detailed setup instructions, tool usage, and best practices, see [Development Setup Guide](docs/DEVELOPMENT_SETUP.md).
-
-### Running Tests
+All API endpoints (except health checks) require an API key:
 
 ```bash
-# Run all tests with coverage
-pytest
-# or
-make test-cov
-
-# Run specific test file
-pytest tests/unit/test_config.py -v
-
-# Run all quality checks
-make check
+curl -H "X-API-Key: your-api-key" http://localhost:8000/api/v1/info?url=...
 ```
 
-### Common Commands
+### Get Video Info
 
 ```bash
-make help           # Show all available commands
-make format         # Format code with Black and isort
-make lint           # Run Flake8 linter
-make type-check     # Run mypy type checker
-make security       # Run Bandit security scanner
-make test           # Run tests
-make test-cov       # Run tests with coverage
-make check          # Run all checks
-make clean          # Clean cache files
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:8000/api/v1/info?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
-## Project Structure
+### List Available Formats
 
+```bash
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:8000/api/v1/formats?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
-yt-dlp-api/
-├── app/                    # Application code
-│   ├── api/               # API endpoints
-│   ├── core/              # Core functionality (config, logging)
-│   ├── models/            # Data models
-│   ├── providers/         # Video provider implementations
-│   ├── services/          # Business logic services
-│   └── utils/             # Utility functions
-├── tests/                 # Test suite
-│   ├── unit/             # Unit tests
-│   └── integration/      # Integration tests
-├── docker/               # Docker configuration
-├── docs/                 # Documentation
-├── config.yaml           # Default configuration
-├── requirements.txt      # Production dependencies
-└── requirements-dev.txt  # Development dependencies
+
+### Download Video (Async)
+
+```bash
+# Start download job
+curl -X POST -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "format_id": "best"}' \
+  http://localhost:8000/api/v1/download
+
+# Response: {"job_id": "abc123", "status": "pending", ...}
+
+# Check job status
+curl -H "X-API-Key: your-api-key" \
+  http://localhost:8000/api/v1/jobs/abc123
+```
+
+### Extract Audio Only
+
+```bash
+curl -X POST -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "extract_audio": true, "audio_format": "mp3"}' \
+  http://localhost:8000/api/v1/download
+```
+
+### Health Check
+
+```bash
+# Full health check (returns 503 if unhealthy)
+curl http://localhost:8000/health
+
+# Liveness probe (always 200 if app is running)
+curl http://localhost:8000/liveness
+
+# Readiness probe (200 if ready to accept traffic)
+curl http://localhost:8000/readiness
+```
+
+### Prometheus Metrics
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+## Cookie Setup (Required for YouTube)
+
+YouTube requires authentication cookies for most downloads. Export cookies from your browser:
+
+### Chrome
+
+1. Install [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) extension
+2. Go to youtube.com and log in
+3. Click the extension icon → Export → Save as `cookies/youtube.txt`
+
+### Firefox
+
+1. Install [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/) extension
+2. Go to youtube.com and log in
+3. Click the extension icon → Export → Save as `cookies/youtube.txt`
+
+### Validate Cookies
+
+```bash
+curl -X POST -H "X-API-Key: your-api-key" \
+  http://localhost:8000/api/v1/admin/validate-cookie?provider=youtube
+```
+
+### Hot-Reload Cookies
+
+```bash
+curl -X POST -H "X-API-Key: your-api-key" \
+  http://localhost:8000/api/v1/admin/reload-cookie?provider=youtube
 ```
 
 ## Configuration
 
-The application supports configuration via:
+### Environment Variables
 
-1. **YAML file** (`config.yaml`)
-2. **Environment variables** (with `APP_` prefix)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `API_KEY` | (required) | JSON array of API keys, e.g. `["key1", "key2"]` |
+| `ALLOW_DEGRADED_START` | `false` | Start without valid cookies |
+| `LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `METRICS_ENABLED` | `true` | Enable Prometheus metrics |
 
-Environment variables take precedence over YAML configuration.
+See [DEPLOYMENT.md](DEPLOYMENT.md#environment-variables-reference) for the complete list of 30+ configuration options.
 
-### Example Configuration
+### config.yaml
 
 ```yaml
 server:
   host: "0.0.0.0"
   port: 8000
 
+storage:
+  output_dir: "/app/downloads"
+  cleanup_age: 24        # hours
+  max_file_size: 524288000  # 500MB
+
+downloads:
+  max_concurrent: 5
+  queue_size: 100
+
+rate_limiting:
+  metadata_rpm: 100
+  download_rpm: 10
+  burst_capacity: 20
+
 logging:
   level: "INFO"
   format: "json"
 
-storage:
-  output_dir: "/app/downloads"
-  max_file_size: 524288000  # 500MB
+providers:
+  youtube:
+    enabled: true
+    cookie_path: "/app/cookies/youtube.txt"
+    retry_attempts: 3
 ```
 
-### Environment Variable Override
+## API Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check with component status |
+| `/liveness` | GET | Kubernetes liveness probe |
+| `/readiness` | GET | Kubernetes readiness probe |
+| `/metrics` | GET | Prometheus metrics |
+| `/api/v1/info` | GET | Get video metadata |
+| `/api/v1/formats` | GET | List available formats |
+| `/api/v1/download` | POST | Start download job |
+| `/api/v1/jobs/{id}` | GET | Get job status |
+| `/api/v1/admin/validate-cookie` | POST | Validate provider cookies |
+| `/api/v1/admin/reload-cookie` | POST | Hot-reload cookies |
+
+Full API documentation available at `/docs` (Swagger UI) or `/redoc`.
+
+## Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `INVALID_URL` | 400 | URL malformed or unsupported |
+| `INVALID_FORMAT` | 400 | Format ID invalid |
+| `AUTH_FAILED` | 401 | API key missing or invalid |
+| `VIDEO_UNAVAILABLE` | 404 | Video private/deleted/geo-blocked |
+| `JOB_NOT_FOUND` | 404 | Job ID not found or expired |
+| `RATE_LIMIT_EXCEEDED` | 429 | Rate limit hit, check Retry-After |
+| `DOWNLOAD_FAILED` | 500 | Download operation failed |
+| `QUEUE_FULL` | 503 | Download queue at capacity |
+
+## Troubleshooting
+
+### "No provider available for URL"
+
+- YouTube provider may be disabled (missing/invalid cookies)
+- Check `/health` endpoint for component status
+- Ensure cookies are exported correctly
+- Try `ALLOW_DEGRADED_START=true` for testing without cookies
+
+### "Cookie validation failed"
+
+- Cookies may be expired (YouTube cookies last ~1 year)
+- Re-export cookies from browser
+- Check cookie file format (Netscape format required)
+- Verify cookie file permissions
+
+### "Rate limit exceeded"
+
+- Wait for Retry-After seconds indicated in response
+- Metadata: 100 requests/minute
+- Downloads: 10 requests/minute
+
+### Container won't start
+
+- Ensure `API_KEY` environment variable is set
+- Check logs: `docker compose logs -f`
+- Verify config.yaml is mounted correctly
+
+## Development
 
 ```bash
-export APP_SERVER_PORT=9000
-export APP_LOGGING_LEVEL=DEBUG
+# Run tests
+make test
+
+# Run all checks (format, lint, type, security, test)
+make check
+
+# Format code
+make format
 ```
 
-## Features
+## System Requirements
 
-### Implemented
-
-- ✅ YAML-based configuration with validation
-- ✅ Environment variable overrides
-- ✅ Structured JSON logging with request_id propagation
-- ✅ API key hashing for secure logging
-- ✅ Comprehensive test coverage
-
-### Planned
-
-- 🔄 Provider abstraction layer
-- 🔄 YouTube provider implementation
-- 🔄 Cookie management system
-- 🔄 REST API endpoints
-- 🔄 Job management and async downloads
-- 🔄 Rate limiting
-- 🔄 Docker containerization
-
-## Development Guidelines
-
-### Code Quality
-
-This project enforces code quality through:
-
-- **Pre-commit hooks** - Automated checks before each commit
-- **90% test coverage** - Minimum coverage requirement
-- **Type safety** - Full mypy type checking
-- **Security scanning** - Bandit security checks
-- **Consistent formatting** - Black + isort
-
-### Git Workflow
-
-- Work on feature branches: `feature/<task-name>`
-- Commit frequently with descriptive messages
-- Follow Conventional Commits format
-- Pre-commit hooks run automatically on commit
-- Full test suite runs on push
-- Merge to `develop` branch via merge commit (no squash/rebase)
-
-### Testing
-
-- Write tests for all new functionality
-- Maintain high test coverage (>90%)
-- Tests run automatically via pre-commit on push
-- Use pytest fixtures for common setup
-
-### Virtual Environment
-
-**Always use a virtual environment for Python development.** Never use system/global Python.
-
-See `.kiro/steering/python-venv-requirement.md` for detailed guidelines.
+- Python 3.11+
+- ffmpeg (for audio extraction)
+- Node.js 20+ (for yt-dlp JavaScript challenges)
+- Docker (recommended for deployment)
 
 ## License
 
 MIT
-
-## Contributing
-
-This project follows spec-driven development. See `.kiro/specs/yt-dlp-rest-api/` for:
-- `requirements.md` - Feature requirements
-- `design.md` - Architecture and design
-- `tasks.md` - Implementation tasks
