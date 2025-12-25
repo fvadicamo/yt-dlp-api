@@ -45,7 +45,7 @@ services:
       # Security - API key(s) in JSON array format (REQUIRED)
       # Set API_KEY in .env file or environment before starting
       # Example for multiple keys: API_KEY='["key1", "key2"]'
-      - APP_SECURITY_API_KEYS=${API_KEY:?ERROR: API_KEY must be set}
+      - APP_SECURITY_API_KEYS=${API_KEY?API_KEY_required}
 
       # Provider configuration
       - APP_PROVIDERS_YOUTUBE_ENABLED=true
