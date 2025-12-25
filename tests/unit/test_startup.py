@@ -278,11 +278,10 @@ class TestStartupValidatorChecks:
     @pytest.mark.asyncio
     async def test_check_ytdlp_passed(self, validator: StartupValidator) -> None:
         """Test check_ytdlp when available."""
-        with patch("app.core.startup.check_ytdlp") as mock_check:
-            mock_check.return_value = CheckResult(
-                name="ytdlp", available=True, version="2024.01.15"
-            )
-
+        mock_check = AsyncMock(
+            return_value=CheckResult(name="ytdlp", available=True, version="2024.01.15")
+        )
+        with patch("app.core.startup.check_ytdlp", mock_check):
             result = await validator.check_ytdlp()
 
             assert result.passed is True
@@ -292,11 +291,10 @@ class TestStartupValidatorChecks:
     @pytest.mark.asyncio
     async def test_check_ytdlp_failed(self, validator: StartupValidator) -> None:
         """Test check_ytdlp when not available."""
-        with patch("app.core.startup.check_ytdlp") as mock_check:
-            mock_check.return_value = CheckResult(
-                name="ytdlp", available=False, error="yt-dlp not found"
-            )
-
+        mock_check = AsyncMock(
+            return_value=CheckResult(name="ytdlp", available=False, error="yt-dlp not found")
+        )
+        with patch("app.core.startup.check_ytdlp", mock_check):
             result = await validator.check_ytdlp()
 
             assert result.passed is False
@@ -306,9 +304,10 @@ class TestStartupValidatorChecks:
     @pytest.mark.asyncio
     async def test_check_ffmpeg_passed(self, validator: StartupValidator) -> None:
         """Test check_ffmpeg when available."""
-        with patch("app.core.startup.check_ffmpeg") as mock_check:
-            mock_check.return_value = CheckResult(name="ffmpeg", available=True, version="6.0")
-
+        mock_check = AsyncMock(
+            return_value=CheckResult(name="ffmpeg", available=True, version="6.0")
+        )
+        with patch("app.core.startup.check_ffmpeg", mock_check):
             result = await validator.check_ffmpeg()
 
             assert result.passed is True
@@ -317,9 +316,10 @@ class TestStartupValidatorChecks:
     @pytest.mark.asyncio
     async def test_check_nodejs_passed(self, validator: StartupValidator) -> None:
         """Test check_nodejs when available with valid version."""
-        with patch("app.core.startup.check_nodejs") as mock_check:
-            mock_check.return_value = CheckResult(name="nodejs", available=True, version="v20.10.0")
-
+        mock_check = AsyncMock(
+            return_value=CheckResult(name="nodejs", available=True, version="v20.10.0")
+        )
+        with patch("app.core.startup.check_nodejs", mock_check):
             result = await validator.check_nodejs()
 
             assert result.passed is True
@@ -329,14 +329,15 @@ class TestStartupValidatorChecks:
     @pytest.mark.asyncio
     async def test_check_nodejs_version_too_old(self, validator: StartupValidator) -> None:
         """Test check_nodejs with version below minimum."""
-        with patch("app.core.startup.check_nodejs") as mock_check:
-            mock_check.return_value = CheckResult(
+        mock_check = AsyncMock(
+            return_value=CheckResult(
                 name="nodejs",
                 available=False,
                 version="v18.0.0",
                 error="Node.js >= 20 required, found v18.0.0",
             )
-
+        )
+        with patch("app.core.startup.check_nodejs", mock_check):
             result = await validator.check_nodejs()
 
             assert result.passed is False
@@ -537,16 +538,15 @@ class TestDegradedMode:
         validator = StartupValidator(config)
 
         # Mock binary checks to pass
+        mock_ytdlp = AsyncMock(return_value=CheckResult("ytdlp", True, "2024.01.15"))
+        mock_ffmpeg = AsyncMock(return_value=CheckResult("ffmpeg", True, "6.0"))
+        mock_nodejs = AsyncMock(return_value=CheckResult("nodejs", True, "v20.10.0"))
         with (
-            patch("app.core.startup.check_ytdlp") as mock_ytdlp,
-            patch("app.core.startup.check_ffmpeg") as mock_ffmpeg,
-            patch("app.core.startup.check_nodejs") as mock_nodejs,
+            patch("app.core.startup.check_ytdlp", mock_ytdlp),
+            patch("app.core.startup.check_ffmpeg", mock_ffmpeg),
+            patch("app.core.startup.check_nodejs", mock_nodejs),
             patch.object(validator, "configure_ytdlp_runtime"),
         ):
-            mock_ytdlp.return_value = CheckResult("ytdlp", True, "2024.01.15")
-            mock_ffmpeg.return_value = CheckResult("ffmpeg", True, "6.0")
-            mock_nodejs.return_value = CheckResult("nodejs", True, "v20.10.0")
-
             result = await validator.validate_all()
 
             assert result.success is True
@@ -571,15 +571,14 @@ class TestDegradedMode:
         validator = StartupValidator(config)
 
         # Mock binary checks to pass
+        mock_ytdlp = AsyncMock(return_value=CheckResult("ytdlp", True, "2024.01.15"))
+        mock_ffmpeg = AsyncMock(return_value=CheckResult("ffmpeg", True, "6.0"))
+        mock_nodejs = AsyncMock(return_value=CheckResult("nodejs", True, "v20.10.0"))
         with (
-            patch("app.core.startup.check_ytdlp") as mock_ytdlp,
-            patch("app.core.startup.check_ffmpeg") as mock_ffmpeg,
-            patch("app.core.startup.check_nodejs") as mock_nodejs,
+            patch("app.core.startup.check_ytdlp", mock_ytdlp),
+            patch("app.core.startup.check_ffmpeg", mock_ffmpeg),
+            patch("app.core.startup.check_nodejs", mock_nodejs),
         ):
-            mock_ytdlp.return_value = CheckResult("ytdlp", True, "2024.01.15")
-            mock_ffmpeg.return_value = CheckResult("ffmpeg", True, "6.0")
-            mock_nodejs.return_value = CheckResult("nodejs", True, "v20.10.0")
-
             result = await validator.validate_all()
 
             assert result.success is False
@@ -598,14 +597,14 @@ class TestDegradedMode:
         validator = StartupValidator(config)
 
         # Mock yt-dlp check to fail (critical)
+        mock_ytdlp = AsyncMock(return_value=CheckResult("ytdlp", False, error="yt-dlp not found"))
+        mock_ffmpeg = AsyncMock(return_value=CheckResult("ffmpeg", True, "6.0"))
+        mock_nodejs = AsyncMock(return_value=CheckResult("nodejs", True, "v20.10.0"))
         with (
-            patch("app.core.startup.check_ytdlp") as mock_ytdlp,
-            patch("app.core.startup.check_ffmpeg") as mock_ffmpeg,
-            patch("app.core.startup.check_nodejs") as mock_nodejs,
+            patch("app.core.startup.check_ytdlp", mock_ytdlp),
+            patch("app.core.startup.check_ffmpeg", mock_ffmpeg),
+            patch("app.core.startup.check_nodejs", mock_nodejs),
         ):
-            mock_ytdlp.return_value = CheckResult("ytdlp", False, error="yt-dlp not found")
-            mock_ffmpeg.return_value = CheckResult("ffmpeg", True, "6.0")
-            mock_nodejs.return_value = CheckResult("nodejs", True, "v20.10.0")
 
             result = await validator.validate_all()
 
@@ -626,16 +625,15 @@ class TestFullStartupValidation:
         self, validator: StartupValidator, tmp_output_dir: Path
     ) -> None:
         """Test successful startup with all checks passing."""
+        mock_ytdlp = AsyncMock(return_value=CheckResult("ytdlp", True, "2024.01.15"))
+        mock_ffmpeg = AsyncMock(return_value=CheckResult("ffmpeg", True, "6.0"))
+        mock_nodejs = AsyncMock(return_value=CheckResult("nodejs", True, "v20.10.0"))
         with (
-            patch("app.core.startup.check_ytdlp") as mock_ytdlp,
-            patch("app.core.startup.check_ffmpeg") as mock_ffmpeg,
-            patch("app.core.startup.check_nodejs") as mock_nodejs,
+            patch("app.core.startup.check_ytdlp", mock_ytdlp),
+            patch("app.core.startup.check_ffmpeg", mock_ffmpeg),
+            patch("app.core.startup.check_nodejs", mock_nodejs),
             patch.object(validator, "configure_ytdlp_runtime"),
         ):
-            mock_ytdlp.return_value = CheckResult("ytdlp", True, "2024.01.15")
-            mock_ffmpeg.return_value = CheckResult("ffmpeg", True, "6.0")
-            mock_nodejs.return_value = CheckResult("nodejs", True, "v20.10.0")
-
             result = await validator.validate_all()
 
             assert result.success is True
@@ -646,15 +644,14 @@ class TestFullStartupValidation:
     @pytest.mark.asyncio
     async def test_validate_all_critical_failure(self, validator: StartupValidator) -> None:
         """Test startup failure on critical check failure."""
+        mock_ytdlp = AsyncMock(return_value=CheckResult("ytdlp", False, error="yt-dlp not found"))
+        mock_ffmpeg = AsyncMock(return_value=CheckResult("ffmpeg", True, "6.0"))
+        mock_nodejs = AsyncMock(return_value=CheckResult("nodejs", True, "v20.10.0"))
         with (
-            patch("app.core.startup.check_ytdlp") as mock_ytdlp,
-            patch("app.core.startup.check_ffmpeg") as mock_ffmpeg,
-            patch("app.core.startup.check_nodejs") as mock_nodejs,
+            patch("app.core.startup.check_ytdlp", mock_ytdlp),
+            patch("app.core.startup.check_ffmpeg", mock_ffmpeg),
+            patch("app.core.startup.check_nodejs", mock_nodejs),
         ):
-            mock_ytdlp.return_value = CheckResult("ytdlp", False, error="yt-dlp not found")
-            mock_ffmpeg.return_value = CheckResult("ffmpeg", True, "6.0")
-            mock_nodejs.return_value = CheckResult("nodejs", True, "v20.10.0")
-
             result = await validator.validate_all()
 
             assert result.success is False

@@ -13,6 +13,7 @@ Implements requirements:
 """
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -456,13 +457,24 @@ class StartupValidator:
             if config_file.exists():
                 existing_content = config_file.read_text()
 
-            # Check if --js-runtimes is already configured
-            if "--js-runtimes" in existing_content:
-                logger.debug(
-                    "ytdlp_config_already_set",
+            # Check if --js-runtimes with node is already configured
+            # Parse existing config to check if node runtime is included
+            js_runtimes_match = re.search(r"--js-runtimes\s+(\S+)", existing_content)
+            if js_runtimes_match:
+                runtimes = js_runtimes_match.group(1).split(",")
+                if "node" in runtimes:
+                    logger.debug(
+                        "ytdlp_node_runtime_already_configured",
+                        config_file=str(config_file),
+                        runtimes=runtimes,
+                    )
+                    return
+                # Node not in existing runtimes - need to add it
+                logger.info(
+                    "ytdlp_adding_node_to_existing_runtimes",
                     config_file=str(config_file),
+                    existing_runtimes=runtimes,
                 )
-                return
 
             # Append the configuration
             with config_file.open("a") as f:
