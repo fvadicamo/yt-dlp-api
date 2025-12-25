@@ -71,13 +71,8 @@ services:
       # Logs directory - writable
       - ./logs:/app/logs
 
-    # Health check configuration (Req 42)
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+    # Health check: Uses HEALTHCHECK from Dockerfile for consistency
+    # (Dockerfile uses $APP_SERVER_PORT variable, 30s interval, 10s start_period)
 
     # Resource limits (Req 32, 43)
     deploy:

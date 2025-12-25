@@ -94,5 +94,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 EXPOSE 8000
 
 # Run the application
-# Using uvicorn directly for better signal handling in containers
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Using shell form with exec for variable substitution and proper signal handling
+CMD exec python -m uvicorn app.main:app --host $APP_SERVER_HOST --port $APP_SERVER_PORT
