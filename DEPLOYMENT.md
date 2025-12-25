@@ -296,13 +296,35 @@ kubectl logs -f deployment/ytdlp-api -n ytdlp-api
    - Queue depth (`download_queue_size > 50`)
    - Cookie expiry (`cookie_age_days > 300`)
 
-### Resource Planning
+### Resource Requirements
+
+The API performs resource validation at startup and will warn or fail if minimum requirements are not met.
+
+#### Minimum Requirements
+
+| Resource | Minimum | Recommended | Notes |
+|----------|---------|-------------|-------|
+| **RAM** | 1 GB available | 2 GB available | For concurrent downloads |
+| **Disk** | 10 GB free | 20 GB free | For download storage |
+| **CPU** | 2 cores | 4 cores | For ffmpeg transcoding |
+
+#### Workload Sizing
 
 | Workload | CPU | Memory | Storage |
 |----------|-----|--------|---------|
 | Light (< 100 downloads/day) | 1 core | 1 GB | 20 GB |
 | Medium (100-500/day) | 2 cores | 2 GB | 50 GB |
 | Heavy (500+/day) | 4 cores | 4 GB | 100 GB+ |
+
+#### Startup Validation
+
+The API validates resources at startup:
+
+- **Insufficient resources**: Startup fails with detailed error
+- **Low resources**: Startup succeeds with warnings
+- **Adequate resources**: Normal startup
+
+Resource status is included in the `/health` endpoint response.
 
 ### High Availability
 
