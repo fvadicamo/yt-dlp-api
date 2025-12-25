@@ -105,6 +105,7 @@ downloads
 cookies
 logs
 *.txt.bak
+config.yaml
 
 # =============================================================================
 # Configuration and metadata directories
@@ -127,4 +128,5 @@ docker-compose*.yml
 # Keep these files (using negation)
 # =============================================================================
 !requirements.txt
-!config.yaml
+# Note: config.yaml is excluded - must be mounted at runtime to avoid
+# baking secrets into image layers

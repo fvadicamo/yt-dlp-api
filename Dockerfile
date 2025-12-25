@@ -78,8 +78,9 @@ RUN mkdir -p /app/downloads /app/cookies /app/logs \
 
 # Copy application code with correct ownership
 # Using --chown to ensure files are owned by appuser
+# Note: config.yaml is NOT copied - it must be mounted at runtime to avoid
+# baking secrets into image layers (security best practice)
 COPY --chown=appuser:appuser app/ /app/app/
-COPY --chown=appuser:appuser config.yaml /app/config.yaml
 COPY --chown=appuser:appuser requirements.txt /app/requirements.txt
 
 # Switch to non-root user (Req 32)

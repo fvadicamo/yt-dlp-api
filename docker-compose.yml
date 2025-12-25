@@ -42,9 +42,10 @@ services:
       - APP_STORAGE_OUTPUT_DIR=/app/downloads
       - APP_STORAGE_COOKIE_DIR=/app/cookies
 
-      # Security - API key(s) in JSON array format
-      # Example: '["key1", "key2"]' for multiple keys
-      - APP_SECURITY_API_KEYS=["${API_KEY:-changeme}"]
+      # Security - API key(s) in JSON array format (REQUIRED)
+      # Set API_KEY in .env file or environment before starting
+      # Example for multiple keys: API_KEY='["key1", "key2"]'
+      - APP_SECURITY_API_KEYS=${API_KEY:?ERROR: API_KEY must be set}
 
       # Provider configuration
       - APP_PROVIDERS_YOUTUBE_ENABLED=true
@@ -75,14 +76,10 @@ services:
     # (Dockerfile uses $APP_SERVER_PORT variable, 30s interval, 10s start_period)
 
     # Resource limits (Req 32, 43)
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '1.0'
-          memory: 1G
+    # Using docker-compose v2 compatible keys (deploy.resources is Swarm-only)
+    cpus: '2.0'
+    mem_limit: 2g
+    mem_reservation: 1g
 
     # Security options (Req 32)
     security_opt:
