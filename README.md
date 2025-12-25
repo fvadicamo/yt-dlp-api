@@ -186,6 +186,10 @@ rate_limiting:
   download_rpm: 10
   burst_capacity: 20
 
+logging:
+  level: "INFO"
+  format: "json"
+
 providers:
   youtube:
     enabled: true

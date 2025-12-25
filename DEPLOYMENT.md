@@ -42,26 +42,37 @@ curl http://localhost:8000/health
 
 ### Docker Compose Configuration
 
-The default `docker-compose.yml` includes:
+The default `docker-compose.yml` includes (see full file for additional options):
 
 ```yaml
 services:
   ytdlp-api:
     build: .
+    container_name: ytdlp-api
+    restart: unless-stopped
     ports:
       - "8000:8000"    # API
-      - "9090:9090"    # Metrics (optional)
+      - "9090:9090"    # Metrics
+    environment:
+      - APP_SECURITY_API_KEYS=${API_KEY?API_KEY_required}
+      - APP_SECURITY_ALLOW_DEGRADED_START=${ALLOW_DEGRADED_START:-false}
+      - APP_LOGGING_LEVEL=${LOG_LEVEL:-INFO}
+      - APP_MONITORING_METRICS_ENABLED=${METRICS_ENABLED:-true}
     volumes:
       - ./downloads:/app/downloads
       - ./cookies:/app/cookies:ro
       - ./config.yaml:/app/config.yaml:ro
       - ./logs:/app/logs
-    environment:
-      - APP_SECURITY_API_KEYS=${API_KEY}
-      - APP_SECURITY_ALLOW_DEGRADED_START=${ALLOW_DEGRADED_START:-false}
     cpus: '2.0'
     mem_limit: 2g
-    restart: unless-stopped
+    mem_reservation: 1g
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 ```
 
 ### Building Custom Image
@@ -244,11 +255,14 @@ metadata:
   namespace: ytdlp-api
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany    # Required for multi-replica deployment
   resources:
     requests:
       storage: 50Gi
+  # storageClassName: nfs-client  # Uncomment for NFS provisioner
 ```
+
+> **Note:** For multi-replica deployments (`replicas: 2+`), use `ReadWriteMany` access mode with a storage class that supports it (NFS, GlusterFS, CephFS, or cloud-native options like AWS EFS, Azure Files, GCP Filestore). Alternatively, use `ReadWriteOnce` with `replicas: 1` or offload downloads to object storage (S3/MinIO).
 
 ### Apply Manifests
 
