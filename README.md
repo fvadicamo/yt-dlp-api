@@ -142,14 +142,18 @@ YouTube requires authentication cookies for most downloads. Export cookies from 
 
 ```bash
 curl -X POST -H "X-API-Key: your-api-key" \
-  http://localhost:8000/api/v1/admin/validate-cookie?provider=youtube
+  -H "Content-Type: application/json" \
+  -d '{"provider": "youtube"}' \
+  http://localhost:8000/api/v1/admin/validate-cookie
 ```
 
 ### Hot-Reload Cookies
 
 ```bash
 curl -X POST -H "X-API-Key: your-api-key" \
-  http://localhost:8000/api/v1/admin/reload-cookie?provider=youtube
+  -H "Content-Type: application/json" \
+  -d '{"provider": "youtube"}' \
+  http://localhost:8000/api/v1/admin/reload-cookie
 ```
 
 ## Configuration

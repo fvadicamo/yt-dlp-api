@@ -14,6 +14,12 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 
+class ProviderRequest(BaseModel):
+    """Request body for provider-specific operations."""
+
+    provider: str
+
+
 class CookieValidationResponse(BaseModel):
     """Response for cookie validation."""
 
@@ -41,7 +47,7 @@ async def get_cookie_service() -> CookieService:
 
 @router.post("/validate-cookie", response_model=CookieValidationResponse)
 async def validate_cookie(
-    provider: str,
+    request: ProviderRequest,
     cookie_service: CookieService = Depends(get_cookie_service),  # noqa: B008
 ) -> Any:
     """
@@ -50,7 +56,7 @@ async def validate_cookie(
     This endpoint tests cookie validity including authentication.
 
     Args:
-        provider: Provider name (e.g., "youtube")
+        request: Request body with provider name
         cookie_service: Cookie service instance
 
     Returns:
@@ -59,6 +65,7 @@ async def validate_cookie(
     Raises:
         HTTPException: If validation fails
     """
+    provider = request.provider
     logger.info("Cookie validation requested", provider=provider)
 
     try:
@@ -102,7 +109,7 @@ async def validate_cookie(
 
 @router.post("/reload-cookie", response_model=CookieReloadResponse)
 async def reload_cookie(
-    provider: str,
+    request: ProviderRequest,
     cookie_service: CookieService = Depends(get_cookie_service),  # noqa: B008
 ) -> Any:
     """
@@ -112,7 +119,7 @@ async def reload_cookie(
     and rolls back if validation fails.
 
     Args:
-        provider: Provider name (e.g., "youtube")
+        request: Request body with provider name
         cookie_service: Cookie service instance
 
     Returns:
@@ -121,6 +128,7 @@ async def reload_cookie(
     Raises:
         HTTPException: If reload fails
     """
+    provider = request.provider
     logger.info("Cookie reload requested", provider=provider)
 
     try:
