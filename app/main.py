@@ -188,6 +188,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "cookie_path": config.providers.youtube.cookie_path,
             "retry_attempts": config.providers.youtube.retry_attempts,
             "retry_backoff": config.providers.youtube.retry_backoff,
+            "output_dir": config.storage.output_dir,  # For mock executor in test mode
         }
         youtube_provider = YouTubeProvider(youtube_config, _cookie_service)
         _provider_manager.register_provider("youtube", youtube_provider, enabled=True)

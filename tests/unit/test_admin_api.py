@@ -50,7 +50,7 @@ class TestValidateCookieEndpoint:
         mock_cookie_service.get_cookie_age_hours.return_value = 2.5
         mock_cookie_service.check_cookie_age.return_value = None
 
-        response = client.post("/api/v1/admin/validate-cookie?provider=youtube")
+        response = client.post("/api/v1/admin/validate-cookie", json={"provider": "youtube"})
 
         assert response.status_code == 200
         data = response.json()
@@ -65,7 +65,7 @@ class TestValidateCookieEndpoint:
         mock_cookie_service.get_cookie_age_hours.return_value = 200.0
         mock_cookie_service.check_cookie_age.return_value = "Cookie is 8 days old"
 
-        response = client.post("/api/v1/admin/validate-cookie?provider=youtube")
+        response = client.post("/api/v1/admin/validate-cookie", json={"provider": "youtube"})
 
         assert response.status_code == 200
         data = response.json()
@@ -76,7 +76,7 @@ class TestValidateCookieEndpoint:
         """Test cookie validation failure."""
         mock_cookie_service.validate_cookie.side_effect = CookieError("Cookie file not found")
 
-        response = client.post("/api/v1/admin/validate-cookie?provider=youtube")
+        response = client.post("/api/v1/admin/validate-cookie", json={"provider": "youtube"})
 
         assert response.status_code == 400
         data = response.json()
@@ -87,7 +87,7 @@ class TestValidateCookieEndpoint:
         """Test cookie validation with unexpected error."""
         mock_cookie_service.validate_cookie.side_effect = Exception("Unexpected error")
 
-        response = client.post("/api/v1/admin/validate-cookie?provider=youtube")
+        response = client.post("/api/v1/admin/validate-cookie", json={"provider": "youtube"})
 
         assert response.status_code == 500
         data = response.json()
@@ -106,7 +106,7 @@ class TestReloadCookieEndpoint:
             "age_hours": 1.5,
         }
 
-        response = client.post("/api/v1/admin/reload-cookie?provider=youtube")
+        response = client.post("/api/v1/admin/reload-cookie", json={"provider": "youtube"})
 
         assert response.status_code == 200
         data = response.json()
@@ -119,7 +119,7 @@ class TestReloadCookieEndpoint:
         """Test cookie reload with validation failure."""
         mock_cookie_service.reload_cookie.side_effect = CookieError("New cookie failed validation")
 
-        response = client.post("/api/v1/admin/reload-cookie?provider=youtube")
+        response = client.post("/api/v1/admin/reload-cookie", json={"provider": "youtube"})
 
         assert response.status_code == 400
         data = response.json()
@@ -132,7 +132,7 @@ class TestReloadCookieEndpoint:
             "Provider 'nonexistent' not configured"
         )
 
-        response = client.post("/api/v1/admin/reload-cookie?provider=nonexistent")
+        response = client.post("/api/v1/admin/reload-cookie", json={"provider": "nonexistent"})
 
         assert response.status_code == 400
         data = response.json()
@@ -142,7 +142,7 @@ class TestReloadCookieEndpoint:
         """Test cookie reload with unexpected error."""
         mock_cookie_service.reload_cookie.side_effect = Exception("Unexpected error")
 
-        response = client.post("/api/v1/admin/reload-cookie?provider=youtube")
+        response = client.post("/api/v1/admin/reload-cookie", json={"provider": "youtube"})
 
         assert response.status_code == 500
         data = response.json()
@@ -157,7 +157,7 @@ class TestEndpointIntegration:
         # First validation fails
         mock_cookie_service.validate_cookie.side_effect = CookieError("Cookie expired")
 
-        response1 = client.post("/api/v1/admin/validate-cookie?provider=youtube")
+        response1 = client.post("/api/v1/admin/validate-cookie", json={"provider": "youtube"})
         assert response1.status_code == 400
 
         # Reload cookie
@@ -168,7 +168,7 @@ class TestEndpointIntegration:
             "age_hours": 0.1,
         }
 
-        response2 = client.post("/api/v1/admin/reload-cookie?provider=youtube")
+        response2 = client.post("/api/v1/admin/reload-cookie", json={"provider": "youtube"})
         assert response2.status_code == 200
 
         # Validation now succeeds
@@ -177,6 +177,6 @@ class TestEndpointIntegration:
         mock_cookie_service.get_cookie_age_hours.return_value = 0.1
         mock_cookie_service.check_cookie_age.return_value = None
 
-        response3 = client.post("/api/v1/admin/validate-cookie?provider=youtube")
+        response3 = client.post("/api/v1/admin/validate-cookie", json={"provider": "youtube"})
         assert response3.status_code == 200
         assert response3.json()["is_valid"] is True

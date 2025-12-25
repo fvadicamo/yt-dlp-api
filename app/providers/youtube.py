@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import re
 import subprocess  # nosec B404 - subprocess used for returning CompletedProcess
 from pathlib import Path
@@ -14,6 +15,11 @@ from app.providers.base import VideoProvider
 from app.providers.exceptions import DownloadError, InvalidURLError, VideoUnavailableError
 
 logger = structlog.get_logger(__name__)
+
+
+def _is_test_mode() -> bool:
+    """Check if test mode is enabled via environment variable."""
+    return os.environ.get("APP_TESTING_TEST_MODE", "").lower() in ("true", "1", "yes")
 
 
 class YouTubeProvider(VideoProvider):
@@ -44,6 +50,14 @@ class YouTubeProvider(VideoProvider):
         self.retry_attempts: int = config.get("retry_attempts", 3)
         self.retry_backoff: list = config.get("retry_backoff", [2, 4, 8])
         self.cookie_service = cookie_service
+
+        # Capture test mode at construction time (env var may not be visible in async context)
+        self._test_mode = _is_test_mode()
+        logger.info(
+            "youtube_provider_test_mode_check",
+            test_mode=self._test_mode,
+            env_value=os.environ.get("APP_TESTING_TEST_MODE"),
+        )
 
         logger.info(
             "YouTube provider initialized",
@@ -543,6 +557,9 @@ class YouTubeProvider(VideoProvider):
         Distinguishes between retriable errors (network, 5xx) and
         non-retriable errors (private video, invalid URL).
 
+        In test mode (APP_TESTING_TEST_MODE=true), uses MockYtdlpExecutor
+        instead of real yt-dlp commands.
+
         Args:
             cmd: Command to execute as list of strings
             timeout: Optional timeout in seconds for each attempt
@@ -553,6 +570,18 @@ class YouTubeProvider(VideoProvider):
         Raises:
             DownloadError: If all retry attempts fail or non-retriable error occurs
         """
+        # Check if test mode is enabled (captured at construction time)
+        logger.debug("_execute_with_retry: self._test_mode=%s", self._test_mode)
+        if self._test_mode:
+            from app.testing.mock_ytdlp import MockYtdlpExecutor
+
+            # Get output_dir from provider config (passed from main.py)
+            output_dir = self.config.get("output_dir", "/app/downloads")
+            logger.info("test_mode_execute", cmd=cmd, output_dir=output_dir)
+            executor = MockYtdlpExecutor(output_dir=output_dir)
+            result = await executor.execute(cmd, timeout)
+            return subprocess.CompletedProcess(cmd, result.returncode, result.stdout, result.stderr)
+
         last_error: Optional[str] = None
         process: Optional[asyncio.subprocess.Process] = None
 

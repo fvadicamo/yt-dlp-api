@@ -182,6 +182,7 @@ class HealthResponse(BaseModel):
     timestamp: str = Field(..., examples=["2025-12-25T10:30:00Z"])
     version: str = Field(..., examples=["1.0.0"])
     uptime_seconds: float = Field(..., examples=[3600.5])
+    test_mode: bool = Field(False, description="Indicates if running in test mode")
     components: Dict[str, ComponentHealth]
 
 

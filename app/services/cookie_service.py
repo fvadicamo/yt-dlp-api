@@ -1,6 +1,7 @@
 """Cookie management service."""
 
 import asyncio
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -35,6 +36,15 @@ class CookieService:
         """
         self.config = config
         self.provider_cookies: Dict[str, str] = {}
+
+        # Capture test mode at construction time (env var may not be visible in async context)
+        self._test_mode = os.environ.get("APP_TESTING_TEST_MODE", "").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        if self._test_mode:
+            logger.info("Cookie service initialized in test mode")
 
         # TTL cache for validation results (1 hour)
         self.validation_cache: TTLCache = TTLCache(maxsize=10, ttl=self.VALIDATION_CACHE_TTL)
@@ -439,6 +449,11 @@ class CookieService:
         Raises:
             CookieError: If authentication fails
         """
+        # Skip validation in test mode (yt-dlp is mocked)
+        if self._test_mode:
+            logger.debug("Skipping YouTube authentication test (test mode)")
+            return True
+
         cookie_path = self.get_cookie_path("youtube")
         if not cookie_path:
             raise CookieError("No cookie path configured for YouTube")

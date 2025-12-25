@@ -155,6 +155,15 @@ class MonitoringConfig(BaseConfigSection):
     model_config = SettingsConfigDict(env_prefix="APP_MONITORING_")
 
 
+class TestingConfig(BaseConfigSection):
+    """Testing configuration for test mode."""
+
+    test_mode: bool = False  # Enable test mode with mock yt-dlp
+    mock_ytdlp: bool = True  # Mock yt-dlp commands when in test mode
+
+    model_config = SettingsConfigDict(env_prefix="APP_TESTING_")
+
+
 class Config(BaseSettings):
     """Main application configuration"""
 
@@ -168,6 +177,7 @@ class Config(BaseSettings):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
+    testing: TestingConfig = Field(default_factory=TestingConfig)
 
     model_config = SettingsConfigDict(env_prefix="APP_")
 
@@ -205,6 +215,7 @@ class ConfigService:
         logging_config = LoggingConfig(**config_data.get("logging", {}))
         security = SecurityConfig(**config_data.get("security", {}))
         monitoring = MonitoringConfig(**config_data.get("monitoring", {}))
+        testing = TestingConfig(**config_data.get("testing", {}))
 
         # Handle providers
         providers_data = config_data.get("providers", {})
@@ -223,6 +234,7 @@ class ConfigService:
             logging=logging_config,
             security=security,
             monitoring=monitoring,
+            testing=testing,
         )
 
         return self._config

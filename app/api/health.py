@@ -7,6 +7,7 @@ This module implements requirements 11, 30, and 37:
 """
 
 import asyncio
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Literal
@@ -18,6 +19,15 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.api.schemas import ComponentHealth, HealthResponse, LivenessResponse, ReadinessResponse
 from app.core.checks import check_ffmpeg, check_nodejs, check_ytdlp
+
+
+def _is_test_mode() -> bool:
+    """Check if test mode is enabled via environment variable."""
+    return os.environ.get("APP_TESTING_TEST_MODE", "").lower() in ("true", "1", "yes")
+
+
+# Capture test mode at module import time (env var may not be visible in async context)
+_TEST_MODE_CACHED = _is_test_mode()
 
 logger = structlog.get_logger(__name__)
 
@@ -270,6 +280,7 @@ async def health_check() -> JSONResponse:
         timestamp=datetime.now(timezone.utc).isoformat(),
         version=__version__,
         uptime_seconds=round(uptime, 2),
+        test_mode=_TEST_MODE_CACHED,
         components=components,
     )
 
