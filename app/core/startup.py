@@ -26,6 +26,11 @@ from app.core.config import Config
 logger = structlog.get_logger(__name__)
 
 
+def _is_test_mode() -> bool:
+    """Check if test mode is enabled via environment variable."""
+    return os.environ.get("APP_TESTING_TEST_MODE", "").lower() in ("true", "1", "yes")
+
+
 @dataclass
 class ComponentCheckResult:
     """Result of a startup component check.
@@ -85,7 +90,16 @@ class StartupValidator:
     MIN_NODEJS_VERSION = 20
 
     # Components that must be available even in degraded mode
+    # In test mode, ytdlp is not critical as we use mock executor
     ALWAYS_CRITICAL_COMPONENTS = {"ytdlp", "storage"}
+
+    @property
+    def critical_components(self) -> set:
+        """Get set of critical components based on mode."""
+        if _is_test_mode():
+            # In test mode, only storage is critical (we mock yt-dlp)
+            return {"storage"}
+        return self.ALWAYS_CRITICAL_COMPONENTS
 
     def __init__(self, config: Config):
         """Initialize the startup validator.
@@ -134,7 +148,7 @@ class StartupValidator:
             if self.allow_degraded:
                 # In degraded mode, only truly critical failures block startup
                 truly_critical = [
-                    r for r in critical_failures if r.name in self.ALWAYS_CRITICAL_COMPONENTS
+                    r for r in critical_failures if r.name in self.critical_components
                 ]
                 if truly_critical:
                     for r in truly_critical:
@@ -349,7 +363,9 @@ class StartupValidator:
             ComponentCheckResult with appropriate critical flag based on mode.
         """
         if self.allow_degraded:
-            self.disabled_providers.append(provider)
+            # In test mode, don't disable providers (we use mocks)
+            if not _is_test_mode():
+                self.disabled_providers.append(provider)
             return ComponentCheckResult(
                 name="cookies",
                 passed=False,

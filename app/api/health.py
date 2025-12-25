@@ -26,6 +26,9 @@ def _is_test_mode() -> bool:
     return os.environ.get("APP_TESTING_TEST_MODE", "").lower() in ("true", "1", "yes")
 
 
+# Capture test mode at module import time (env var may not be visible in async context)
+_TEST_MODE_CACHED = _is_test_mode()
+
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["health"])
@@ -277,7 +280,7 @@ async def health_check() -> JSONResponse:
         timestamp=datetime.now(timezone.utc).isoformat(),
         version=__version__,
         uptime_seconds=round(uptime, 2),
-        test_mode=_is_test_mode(),
+        test_mode=_TEST_MODE_CACHED,
         components=components,
     )
 

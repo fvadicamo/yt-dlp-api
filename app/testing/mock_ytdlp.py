@@ -64,11 +64,27 @@ class MockYtdlpExecutor:
             return await self._mock_get_info(cmd)
         elif "-F" in cmd or "--list-formats" in cmd:
             return await self._mock_list_formats(cmd)
-        elif any(arg.startswith("-o") for arg in cmd):
+        elif self._is_download_command(cmd):
             return await self._mock_download(cmd)
         else:
             # Unknown command, return success
             return MockProcessResult(returncode=0, stdout=b"", stderr=b"")
+
+    def _is_download_command(self, cmd: List[str]) -> bool:
+        """Check if command is a download operation.
+
+        Downloads are identified by:
+        - -o (output template)
+        - --print after_move:filepath (used for file path extraction)
+        """
+        # Check for -o flag
+        if any(arg.startswith("-o") for arg in cmd):
+            return True
+        # Check for --print after_move:filepath pattern
+        return any(
+            arg == "--print" and i + 1 < len(cmd) and "filepath" in cmd[i + 1]
+            for i, arg in enumerate(cmd)
+        )
 
     async def _mock_get_info(self, cmd: List[str]) -> MockProcessResult:
         """Mock metadata extraction (--dump-json).
@@ -123,7 +139,12 @@ class MockYtdlpExecutor:
         video_id = self._extract_video_id(url)
         output_template = self._extract_output_template(cmd)
 
-        logger.debug("mock_download", video_id=video_id, output_template=output_template)
+        logger.warning(
+            "mock_download",
+            video_id=video_id,
+            output_template=output_template,
+            output_dir=self.output_dir,
+        )
 
         # Simulate download delay
         await asyncio.sleep(0.3)
@@ -155,8 +176,16 @@ class MockYtdlpExecutor:
         mock_content = f"MOCK FILE: {video_id}\nTitle: {title}\nFormat: {ext}\n"
         output_path.write_text(mock_content)
 
+        logger.warning(
+            "mock_download_complete",
+            output_path=str(output_path),
+            file_exists=output_path.exists(),
+        )
+
         # Return success with download message
-        stdout = f"[download] {filename}\n[download] 100% of 1.00MiB".encode("utf-8")
+        # The file path should be on a line that doesn't start with [
+        # This matches what --print after_move:filepath outputs
+        stdout = f"[download] {filename}\n[download] 100% of 1.00MiB\n{output_path}".encode("utf-8")
 
         return MockProcessResult(returncode=0, stdout=stdout, stderr=b"")
 
