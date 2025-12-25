@@ -1,0 +1,113 @@
+# Docker Compose configuration for yt-dlp REST API
+# Implements requirement 42 (Docker Compose support)
+#
+# Usage:
+#   docker-compose up -d        # Start in background
+#   docker-compose logs -f      # View logs
+#   docker-compose down         # Stop and remove
+#
+# Before first run:
+#   1. Copy your YouTube cookie file to ./cookies/youtube.txt
+#   2. Set API_KEY environment variable or create .env file
+#
+# Example .env file:
+#   API_KEY=your-secure-api-key-here
+
+services:
+  ytdlp-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ytdlp-api:latest
+    container_name: ytdlp-api
+
+    # Restart policy (Req 42)
+    restart: unless-stopped
+
+    # Port mappings (Req 42)
+    ports:
+      - "8000:8000"    # API port
+      - "9090:9090"    # Metrics port (optional, only if metrics enabled)
+
+    # Environment variables (Req 42)
+    environment:
+      # Server configuration
+      - APP_SERVER_HOST=0.0.0.0
+      - APP_SERVER_PORT=8000
+
+      # Logging
+      - APP_LOGGING_LEVEL=${LOG_LEVEL:-INFO}
+
+      # Storage paths (inside container)
+      - APP_STORAGE_OUTPUT_DIR=/app/downloads
+      - APP_STORAGE_COOKIE_DIR=/app/cookies
+
+      # Security - API key(s) in JSON array format (REQUIRED)
+      # Set API_KEY in .env file or environment before starting
+      # Example for multiple keys: API_KEY='["key1", "key2"]'
+      - APP_SECURITY_API_KEYS=${API_KEY?API_KEY_required}
+
+      # Provider configuration
+      - APP_PROVIDERS_YOUTUBE_ENABLED=true
+      - APP_PROVIDERS_YOUTUBE_COOKIE_PATH=/app/cookies/youtube.txt
+
+      # Degraded mode - set to true to start without valid cookies
+      - APP_SECURITY_ALLOW_DEGRADED_START=${ALLOW_DEGRADED_START:-false}
+
+      # Monitoring
+      - APP_MONITORING_METRICS_ENABLED=${METRICS_ENABLED:-true}
+      - APP_MONITORING_METRICS_PORT=9090
+
+    # Volume mounts (Req 42)
+    volumes:
+      # Downloaded files - persistent storage
+      - ./downloads:/app/downloads
+
+      # Cookie files - read-only for security
+      - ./cookies:/app/cookies:ro
+
+      # Configuration file - read-only
+      - ./config.yaml:/app/config.yaml:ro
+
+      # Logs directory - writable
+      - ./logs:/app/logs
+
+    # Health check: Uses HEALTHCHECK from Dockerfile for consistency
+    # (Dockerfile uses $APP_SERVER_PORT variable, 30s interval, 10s start_period)
+
+    # Resource limits (Req 32, 43)
+    # Using docker-compose v2 compatible keys (deploy.resources is Swarm-only)
+    cpus: '2.0'
+    mem_limit: 2g
+    mem_reservation: 1g
+
+    # Security options (Req 32)
+    security_opt:
+      - no-new-privileges:true
+
+    # Read-only filesystem with writable volumes (Req 32)
+    # Note: Uncomment below for strict security mode
+    # This requires all write operations to go through mounted volumes
+    # read_only: true
+    # tmpfs:
+    #   - /tmp
+    #   - /app/logs
+
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Network configuration (optional, uses default bridge network)
+networks:
+  default:
+    name: ytdlp-network
+    driver: bridge
+
+# Named volumes (optional, uncomment for Docker-managed volumes)
+# volumes:
+#   downloads:
+#   cookies:
+#   logs:
