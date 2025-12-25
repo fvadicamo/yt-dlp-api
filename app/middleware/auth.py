@@ -25,10 +25,10 @@ def hash_api_key(api_key: Optional[str]) -> str:
     Create a safe hash of an API key for logging.
 
     Args:
-        api_key: The API key to hash.
+        api_key: The API key to hash
 
     Returns:
-        Hashed API key in format "sha256:<8_char_prefix>" or "empty" if no key.
+        Hashed API key in format "sha256:<8_char_prefix>" or "empty" if no key
     """
     if not api_key:
         return "empty"
