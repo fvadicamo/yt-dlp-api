@@ -440,11 +440,11 @@ For rapid and robust delivery, the following are REQUIRED:
 
 ---
 
-- [ ] 11. Startup Validation and Initialization
+- [x] 11. Startup Validation and Initialization
   - Implement startup checks for dependencies and configuration
   - _Requirements: 10, 21, 22, 23, 47_
 
-- [ ] 11.1 Implement startup validator
+- [x] 11.1 Implement startup validator
   - Create StartupValidator class with component checks
   - Add yt-dlp version check
   - Add ffmpeg availability check
@@ -453,7 +453,7 @@ For rapid and robust delivery, the following are REQUIRED:
   - Add storage directory and permissions check
   - _Requirements: 10, 21, 22, 23_
 
-- [ ] 11.2 Implement degraded mode support
+- [x] 11.2 Implement degraded mode support
   - Add ALLOW_DEGRADED_START configuration option
   - Allow startup with warnings when degraded mode enabled
   - Disable providers with missing cookies in degraded mode
@@ -461,13 +461,13 @@ For rapid and robust delivery, the following are REQUIRED:
   - Log degraded mode status at startup
   - _Requirements: 47_
 
-- [ ] 11.3 Configure yt-dlp for Node.js runtime
+- [x] 11.3 Configure yt-dlp for Node.js runtime
   - Set --js-runtimes node flag in yt-dlp configuration
   - Create yt-dlp config file if not exists
   - Verify Node.js runtime configuration
   - _Requirements: 10, 21_
 
-- [ ] 11.4 Write startup validation tests
+- [x] 11.4 Write startup validation tests
   - Test component availability checks
   - Test degraded mode behavior
   - Test startup failure scenarios

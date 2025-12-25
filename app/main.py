@@ -23,6 +23,7 @@ from app.core.errors import APIError, global_exception_handler
 from app.core.logging import configure_logging
 from app.core.metrics import MetricsCollector, initialize_metrics
 from app.core.rate_limiter import configure_rate_limiter
+from app.core.startup import StartupValidator
 from app.middleware.auth import configure_auth
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.providers.manager import ProviderManager
@@ -68,6 +69,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 _provider_manager: ProviderManager | None = None
 _cookie_service: CookieService | None = None
 _cleanup_task: asyncio.Task | None = None
+_disabled_providers: list[str] = []
 
 
 def get_provider_manager() -> ProviderManager:
@@ -87,7 +89,7 @@ def get_cookie_service() -> CookieService:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager for startup and shutdown."""
-    global _provider_manager, _cookie_service, _cleanup_task
+    global _provider_manager, _cookie_service, _cleanup_task, _disabled_providers
 
     logger.info("Application starting", version=__version__)
 
@@ -106,6 +108,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         server_port=config.server.port,
         output_dir=config.storage.output_dir,
     )
+
+    # Run startup validation
+    validator = StartupValidator(config)
+    startup_result = await validator.validate_all()
+
+    if not startup_result.success:
+        logger.critical(
+            "Startup validation failed",
+            errors=startup_result.errors,
+            allow_degraded_start=config.security.allow_degraded_start,
+        )
+        raise RuntimeError(f"Startup validation failed: {'; '.join(startup_result.errors)}")
+
+    if startup_result.degraded_mode:
+        logger.warning(
+            "Starting in degraded mode",
+            warnings=startup_result.warnings,
+            disabled_providers=startup_result.disabled_providers,
+        )
+
+    # Store disabled providers for later use
+    _disabled_providers = startup_result.disabled_providers
 
     # Configure authentication
     configure_auth(api_keys=config.security.api_keys)
@@ -158,8 +182,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Configure provider manager and register providers
     _provider_manager = ProviderManager()
 
-    # Register YouTube provider
-    if config.providers.youtube.enabled:
+    # Register YouTube provider (skip if disabled by startup validation)
+    if config.providers.youtube.enabled and "youtube" not in _disabled_providers:
         youtube_config = {
             "cookie_path": config.providers.youtube.cookie_path,
             "retry_attempts": config.providers.youtube.retry_attempts,
@@ -168,6 +192,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         youtube_provider = YouTubeProvider(youtube_config, _cookie_service)
         _provider_manager.register_provider("youtube", youtube_provider, enabled=True)
         logger.info("YouTube provider registered")
+    elif "youtube" in _disabled_providers:
+        logger.warning("YouTube provider disabled due to startup validation failure")
 
     # Configure download worker
     worker = configure_download_worker(

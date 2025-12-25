@@ -7,7 +7,6 @@ This module implements requirements 11, 30, and 37:
 """
 
 import asyncio
-import re
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Literal
@@ -18,6 +17,7 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.api.schemas import ComponentHealth, HealthResponse, LivenessResponse, ReadinessResponse
+from app.core.checks import check_ffmpeg, check_nodejs, check_ytdlp
 
 logger = structlog.get_logger(__name__)
 
@@ -35,133 +35,36 @@ def reset_start_time() -> None:
 
 async def _check_ytdlp() -> ComponentHealth:
     """Check yt-dlp availability and version."""
-    proc = None
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "yt-dlp",
-            "--version",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
-
-        if proc.returncode == 0:
-            version = stdout.decode().strip()
-            return ComponentHealth(status="healthy", version=version)
-
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": "yt-dlp returned non-zero exit code"},
-        )
-    except asyncio.TimeoutError:
-        if proc:
-            proc.kill()
-            await proc.wait()
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": "yt-dlp check timed out"},
-        )
-    except FileNotFoundError:
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": "yt-dlp not found"},
-        )
-    except Exception as e:
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": str(e)},
-        )
+    result = await check_ytdlp()
+    if result.available:
+        return ComponentHealth(status="healthy", version=result.version)
+    return ComponentHealth(
+        status="unhealthy",
+        details={"error": result.error or "yt-dlp not available"},
+    )
 
 
 async def _check_ffmpeg() -> ComponentHealth:
     """Check ffmpeg availability and version."""
-    proc = None
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg",
-            "-version",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
-
-        if proc.returncode == 0:
-            # Extract version using regex for robustness
-            output = stdout.decode()
-            match = re.search(r"ffmpeg version (\S+)", output)
-            version = match.group(1) if match else "unknown"
-            return ComponentHealth(status="healthy", version=version)
-
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": "ffmpeg returned non-zero exit code"},
-        )
-    except asyncio.TimeoutError:
-        if proc:
-            proc.kill()
-            await proc.wait()
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": "ffmpeg check timed out"},
-        )
-    except FileNotFoundError:
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": "ffmpeg not found"},
-        )
-    except Exception as e:
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": str(e)},
-        )
+    result = await check_ffmpeg()
+    if result.available:
+        return ComponentHealth(status="healthy", version=result.version)
+    return ComponentHealth(
+        status="unhealthy",
+        details={"error": result.error or "ffmpeg not available"},
+    )
 
 
 async def _check_nodejs() -> ComponentHealth:
     """Check Node.js availability and version."""
-    proc = None
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "node",
-            "--version",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
-
-        if proc.returncode == 0:
-            version = stdout.decode().strip()
-            # Check version >= 20
-            major_version = int(version.lstrip("v").split(".")[0])
-            if major_version >= 20:
-                return ComponentHealth(status="healthy", version=version)
-            return ComponentHealth(
-                status="unhealthy",
-                version=version,
-                details={"error": f"Node.js >= 20 required, found {version}"},
-            )
-
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": "node returned non-zero exit code"},
-        )
-    except asyncio.TimeoutError:
-        if proc:
-            proc.kill()
-            await proc.wait()
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": "node check timed out"},
-        )
-    except FileNotFoundError:
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": "node not found"},
-        )
-    except Exception as e:
-        return ComponentHealth(
-            status="unhealthy",
-            details={"error": str(e)},
-        )
+    result = await check_nodejs(min_version=20)
+    if result.available:
+        return ComponentHealth(status="healthy", version=result.version)
+    return ComponentHealth(
+        status="unhealthy",
+        version=result.version,
+        details={"error": result.error or "Node.js not available"},
+    )
 
 
 def _check_storage() -> ComponentHealth:
