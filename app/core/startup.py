@@ -83,6 +83,9 @@ class StartupValidator:
     # Minimum Node.js version required for JavaScript challenge resolution
     MIN_NODEJS_VERSION = 20
 
+    # Components that must be available even in degraded mode
+    ALWAYS_CRITICAL_COMPONENTS = {"ytdlp", "storage"}
+
     def __init__(self, config: Config):
         """Initialize the startup validator.
 
@@ -129,8 +132,9 @@ class StartupValidator:
         if critical_failures:
             if self.allow_degraded:
                 # In degraded mode, only truly critical failures block startup
-                # (yt-dlp and storage are always required)
-                truly_critical = [r for r in critical_failures if r.name in ("ytdlp", "storage")]
+                truly_critical = [
+                    r for r in critical_failures if r.name in self.ALWAYS_CRITICAL_COMPONENTS
+                ]
                 if truly_critical:
                     for r in truly_critical:
                         self.errors.append(f"{r.name}: {r.message}")

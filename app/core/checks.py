@@ -12,7 +12,7 @@ Implements requirements:
 import asyncio
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -34,6 +34,70 @@ class CheckResult:
     details: Dict[str, Any] = field(default_factory=dict)
 
 
+async def _run_binary_check(
+    name: str,
+    command: List[str],
+    timeout: float,
+    parse_output: Callable[[bytes], Tuple[bool, Optional[str], Optional[str]]],
+) -> CheckResult:
+    """Run a binary availability check with common error handling.
+
+    This helper function handles the boilerplate of running a subprocess
+    and catching common exceptions (timeout, file not found, etc.).
+
+    Args:
+        name: Component name for the result (e.g., "ytdlp", "ffmpeg").
+        command: Command and arguments to execute.
+        timeout: Maximum time to wait in seconds.
+        parse_output: Callback to parse stdout and determine success.
+            Should return (success, version, error_message).
+
+    Returns:
+        CheckResult with availability status.
+    """
+    proc = None
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+
+        if proc.returncode == 0:
+            success, version, error = parse_output(stdout)
+            if success:
+                return CheckResult(name=name, available=True, version=version)
+            return CheckResult(name=name, available=False, version=version, error=error)
+
+        return CheckResult(
+            name=name,
+            available=False,
+            error=f"{command[0]} returned non-zero exit code",
+        )
+    except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+            await proc.wait()
+        return CheckResult(
+            name=name,
+            available=False,
+            error=f"{command[0]} check timed out",
+        )
+    except FileNotFoundError:
+        return CheckResult(
+            name=name,
+            available=False,
+            error=f"{command[0]} not found",
+        )
+    except Exception as e:
+        return CheckResult(
+            name=name,
+            available=False,
+            error=str(e),
+        )
+
+
 async def check_ytdlp(timeout: float = 5.0) -> CheckResult:
     """Check yt-dlp availability and version.
 
@@ -43,46 +107,17 @@ async def check_ytdlp(timeout: float = 5.0) -> CheckResult:
     Returns:
         CheckResult with availability status and version if available.
     """
-    proc = None
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "yt-dlp",
-            "--version",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
 
-        if proc.returncode == 0:
-            version = stdout.decode().strip()
-            return CheckResult(name="ytdlp", available=True, version=version)
+    def parse_version(stdout: bytes) -> Tuple[bool, Optional[str], Optional[str]]:
+        version = stdout.decode().strip()
+        return True, version, None
 
-        return CheckResult(
-            name="ytdlp",
-            available=False,
-            error="yt-dlp returned non-zero exit code",
-        )
-    except asyncio.TimeoutError:
-        if proc:
-            proc.kill()
-            await proc.wait()
-        return CheckResult(
-            name="ytdlp",
-            available=False,
-            error="yt-dlp check timed out",
-        )
-    except FileNotFoundError:
-        return CheckResult(
-            name="ytdlp",
-            available=False,
-            error="yt-dlp not found",
-        )
-    except Exception as e:
-        return CheckResult(
-            name="ytdlp",
-            available=False,
-            error=str(e),
-        )
+    return await _run_binary_check(
+        name="ytdlp",
+        command=["yt-dlp", "--version"],
+        timeout=timeout,
+        parse_output=parse_version,
+    )
 
 
 async def check_ffmpeg(timeout: float = 5.0) -> CheckResult:
@@ -94,49 +129,19 @@ async def check_ffmpeg(timeout: float = 5.0) -> CheckResult:
     Returns:
         CheckResult with availability status and version if available.
     """
-    proc = None
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg",
-            "-version",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
 
-        if proc.returncode == 0:
-            # Extract version using regex for robustness
-            output = stdout.decode()
-            match = re.search(r"ffmpeg version (\S+)", output)
-            version = match.group(1) if match else "unknown"
-            return CheckResult(name="ffmpeg", available=True, version=version)
+    def parse_version(stdout: bytes) -> Tuple[bool, Optional[str], Optional[str]]:
+        output = stdout.decode()
+        match = re.search(r"ffmpeg version (\S+)", output)
+        version = match.group(1) if match else "unknown"
+        return True, version, None
 
-        return CheckResult(
-            name="ffmpeg",
-            available=False,
-            error="ffmpeg returned non-zero exit code",
-        )
-    except asyncio.TimeoutError:
-        if proc:
-            proc.kill()
-            await proc.wait()
-        return CheckResult(
-            name="ffmpeg",
-            available=False,
-            error="ffmpeg check timed out",
-        )
-    except FileNotFoundError:
-        return CheckResult(
-            name="ffmpeg",
-            available=False,
-            error="ffmpeg not found",
-        )
-    except Exception as e:
-        return CheckResult(
-            name="ffmpeg",
-            available=False,
-            error=str(e),
-        )
+    return await _run_binary_check(
+        name="ffmpeg",
+        command=["ffmpeg", "-version"],
+        timeout=timeout,
+        parse_output=parse_version,
+    )
 
 
 async def check_nodejs(min_version: int = 20, timeout: float = 5.0) -> CheckResult:
@@ -150,62 +155,22 @@ async def check_nodejs(min_version: int = 20, timeout: float = 5.0) -> CheckResu
         CheckResult with availability status. available=False if
         Node.js is not installed or version is below min_version.
     """
-    proc = None
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "node",
-            "--version",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
 
-        if proc.returncode == 0:
-            version = stdout.decode().strip()
-            # Parse version (format: v20.10.0)
-            try:
-                major_version = int(version.lstrip("v").split(".")[0])
-            except (ValueError, IndexError):
-                return CheckResult(
-                    name="nodejs",
-                    available=False,
-                    version=version,
-                    error=f"Unable to parse Node.js version: {version}",
-                )
+    def parse_version(stdout: bytes) -> Tuple[bool, Optional[str], Optional[str]]:
+        version = stdout.decode().strip()
+        try:
+            major_version = int(version.lstrip("v").split(".")[0])
+        except (ValueError, IndexError):
+            return False, version, f"Unable to parse Node.js version: {version}"
 
-            if major_version >= min_version:
-                return CheckResult(name="nodejs", available=True, version=version)
+        if major_version >= min_version:
+            return True, version, None
 
-            return CheckResult(
-                name="nodejs",
-                available=False,
-                version=version,
-                error=f"Node.js >= {min_version} required, found {version}",
-            )
+        return False, version, f"Node.js >= {min_version} required, found {version}"
 
-        return CheckResult(
-            name="nodejs",
-            available=False,
-            error="node returned non-zero exit code",
-        )
-    except asyncio.TimeoutError:
-        if proc:
-            proc.kill()
-            await proc.wait()
-        return CheckResult(
-            name="nodejs",
-            available=False,
-            error="node check timed out",
-        )
-    except FileNotFoundError:
-        return CheckResult(
-            name="nodejs",
-            available=False,
-            error="node not found",
-        )
-    except Exception as e:
-        return CheckResult(
-            name="nodejs",
-            available=False,
-            error=str(e),
-        )
+    return await _run_binary_check(
+        name="nodejs",
+        command=["node", "--version"],
+        timeout=timeout,
+        parse_output=parse_version,
+    )
