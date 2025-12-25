@@ -163,6 +163,8 @@ curl -X POST -H "X-API-Key: your-api-key" \
 | `LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
 | `METRICS_ENABLED` | `true` | Enable Prometheus metrics |
 
+See [DEPLOYMENT.md](DEPLOYMENT.md#environment-variables-reference) for the complete list of 30+ configuration options.
+
 ### config.yaml
 
 ```yaml

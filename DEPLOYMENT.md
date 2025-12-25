@@ -70,8 +70,8 @@ services:
 # Build with specific tag
 docker build -t ytdlp-api:v1.0.0 .
 
-# Build with custom base image
-docker build --build-arg PYTHON_VERSION=3.12 -t ytdlp-api:custom .
+# Build for specific platform
+docker build --platform linux/amd64 -t ytdlp-api:amd64 .
 ```
 
 ## Kubernetes Deployment
@@ -311,17 +311,86 @@ cp config.yaml /backup/config-$(date +%Y%m%d).yaml
 
 ## Environment Variables Reference
 
+All configuration options can be set via environment variables with the `APP_` prefix.
+
+### Security
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `APP_SECURITY_API_KEYS` | Yes | - | JSON array of API keys |
-| `APP_SECURITY_ALLOW_DEGRADED_START` | No | `false` | Start without cookies |
+| `APP_SECURITY_ALLOW_DEGRADED_START` | No | `false` | Start without valid cookies |
+| `APP_SECURITY_CORS_ORIGINS` | No | `["*"]` | Allowed CORS origins |
+
+### Server
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
 | `APP_SERVER_HOST` | No | `0.0.0.0` | Bind address |
 | `APP_SERVER_PORT` | No | `8000` | HTTP port |
-| `APP_LOGGING_LEVEL` | No | `INFO` | Log level |
+| `APP_SERVER_WORKERS` | No | `4` | Number of uvicorn workers |
+
+### Timeouts
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APP_TIMEOUTS_METADATA` | No | `10` | Metadata fetch timeout (seconds) |
+| `APP_TIMEOUTS_DOWNLOAD` | No | `300` | Download timeout (seconds) |
+| `APP_TIMEOUTS_AUDIO_CONVERSION` | No | `60` | Audio conversion timeout (seconds) |
+
+### Storage
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
 | `APP_STORAGE_OUTPUT_DIR` | No | `/app/downloads` | Download directory |
-| `APP_STORAGE_CLEANUP_AGE` | No | `24` | Hours before cleanup |
-| `APP_MONITORING_METRICS_ENABLED` | No | `true` | Enable Prometheus |
-| `APP_MONITORING_METRICS_PORT` | No | `9090` | Metrics port |
+| `APP_STORAGE_COOKIE_DIR` | No | `/app/cookies` | Cookie files directory |
+| `APP_STORAGE_CLEANUP_AGE` | No | `24` | Hours before file cleanup |
+| `APP_STORAGE_CLEANUP_THRESHOLD` | No | `80` | Disk usage % to trigger cleanup |
+| `APP_STORAGE_MAX_FILE_SIZE` | No | `524288000` | Max file size in bytes (500MB) |
+
+### Downloads
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APP_DOWNLOADS_MAX_CONCURRENT` | No | `5` | Max concurrent downloads |
+| `APP_DOWNLOADS_QUEUE_SIZE` | No | `100` | Max queue size |
+| `APP_DOWNLOADS_JOB_TTL` | No | `24` | Hours to keep completed jobs |
+
+### Rate Limiting
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APP_RATE_LIMITING_METADATA_RPM` | No | `100` | Metadata requests per minute |
+| `APP_RATE_LIMITING_DOWNLOAD_RPM` | No | `10` | Download requests per minute |
+| `APP_RATE_LIMITING_BURST_CAPACITY` | No | `20` | Token bucket burst capacity |
+
+### Templates
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APP_TEMPLATES_DEFAULT_OUTPUT` | No | `%(title)s-%(id)s.%(ext)s` | Output filename template |
+
+### YouTube Provider
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APP_YOUTUBE_ENABLED` | No | `true` | Enable YouTube provider |
+| `APP_YOUTUBE_COOKIE_PATH` | No | - | Override cookie file path |
+| `APP_YOUTUBE_RETRY_ATTEMPTS` | No | `3` | Number of retry attempts |
+| `APP_YOUTUBE_RETRY_BACKOFF` | No | `[2, 4, 8]` | Backoff delays (seconds) |
+
+### Logging
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APP_LOGGING_LEVEL` | No | `INFO` | Log level (DEBUG, INFO, WARNING, ERROR) |
+| `APP_LOGGING_FORMAT` | No | `json` | Log format (json or text) |
+
+### Monitoring
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APP_MONITORING_METRICS_ENABLED` | No | `true` | Enable Prometheus metrics |
+| `APP_MONITORING_METRICS_PORT` | No | `9090` | Metrics endpoint port |
 
 ## Troubleshooting
 
