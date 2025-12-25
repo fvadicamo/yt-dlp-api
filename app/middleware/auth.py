@@ -20,19 +20,19 @@ API_KEY_HEADER_NAME = "X-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_HEADER_NAME, auto_error=False)
 
 
-def hash_api_key(api_key: str) -> str:
+def hash_api_key(api_key: Optional[str]) -> str:
     """
     Create a safe hash of an API key for logging.
 
     Args:
-        api_key: The API key to hash
+        api_key: The API key to hash.
 
     Returns:
-        SHA256 hash prefix (first 8 characters) for safe logging
+        Hashed API key in format "sha256:<8_char_prefix>" or "empty" if no key.
     """
     if not api_key:
         return "empty"
-    return hashlib.sha256(api_key.encode()).hexdigest()[:8]
+    return f"sha256:{hashlib.sha256(api_key.encode()).hexdigest()[:8]}"
 
 
 class APIKeyAuth:
