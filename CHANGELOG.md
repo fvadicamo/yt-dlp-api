@@ -92,13 +92,24 @@ Initial MVP release of yt-dlp REST API.
 - Health check configuration
 - Volume mounts for downloads, cookies, and logs
 
+#### Testing Infrastructure
+- Test mode configuration for development without YouTube access
+- Mock yt-dlp executor with demo video data
+- End-to-end test suite covering complete API workflow
+- Resource monitoring and validation utilities
+
 #### Documentation
 - Comprehensive README with quick start guide
 - API usage examples with curl
 - Cookie export instructions for Chrome and Firefox
 - Deployment guide for Docker and Kubernetes
-- Complete configuration reference
+- Complete configuration reference with 30+ environment variables
 - Error codes and troubleshooting guide
+- Resource requirements documentation (minimum, recommended, high-load tiers)
+
+### Changed
+
+- Admin endpoints now use JSON request body instead of query parameters (REST best practice)
 
 ### Security
 
@@ -108,6 +119,7 @@ Initial MVP release of yt-dlp REST API.
 - Path traversal protection in template processor
 - Sensitive data redaction in all log output
 - Trivy security scan passed (0 critical vulnerabilities)
+- Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
 [Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/fvadicamo/yt-dlp-api/releases/tag/v0.1.0
