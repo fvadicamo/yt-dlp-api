@@ -278,8 +278,9 @@ class TestSensitiveDataRedaction:
         assert api_key not in hashed
         assert "secret" not in hashed
         assert "12345" not in hashed
-        # Hash should be 8 chars
-        assert len(hashed) == 8
+        # Hash should be prefixed format: "sha256:" + 8 hex chars = 15 chars
+        assert hashed.startswith("sha256:")
+        assert len(hashed) == 15
 
     def test_hash_is_consistent(self):
         """Test that same key produces same hash."""

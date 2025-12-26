@@ -355,8 +355,8 @@ class TestJobServiceCleanup:
         job = service.create_job(url="https://youtube.com/watch?v=abc")
         service.complete_job(job.job_id, "/path", 1000, 10.0)
 
-        # Mock the created_at to be 25 hours ago
-        job.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        # Mock the completed_at to be 25 hours ago (TTL is based on completion time)
+        job.completed_at = datetime.now(timezone.utc) - timedelta(hours=25)
 
         # Run cleanup
         count = service.cleanup_expired_jobs()
@@ -411,9 +411,9 @@ class TestJobServiceCleanup:
         service.complete_job(job1.job_id, "/path1", 1000, 10.0)
         service.complete_job(job2.job_id, "/path2", 2000, 20.0)
 
-        # Mock the created_at to be 25 hours ago
-        job1.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
-        job2.created_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        # Mock the completed_at to be 25 hours ago (TTL is based on completion time)
+        job1.completed_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        job2.completed_at = datetime.now(timezone.utc) - timedelta(hours=25)
 
         # Run cleanup
         count = service.cleanup_expired_jobs()
