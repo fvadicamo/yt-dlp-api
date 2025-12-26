@@ -259,6 +259,17 @@ Full API documentation available at `/docs` (Swagger UI) or `/redoc`.
 - Check logs: `docker compose logs -f`
 - Verify config.yaml is mounted correctly
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Docker and Kubernetes deployment guide |
+| [CONFIGURATION.md](CONFIGURATION.md) | Complete configuration reference (30+ options) |
+| [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup and contribution guidelines |
+| [RELEASING.md](RELEASING.md) | Release process for maintainers |
+| [SECURITY.md](SECURITY.md) | Security policy and vulnerability reporting |
+
 ## Development
 
 ```bash

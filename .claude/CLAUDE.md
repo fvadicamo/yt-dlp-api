@@ -1,9 +1,10 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2025-12-25
+**Last Updated**: 2025-12-26
 **Branch**: `develop`
-**Current Task**: 14 - Documentation
+**Current Task**: Post-MVP maintenance
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
+**Latest Release**: v0.1.3 - Security Hardening
 
 ---
 
@@ -62,6 +63,17 @@
   - 13.2: docker-compose.yml with service configuration
   - 13.3: .dockerignore file
   - 13.4: Docker tests passed (build, components, health, auth, resources, shutdown)
+- [x] Task 14: Documentation (completed 2025-12-25)
+  - 14.1: README.md with quick start and API usage
+  - 14.2: DEPLOYMENT.md with Docker/K8s guide
+  - 14.3: CONFIGURATION.md with 30+ env vars
+  - 14.4: CHANGELOG.md following Keep a Changelog format
+
+### Releases
+- v0.1.0 (2025-12-25): Initial MVP Release
+- v0.1.1 (2025-12-26): Bug fixes from v0.1.0 review
+- v0.1.2 (2025-12-26): OSS files for public release
+- v0.1.3 (2025-12-26): Security hardening (CodeQL fixes) + Dependabot
 
 ### MVP Critical Completed
 - [x] Task 1.4: Configuration and logging tests
@@ -213,25 +225,19 @@ git push origin --delete feature/<task-name>
 
 ## 📊 Project Status
 
-**Coverage**: 86.90% (target: 80%, goal: 90%) ✅
-**Tests Passing**: 748 tests ✅
-**Branch**: `develop`
+**Coverage**: ~87% (target: 80%, goal: 90%) ✅
+**Tests Passing**: 748+ tests ✅
+**Latest Release**: v0.1.3
 
-### Remaining Tasks for MVP
+### MVP Status: COMPLETE ✅
 
-**Core Implementation (10-13):**
-- [x] Task 9: API Endpoints Implementation ✅ COMPLETE
-- [x] Task 10: Error Handling and Monitoring ✅ COMPLETE
-- [x] Task 11: Startup Validation ✅ COMPLETE
-- [x] Task 12: FastAPI Application Assembly ✅ COMPLETE
-- [x] Task 13: Docker Containerization ✅ COMPLETE
+All core tasks (1-14) completed. Project is public on GitHub.
 
-**Documentation (14):**
-- [ ] 14.1: README.md ← NEXT
-- [ ] 14.2: DEPLOYMENT.md
-
-**Final Validation (15):**
-- [ ] 15.3: Basic security validation (Docker scan)
+**Post-MVP Tasks (optional):**
+- [ ] Task 15.1: Test mode configuration
+- [ ] Task 15.2: End-to-end tests
+- [x] Task 15.3: Basic security validation ✅
+- [ ] Task 15.4: Resource requirements validation
 
 ---
 
