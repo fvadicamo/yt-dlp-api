@@ -12,12 +12,17 @@ If you discover a security vulnerability in this project, please report it respo
 
 ### How to Report
 
-1. **Do NOT** open a public GitHub issue for security vulnerabilities
-2. Send an email to the repository owner with:
-   - Description of the vulnerability
-   - Steps to reproduce
-   - Potential impact
-   - Any suggested fixes (optional)
+**Preferred**: Use [GitHub's Private Vulnerability Reporting](https://github.com/fvadicamo/yt-dlp-api/security/advisories/new)
+
+**Alternative**: Open a [security advisory](https://github.com/fvadicamo/yt-dlp-api/security/advisories) or contact the maintainer directly.
+
+**Do NOT** open a public GitHub issue for security vulnerabilities.
+
+Please include:
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (optional)
 
 ### What to Expect
 
