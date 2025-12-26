@@ -52,6 +52,12 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`
 - Google-style docstrings
 - 80%+ test coverage
 
+## Related Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) - Version history and changes
+- [RELEASING.md](RELEASING.md) - Release process guide
+- [SECURITY.md](SECURITY.md) - Security policy and reporting
+
 ## Questions?
 
 Open an issue with the "question" label.
