@@ -12,7 +12,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-def get_counter_sum(content: str, metric_name: str, label_filter: dict | None = None) -> float:
+def get_counter_sum(
+    content: str, metric_name: str, label_filter: dict[str, str] | None = None
+) -> float:
     """Sum all counter values for a metric, optionally filtering by labels.
 
     Args:
@@ -33,10 +35,10 @@ def get_counter_sum(content: str, metric_name: str, label_filter: dict | None = 
             labels_str = match.group(1)
             value = float(match.group(2))
 
-            # If filter specified, check all required labels are present
+            # If filter specified, parse labels and check matches
             if label_filter:
-                matches_filter = all(f'{k}="{v}"' in labels_str for k, v in label_filter.items())
-                if matches_filter:
+                labels = dict(re.findall(r'(\w+)="([^"]*)"', labels_str))
+                if all(labels.get(k) == v for k, v in label_filter.items()):
                     total += value
             else:
                 total += value
