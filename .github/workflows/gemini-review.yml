@@ -106,7 +106,7 @@ jobs:
       # Step 7: Post coverage comment to PR (optional)
       - name: Comment coverage on PR
         if: env.COVERAGE_BELOW_THRESHOLD == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             github.rest.issues.createComment({
@@ -147,7 +147,7 @@ jobs:
       # Step 11: Summary comment with all check results
       - name: Post workflow summary
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const testStatus = '${{ steps.tests.outcome }}';
