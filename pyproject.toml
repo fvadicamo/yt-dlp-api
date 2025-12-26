@@ -38,7 +38,7 @@ dev = [
     "flake8-docstrings==1.7.0",
     "pep8-naming==0.15.1",
     # Type checking
-    "mypy==1.8.0",
+    "mypy==1.19.1",
     "types-PyYAML==6.0.12.12",
     "types-cachetools==6.2.0.20251022",
     # Security
