@@ -36,7 +36,7 @@ dev = [
     "flake8-comprehensions==3.17.0",
     "flake8-simplify==0.21.0",
     "flake8-docstrings==1.7.0",
-    "pep8-naming==0.13.3",
+    "pep8-naming==0.15.1",
     # Type checking
     "mypy==1.8.0",
     "types-PyYAML==6.0.12.12",
