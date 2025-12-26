@@ -5,7 +5,7 @@
 # =============================================================================
 # Stage 1: Builder - Install Python dependencies
 # =============================================================================
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 # Set build arguments
 ARG PIP_NO_CACHE_DIR=1
@@ -25,7 +25,7 @@ RUN pip install --user --no-cache-dir -r requirements.txt yt-dlp
 # =============================================================================
 # Stage 2: Runtime - Minimal production image
 # =============================================================================
-FROM python:3.11-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 # Labels for container metadata
 LABEL maintainer="yt-dlp-api" \
