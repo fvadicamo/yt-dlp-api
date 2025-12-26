@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-12-26
+
+Dependency updates and maintenance release.
+
+### Changed
+
+- **GitHub Actions**: Updated to latest versions
+  - `actions/setup-python` v5 -> v6
+  - `actions/github-script` v7 -> v8
+  - `google-github-actions/run-gemini-cli` v0.1.14 -> v0.1.18
+- **Python Dependencies**: Updated to latest versions
+  - `prometheus-client` 0.19.0 -> 0.23.1
+  - `cachetools` 5.3.2 -> 6.2.4
+  - `pre-commit` 3.6.0 -> 4.5.1
+  - `flake8-comprehensions` 3.14.0 -> 3.17.0
+  - `pep8-naming` 0.13.3 -> 0.15.1
+  - `types-cachetools` 5.3.0.7 -> 6.2.0.20251022
+- **Dependabot**: Now targets `develop` branch instead of `main`
+- **Labels**: Simplified to use only `dependencies` label for all Dependabot PRs
+- **Pre-commit**: Fixed deprecated `stages: [push]` to `stages: [pre-push]`
+
+### Fixed
+
+- Flaky test `test_request_increments_counter` now uses specific Prometheus counter parsing instead of content length comparison (#43, #44)
+
 ## [0.1.3] - 2025-12-26
 
 Security hardening and CI/CD improvements.
@@ -164,7 +189,8 @@ Initial MVP release of yt-dlp REST API.
 - Trivy security scan passed (0 critical vulnerabilities)
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
-[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.3...v0.1.5
 [0.1.3]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.0...v0.1.1

@@ -6,8 +6,44 @@ Tests that metrics are properly recorded for:
 - Download operations
 """
 
+import re
+
 import pytest
 from fastapi.testclient import TestClient
+
+
+def get_counter_sum(
+    content: str, metric_name: str, label_filter: dict[str, str] | None = None
+) -> float:
+    """Sum all counter values for a metric, optionally filtering by labels.
+
+    Args:
+        content: The raw Prometheus metrics text
+        metric_name: The name of the metric to find
+        label_filter: Optional dict of label key-value pairs that must be present
+
+    Returns:
+        Sum of all matching counter values
+    """
+    total = 0.0
+    # Pattern to match metric lines with labels and values
+    pattern = rf"^{re.escape(metric_name)}\{{([^}}]*)\}}\s+([\d.]+(?:e[+-]?\d+)?)"
+
+    for line in content.split("\n"):
+        match = re.match(pattern, line)
+        if match:
+            labels_str = match.group(1)
+            value = float(match.group(2))
+
+            # If filter specified, parse labels and check matches
+            if label_filter:
+                labels = dict(re.findall(r'(\w+)="([^"]*)"', labels_str))
+                if all(labels.get(k) == v for k, v in label_filter.items()):
+                    total += value
+            else:
+                total += value
+
+    return total
 
 
 @pytest.mark.e2e
@@ -53,6 +89,13 @@ class TestMetricsRecording:
         initial_response = e2e_client.get("/metrics")
         initial_content = initial_response.text
 
+        # Get initial counter sum for the specific endpoint (any status code)
+        initial_count = get_counter_sum(
+            initial_content,
+            "http_requests_total",
+            {"method": "GET", "endpoint": "/api/v1/info"},
+        )
+
         # Make a request
         e2e_client.get(
             "/api/v1/info",
@@ -64,9 +107,18 @@ class TestMetricsRecording:
         updated_response = e2e_client.get("/metrics")
         updated_content = updated_response.text
 
-        # Metrics should have changed (content length as proxy)
-        # In a real implementation, we'd parse specific counters
-        assert len(updated_content) >= len(initial_content)
+        # Get updated counter sum
+        updated_count = get_counter_sum(
+            updated_content,
+            "http_requests_total",
+            {"method": "GET", "endpoint": "/api/v1/info"},
+        )
+
+        # Counter should have incremented by at least 1
+        assert updated_count >= initial_count + 1, (
+            f"http_requests_total for GET /api/v1/info should have incremented. "
+            f"Initial: {initial_count}, Updated: {updated_count}"
+        )
 
     def test_error_requests_are_tracked(self, e2e_client: TestClient, auth_headers: dict) -> None:
         """Test that error responses are tracked in metrics."""

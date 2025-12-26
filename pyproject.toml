@@ -40,7 +40,7 @@ dev = [
     # Type checking
     "mypy==1.8.0",
     "types-PyYAML==6.0.12.12",
-    "types-cachetools==5.3.0.7",
+    "types-cachetools==6.2.0.20251022",
     # Security
     "bandit==1.7.7",
     # Pre-commit
