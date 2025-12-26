@@ -18,9 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install to user local
+# Copy requirements and install to user local (including yt-dlp)
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN pip install --user --no-cache-dir -r requirements.txt yt-dlp
 
 # =============================================================================
 # Stage 2: Runtime - Minimal production image
@@ -65,11 +65,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user (UID 1000) for security (Req 32)
 RUN useradd --create-home --uid 1000 --shell /bin/bash appuser
 
-# Copy Python dependencies from builder
+# Copy Python dependencies from builder (includes yt-dlp)
 COPY --from=builder /root/.local /home/appuser/.local
-
-# Install yt-dlp
-RUN pip install --no-cache-dir yt-dlp
 
 # Create application directories with correct ownership
 # These directories will be used as mount points or for runtime data

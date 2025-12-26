@@ -17,11 +17,12 @@ from app.middleware.auth import (
 class TestHashApiKey:
     """Tests for API key hashing."""
 
-    def test_hash_api_key_returns_8_chars(self):
-        """Test that hash returns 8 character prefix."""
+    def test_hash_api_key_returns_prefixed_hash(self):
+        """Test that hash returns sha256-prefixed 8 character hash."""
         result = hash_api_key("test-api-key-12345")
-        assert len(result) == 8
-        assert result.isalnum()
+        assert result.startswith("sha256:")
+        assert len(result) == 15  # "sha256:" (7) + 8 hex chars
+        assert result[7:].isalnum()
 
     def test_hash_api_key_consistent(self):
         """Test that same key produces same hash."""

@@ -334,7 +334,9 @@ class JobService:
         expired_ids = [
             job_id
             for job_id, job in self._jobs.items()
-            if job.status in terminal_statuses and job.created_at < cutoff
+            if job.status in terminal_statuses
+            and job.completed_at is not None
+            and job.completed_at < cutoff
         ]
 
         for job_id in expired_ids:
