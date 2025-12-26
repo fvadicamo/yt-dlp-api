@@ -50,10 +50,10 @@ repos:
         args: [--config=.flake8]
         additional_dependencies:
           - flake8-bugbear==24.1.17
-          - flake8-comprehensions==3.14.0
+          - flake8-comprehensions==3.17.0
           - flake8-simplify==0.21.0
           - flake8-docstrings==1.7.0
-          - pep8-naming==0.13.3
+          - pep8-naming==0.15.1
 
   # Type checking with mypy
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -63,12 +63,12 @@ repos:
         args: [--config-file=pyproject.toml, --install-types, --non-interactive]
         additional_dependencies:
           - types-PyYAML==6.0.12.12
-          - types-cachetools==5.3.0.7
+          - types-cachetools==6.2.0.20251022
           - pydantic==2.5.3
           - pydantic-settings==2.1.0
           - structlog==24.1.0
           - fastapi==0.109.1
-          - prometheus-client==0.19.0
+          - prometheus-client==0.23.1
         exclude: ^tests/
 
   # Security checks with Bandit
@@ -95,8 +95,8 @@ repos:
           - --cov-report=term-missing
           - --cov-fail-under=90
           - -v
-        stages: [push]
+        stages: [pre-push]
 
 # Configuration for specific stages
 # Run 'pre-commit run --all-files' to run on all files
-# Run 'pre-commit run --hook-stage push' to run push-specific hooks
+# Run 'pre-commit run --hook-stage pre-push' to run push-specific hooks

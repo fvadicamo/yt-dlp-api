@@ -6,6 +6,7 @@ updates:
   # Python dependencies (pip)
   - package-ecosystem: "pip"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -14,7 +15,6 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
-      - "python"
     commit-message:
       prefix: "build"
       include: "scope"
@@ -22,6 +22,7 @@ updates:
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -30,7 +31,6 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - "dependencies"
-      - "github-actions"
     commit-message:
       prefix: "ci"
       include: "scope"
@@ -38,6 +38,7 @@ updates:
   # Docker base images
   - package-ecosystem: "docker"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -46,7 +47,6 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - "dependencies"
-      - "docker"
     commit-message:
       prefix: "build"
       include: "scope"
