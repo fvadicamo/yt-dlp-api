@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-12-26
+
+Security hardening and CI/CD improvements.
+
+### Added
+
+- Dependabot configuration for automated dependency updates
+  - Python packages (pip): weekly updates, limit 5 PRs
+  - GitHub Actions: weekly updates, limit 3 PRs
+  - Docker images: weekly updates, limit 3 PRs
+
+### Security
+
+- **codex-review.yml**: Convert all GitHub context interpolations to environment variables to prevent shell injection (fixes CodeQL #2)
+- **codex-review.yml**: Restrict `@codex review` command to OWNER/MEMBER/COLLABORATOR only (fixes CodeQL #1)
+- **gemini-review.yml**: Add explicit `permissions: contents: read` to lint job (fixes CodeQL #3)
+
+## [0.1.2] - 2025-12-26
+
+Public release preparation with OSS files.
+
+### Added
+
+- MIT License (Copyright 2025 Francesco Vadicamo)
+- SECURITY.md with GitHub Private Vulnerability Reporting policy
+- CONTRIBUTING.md with development setup and guidelines
+- GitHub Issue Templates (bug report, feature request)
+- Pull Request Template with checklist
+
+## [0.1.1] - 2025-12-26
+
+Bug fixes from v0.1.0 release review.
+
+### Fixed
+
+- Job cleanup TTL now correctly based on `completed_at` instead of `created_at` (#20)
+- `hash_api_key` function accepts `Optional[str]` with `sha256:` prefix format (#21)
+- Docker build optimization: yt-dlp installed in builder stage (#22)
+
+### Changed
+
+- Updated related tests to match new behavior
+
 ## [0.1.0] - 2025-12-25
 
 Initial MVP release of yt-dlp REST API.
@@ -121,5 +164,8 @@ Initial MVP release of yt-dlp REST API.
 - Trivy security scan passed (0 critical vulnerabilities)
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
-[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/fvadicamo/yt-dlp-api/releases/tag/v0.1.0

@@ -9,10 +9,14 @@ jobs:
     name: Codex Review
     runs-on: ubuntu-latest
 
-    # Only run when someone comments "@codex review" on a PR
+    # Only run when a trusted user comments "@codex review" on a PR
+    # Security: Restrict to OWNER, MEMBER, or COLLABORATOR to prevent untrusted code execution
     if: |
       github.event.issue.pull_request &&
-      contains(github.event.comment.body, '@codex review')
+      contains(github.event.comment.body, '@codex review') &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
 
     permissions:
       contents: read
@@ -42,18 +46,26 @@ jobs:
             core.setOutput('body', pr.data.body || 'No description provided.');
 
       - name: Checkout PR head
-        run: git checkout ${{ steps.pr.outputs.head_sha }}
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: git checkout "$HEAD_SHA"
 
       - name: Pre-fetch base and head refs
+        env:
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+          PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           git fetch --no-tags origin \
-            ${{ steps.pr.outputs.base_ref }} \
-            +refs/pull/${{ github.event.issue.number }}/head
+            "$BASE_REF" \
+            "+refs/pull/${PR_NUMBER}/head"
 
       - name: Get changed files
         id: changed
+        env:
+          BASE_SHA: ${{ steps.pr.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
-          FILES=$(git diff --name-only ${{ steps.pr.outputs.base_sha }}...${{ steps.pr.outputs.head_sha }})
+          FILES=$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")
           echo "files<<EOF" >> $GITHUB_OUTPUT
           echo "$FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -70,25 +82,32 @@ jobs:
             });
 
       - name: Prepare prompt file
+        env:
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+          BASE_SHA: ${{ steps.pr.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          PR_TITLE: ${{ steps.pr.outputs.title }}
+          PR_BODY: ${{ steps.pr.outputs.body }}
+          CHANGED_FILES: ${{ steps.changed.outputs.files }}
         run: |
           # Replace placeholders in prompt template
-          sed -e "s|{{ PR_NUMBER }}|${{ github.event.issue.number }}|g" \
-              -e "s|{{ REPOSITORY }}|${{ github.repository }}|g" \
-              -e "s|{{ BASE_SHA }}|${{ steps.pr.outputs.base_sha }}|g" \
-              -e "s|{{ HEAD_SHA }}|${{ steps.pr.outputs.head_sha }}|g" \
-              -e "s|{{ PR_TITLE }}|${{ steps.pr.outputs.title }}|g" \
+          # Using env vars to prevent shell injection from user-controlled content
+          sed -e "s|{{ PR_NUMBER }}|${PR_NUMBER}|g" \
+              -e "s|{{ REPOSITORY }}|${REPOSITORY}|g" \
+              -e "s|{{ BASE_SHA }}|${BASE_SHA}|g" \
+              -e "s|{{ HEAD_SHA }}|${HEAD_SHA}|g" \
+              -e "s|{{ PR_TITLE }}|${PR_TITLE//|/\\|}|g" \
               .github/codex/review-prompt.md > /tmp/codex-prompt.md
 
-          # Append PR body (handle multiline)
+          # Append PR body (handle multiline safely)
           echo "" >> /tmp/codex-prompt.md
-          cat << 'PRBODY' >> /tmp/codex-prompt.md
-          ${{ steps.pr.outputs.body }}
-          PRBODY
+          printf '%s\n' "$PR_BODY" >> /tmp/codex-prompt.md
 
           # Append changed files
           echo "" >> /tmp/codex-prompt.md
           echo "Changed files:" >> /tmp/codex-prompt.md
-          echo "${{ steps.changed.outputs.files }}" >> /tmp/codex-prompt.md
+          printf '%s\n' "$CHANGED_FILES" >> /tmp/codex-prompt.md
 
       - name: Run Codex Review
         id: codex
@@ -107,6 +126,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           PR_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
         run: |
           if [ ! -f codex-output.json ]; then
             echo "No Codex output file found"
@@ -128,7 +149,7 @@ jobs:
           **Summary**: $SUMMARY
 
           ---
-          _Triggered by @${{ github.event.comment.user.login }}_"
+          _Triggered by @${COMMENT_USER}_"
             exit 0
           fi
 
@@ -184,7 +205,7 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER/comments" \
+              "https://api.github.com/repos/${REPOSITORY}/pulls/${PR_NUMBER}/comments" \
               -d "$PAYLOAD" || echo "Failed to post comment (file may not be in diff)"
           done
 
@@ -197,4 +218,4 @@ jobs:
           **Overall**: $SUMMARY
 
           ---
-          _Triggered by @${{ github.event.comment.user.login }}_"
+          _Triggered by @${COMMENT_USER}_"
