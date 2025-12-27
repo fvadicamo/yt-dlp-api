@@ -98,6 +98,39 @@ gh api -X PATCH repos/fvadicamo/yt-dlp-api/milestones/<ID> -f state=closed
   - "Milestone: vX.Y.Z" (redundant)
   - Bot signatures or generation notices
 
+## Tag Message Format
+
+Git tag messages should follow this format:
+
+```
+vX.Y.Z - Short Description
+
+Brief summary sentence.
+
+Changed:
+- Item 1
+- Item 2
+
+Fixed:
+- Bug fix (#issue)
+```
+
+Use Keep a Changelog categories: Added, Changed, Fixed, Security, Removed, Deprecated.
+
+**Example** (v0.1.5):
+```
+v0.1.5 - Dependency Updates & Maintenance
+
+Dependency updates and maintenance release.
+
+Changed:
+- GitHub Actions updated (setup-python v6, github-script v8)
+- Python dependencies updated (prometheus-client, cachetools, etc.)
+
+Fixed:
+- Flaky test test_request_increments_counter (#43, #44)
+```
+
 ## Hotfix Process
 
 For urgent fixes to production:

@@ -1,89 +1,8 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2025-12-26
-**Branch**: `develop`
-**Current Task**: Post-MVP maintenance
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
-**Latest Release**: v0.1.3 - Security Hardening
-
----
-
-## 📊 Status Tracker (UPDATE AD OGNI TASK)
-
-### Task Completati
-- [x] Task 1: Project setup and core infrastructure
-- [x] Task 2: Provider abstraction layer
-- [x] Task 3: Cookie management system (100% coverage)
-- [x] Task 4: YouTube provider (all subtasks including retry logic)
-- [x] Task 5: Input Validation and Security (PR #5 merged)
-  - 5.1: Input validation utilities (URLValidator, FormatValidator)
-  - 5.2: Template processor (path traversal prevention)
-  - 5.3: API key authentication
-  - 5.4: Security tests (102 tests)
-- [x] Task 6: Rate Limiting System (PR #6 merged)
-  - 6.1: Token bucket rate limiter
-  - 6.2: Rate limiting middleware
-  - 6.3: Rate limiter tests
-- [x] Task 7: Storage and File Management (PR #7 merged)
-  - 7.1: Storage manager with disk monitoring
-  - 7.2: Automatic cleanup with age-based deletion
-  - 7.3: Cleanup scheduler
-  - 7.4: Storage management tests
-- [x] Task 8: Job Management System (PR #9 merged)
-  - 8.1: Job data model (JobStatus enum, Job dataclass)
-  - 8.2: JobService with in-memory storage and TTL
-  - 8.3: DownloadQueue with priority and concurrency control
-  - 8.4: DownloadWorker with retry logic
-  - 8.5: Job management tests (57 tests)
-- [x] Task 9: API Endpoints Implementation (PR #10 merged)
-  - 9.1: Health check endpoints (GET /health, /liveness, /readiness)
-  - 9.2: Video info endpoint (GET /api/v1/info)
-  - 9.3: Formats endpoint (GET /api/v1/formats)
-  - 9.4: Download endpoint (POST /api/v1/download)
-  - 9.5: Job status endpoint (GET /api/v1/jobs/{job_id})
-  - 9.6: Admin endpoints (existing from Task 8)
-  - 9.7: API endpoint tests (18 tests)
-- [x] Task 10: Error Handling and Monitoring (PR #11 merged)
-  - 10.1: Error codes and global exception handler
-  - 10.2: Prometheus metrics collection
-  - 10.3: YouTube connectivity health check
-  - 10.4: Monitoring tests (40 tests)
-- [x] Task 11: Startup Validation and Initialization (PR #12 merged)
-  - 11.1: StartupValidator class with component checks
-  - 11.2: Degraded mode support (allow_degraded_start)
-  - 11.3: yt-dlp Node.js runtime configuration
-  - 11.4: Startup validation tests (38 tests)
-- [x] Task 12: FastAPI Application Assembly (PR #13 merged)
-  - 12.1: FastAPI app with middleware, routers, exception handlers
-  - 12.2: Dependency injection with lifespan context manager
-  - 12.3: OpenAPI documentation with examples and error codes
-  - 12.4: Integration tests (22 tests)
-- [x] Task 13: Docker Containerization (PR #14 merged)
-  - 13.1: Multi-stage Dockerfile with Python 3.11-slim, ffmpeg, nodejs >= 20
-  - 13.2: docker-compose.yml with service configuration
-  - 13.3: .dockerignore file
-  - 13.4: Docker tests passed (build, components, health, auth, resources, shutdown)
-- [x] Task 14: Documentation (completed 2025-12-25)
-  - 14.1: README.md with quick start and API usage
-  - 14.2: DEPLOYMENT.md with Docker/K8s guide
-  - 14.3: CONFIGURATION.md with 30+ env vars
-  - 14.4: CHANGELOG.md following Keep a Changelog format
-
-### Releases
-- v0.1.0 (2025-12-25): Initial MVP Release
-- v0.1.1 (2025-12-26): Bug fixes from v0.1.0 review
-- v0.1.2 (2025-12-26): OSS files for public release
-- v0.1.3 (2025-12-26): Security hardening (CodeQL fixes) + Dependabot
-
-### MVP Critical Completed
-- [x] Task 1.4: Configuration and logging tests
-- [x] Task 3.4: Cookie management tests (CRITICAL)
-- [x] Task 4.7: YouTube provider tests (CRITICAL)
-- [x] Task 5.4: Security tests (CRITICAL) - 102 tests
-- [x] Task 11.4: Startup validation tests (CRITICAL) - 38 tests
-
-### MVP Critical Completed (continued)
-- [x] Task 15.3: Basic security validation - Trivy scan passed (0 CRITICAL, Issue #15 for starlette)
+**Latest Release**: v0.1.5 - Dependency Updates & Maintenance
+**Status**: MVP Complete, public on GitHub
 
 ---
 
@@ -91,47 +10,14 @@
 
 ### Project Specifications
 - **Requirements**: [.kiro/specs/yt-dlp-rest-api/requirements.md](../.kiro/specs/yt-dlp-rest-api/requirements.md)
-  47 requisiti funzionali con pattern EARS
 - **Design**: [.kiro/specs/yt-dlp-rest-api/design.md](../.kiro/specs/yt-dlp-rest-api/design.md)
-  Architettura completa, data models, provider interface
 - **Tasks**: [.kiro/specs/yt-dlp-rest-api/tasks.md](../.kiro/specs/yt-dlp-rest-api/tasks.md)
-  15 task principali con 80+ subtask, progresso tracciato
 
 ### Workflow & Standards
-- **Git Workflow**: [.kiro/steering/git-workflow.md](../.kiro/steering/git-workflow.md)
-  **CRITICAL**: NEVER commit to main/develop, feature branches ALWAYS
-- **Python venv**: [.kiro/steering/python-venv-requirement.md](../.kiro/steering/python-venv-requirement.md)
-  Uso obbligatorio virtual environment
-- **Documentation Policy**: [.kiro/steering/documentation-policy.md](../.kiro/steering/documentation-policy.md)
-  Policy minimalista: evitare doc files non necessari
-
-### Code Review & Standards
-- **Style Guide**: [.gemini/styleguide.md](../.gemini/styleguide.md)
-  Python 3.11+, PEP 8, Black 100 chars, type hints obbligatori
-- **Gemini Config**: [.gemini/config.yaml](../.gemini/config.yaml)
-  Auto-review su PR, coverage 80%+ enforcement
-- **Cursor Rules**: [.cursorrules](../.cursorrules)
-  Operational rules for Cursor AI: commit format, code style, Git workflow, venv requirement
----
-
-## 🤖 Cursor Configuration
-
-### Cursor Rules File
-The project includes a `.cursorrules` file in the root directory that configures Cursor AI to automatically follow project guidelines:
-
-- **Conventional Commits**: Enforces commit message format (`type: description`)
-- **Code Style**: Python PEP 8, 100 char line length, type hints, Google-style docstrings
-- **Git Workflow**: Prevents commits to main/develop, enforces feature branches
-- **Virtual Environment**: Reminds to use venv before Python/pip commands
-- **Documentation Policy**: Minimalist approach, avoid unnecessary doc files
-
-**Reference**: See [.cursorrules](../.cursorrules) for complete operational rules.
-
-For detailed guidelines, refer to:
-- Git workflow: `.kiro/steering/git-workflow.md`
-- Code style: `.gemini/styleguide.md`
-- Python venv: `.kiro/steering/python-venv-requirement.md`
-- Documentation policy: `.kiro/steering/documentation-policy.md`
+- **Contributing**: [CONTRIBUTING.md](../CONTRIBUTING.md)
+  Git workflow, commit format, code style, testing - **CRITICAL**: NEVER commit to main/develop
+- **Code Style**: [.gemini/styleguide.md](../.gemini/styleguide.md) - Python 3.11+, PEP 8, Black 100 chars
+- **Releasing**: [RELEASING.md](../RELEASING.md) - Release process, tag format, release notes
 
 ---
 
@@ -139,7 +25,6 @@ For detailed guidelines, refer to:
 
 ### Development Setup
 ```bash
-# Virtual environment (ALWAYS required)
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
@@ -147,134 +32,46 @@ pip install -r requirements.txt -r requirements-dev.txt
 
 ### Testing
 ```bash
-# Run all tests
-make test
-
-# Run with coverage
-make test-cov
-
-# Run specific test file
-pytest tests/unit/test_youtube_provider.py -v
-
-# Run with coverage for specific module
-pytest tests/unit/test_youtube_provider.py \
-  --cov=app/providers/youtube \
-  --cov-report=term-missing
-
-# Open HTML coverage report
-open htmlcov/index.html
+make test          # Run all tests
+make test-cov      # Run with coverage
+pytest tests/unit/test_file.py -v  # Run specific file
 ```
 
 ### Quality Checks
 ```bash
-# Run all checks (format, lint, type, security, test)
-make check
-
-# Individual checks
-make format         # Black + isort
-make lint           # Flake8
-make type-check     # Mypy
-make security       # Bandit
+make check         # Run all checks (format, lint, type, security, test)
+make format        # Black + isort
+make lint          # Flake8
+make type-check    # Mypy
 ```
 
 ### Git Workflow
 ```bash
-# BEFORE starting work - verify branch
-git branch --show-current
-git branch -vv  # Check tracking
-
-# Create new feature branch (from develop)
-git checkout develop
-git pull origin develop
-git checkout -b feature/<task-name>
-git push -u origin feature/<task-name>  # CRITICAL: Set tracking
+# Create feature branch (from develop)
+git checkout develop && git pull origin develop
+git checkout -b feature/<name>
+git push -u origin feature/<name>
 
 # Commit with conventional format
-git add <files>
 git commit -m "type: description"
 # Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
-
-# Push (tracking already set)
-git push
 ```
-
-### After PR Merge (manual by user)
-```bash
-git checkout develop
-git pull origin develop
-git branch -d feature/<task-name>
-git push origin --delete feature/<task-name>
-```
-
----
-
-## ✅ Resolved Issues
-
-### Issue #1: Retry Logic (Task 4.6) - RESOLVED
-**Status**: ~~NOT IMPLEMENTED~~ **FIXED in Task 4.8** (2025-12-06)
-
-**Resolution**:
-- Added `_is_retriable_error()` method to classify errors
-- Added `_execute_with_retry()` method with exponential backoff [2, 4, 8]s
-- Integrated retry in `get_info()` (10s timeout per attempt)
-- Integrated retry in `download()` (no timeout)
-- Added 13 new retry tests in `TestRetryLogic` class
-- Requirement 18 now fully satisfied
-
----
-
-## 📊 Project Status
-
-**Coverage**: ~87% (target: 80%, goal: 90%) ✅
-**Tests Passing**: 748+ tests ✅
-**Latest Release**: v0.1.3
-
-### MVP Status: COMPLETE ✅
-
-All core tasks (1-14) completed. Project is public on GitHub.
-
-**Post-MVP Tasks (optional):**
-- [ ] Task 15.1: Test mode configuration
-- [ ] Task 15.2: End-to-end tests
-- [x] Task 15.3: Basic security validation ✅
-- [ ] Task 15.4: Resource requirements validation
 
 ---
 
 ## 🔍 Key Implementation Patterns
 
-### Async Test Pattern (from Task 3.4)
+### Async Test Pattern
 ```python
 @pytest.mark.asyncio
 async def test_method_name(self, youtube_provider):
-    """Test description."""
     with patch("asyncio.create_subprocess_exec") as mock_subprocess:
         mock_process = AsyncMock()
         mock_process.returncode = 0
-        stdout = json.dumps(sample_data).encode()
         mock_process.communicate = AsyncMock(return_value=(stdout, b""))
         mock_subprocess.return_value = mock_process
-
         result = await youtube_provider.method()
-
-        assert result["expected_key"] == "expected_value"
-```
-
-### Error Test Pattern
-```python
-@pytest.mark.asyncio
-async def test_error_scenario(self, youtube_provider):
-    """Test error handling."""
-    with patch("asyncio.create_subprocess_exec") as mock_subprocess:
-        mock_process = AsyncMock()
-        mock_process.returncode = 1
-        mock_process.communicate = AsyncMock(
-            return_value=(b"", b"ERROR: Specific error message")
-        )
-        mock_subprocess.return_value = mock_process
-
-        with pytest.raises(SpecificError, match="error message"):
-            await youtube_provider.method()
+        assert result["key"] == "value"
 ```
 
 ### Parametrized Test Pattern
@@ -284,7 +81,6 @@ async def test_error_scenario(self, youtube_provider):
     ("https://vimeo.com/123", False),
 ])
 def test_validate_url(self, youtube_provider, url, expected):
-    """Test URL validation."""
     assert youtube_provider.validate_url(url) == expected
 ```
 
@@ -292,26 +88,11 @@ def test_validate_url(self, youtube_provider, url, expected):
 
 ## 📝 Workflow Notes
 
-### When to Commit
-- After each major test class implementation
-- After coverage improvements
-- Before running `make check`
-- Use conventional commit format: `test: add X tests for Y`
-
 ### Before Opening PR
-- [ ] All tests passing: `pytest tests/unit/test_youtube_provider.py`
-- [ ] Coverage >= 95% for youtube.py
+- [ ] All tests passing: `make test`
 - [ ] `make check` passes (lint, type, security)
-- [ ] `tasks.md` updated (Task 4.7 marked complete)
-- [ ] Branch tracking configured: `git branch -vv`
 - [ ] Conventional commit messages used
-
-### PR Template
-See plan file § 4.1 for complete PR body template with:
-- Test coverage summary
-- Note on missing retry logic
-- Checklist
-- Testing commands
+- [ ] Branch tracking configured: `git branch -vv`
 
 ---
 
@@ -320,24 +101,15 @@ See plan file § 4.1 for complete PR body template with:
 ### Source Files
 - `app/providers/youtube.py` - YouTube provider implementation
 - `app/providers/base.py` - Provider abstract interface
-- `app/providers/exceptions.py` - Exception types
-- `app/models/video.py` - Data models (VideoFormat, DownloadResult)
 - `app/core/validation.py` - URL and format validation
-- `app/core/template.py` - Template processor with security
 - `app/middleware/auth.py` - API key authentication
 
 ### Test Files
 - `tests/conftest.py` - Shared fixtures
-- `tests/unit/test_cookie_service.py` - Cookie service tests
-- `tests/unit/test_youtube_provider.py` - YouTube provider tests
-- `tests/unit/test_security.py` - Security tests (102 tests)
-- `tests/unit/test_validation.py` - Validation tests
-- `tests/unit/test_template.py` - Template processor tests
-- `tests/unit/test_auth.py` - Authentication tests
+- `tests/unit/` - Unit tests
 
 ### Config Files
 - `pyproject.toml` - Pytest config, coverage settings
-- `requirements-dev.txt` - Test dependencies
 - `Makefile` - Development commands
 
 ---
@@ -346,41 +118,8 @@ See plan file § 4.1 for complete PR body template with:
 
 ### Context Refresh
 When starting a new session, read:
-1. This file (`.claude/CLAUDE.md`) for overview
-2. `.kiro/specs/yt-dlp-rest-api/tasks.md` for current task status
-3. Plan file if active: `.claude/plans/*.md`
-
-### Common Commands
-```bash
-# Check current branch and tracking
-git branch -vv
-
-# Quick test of YouTube provider
-pytest tests/unit/test_youtube_provider.py -v -k "test_validate_url"
-
-# Coverage of specific file
-pytest --cov=app/providers/youtube --cov-report=term-missing
-
-# Find test pattern examples
-grep -r "@pytest.mark.asyncio" tests/unit/test_cookie_service.py
-```
-
-### Documentation Philosophy
-Per `.kiro/steering/documentation-policy.md`:
-- Evitare doc files non necessari
-- Code comments solo dove logica non è self-evident
-- Docstrings per public APIs (Google-style)
-- README only for deployment/setup
-
----
-
-## 📚 References
-
-### Requirements
-- **Req 17A**: Command logging con redaction (CRITICAL - security) ✅
-- **Req 18**: Retry logic con exponential backoff ✅
-- **Req 27**: Rate limiting (Task 6 - CURRENT)
-- **Req 35**: YouTube provider implementation ✅
+1. This file (`.claude/CLAUDE.md`)
+2. Active plan file if any: `.claude/plans/*.md`
 
 ### Design Patterns
 - Provider abstraction: `VideoProvider` ABC
@@ -388,17 +127,6 @@ Per `.kiro/steering/documentation-policy.md`:
 - Structured logging: structlog (JSON)
 - Testing: pytest + pytest-asyncio + pytest-mock
 
-### Tools & Versions
-- Python: 3.11+
-- FastAPI: Latest
-- pytest: 7.4.4
-- pytest-asyncio: 0.23.3
-- pytest-mock: 3.12.0
-- Black: 100 char line length
-- Coverage target: 85% minimum, 90% goal
-
 ---
 
-**Note**: Questo file è un quick reference per Claude Code. Per la source of truth completa, fare sempre riferimento ai file in `.kiro/specs/` e `.kiro/steering/`.
-
-**Handoff completato**: Kiro AWS → Claude Sonnet 4.5 (2025-12-05)
+**Note**: This file is a quick reference. For complete source of truth, see CONTRIBUTING.md, .gemini/styleguide.md, and .kiro/specs/.
