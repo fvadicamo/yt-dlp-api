@@ -71,7 +71,23 @@ tests/
 
 ## Key Files
 
+### Source
 - `app/providers/youtube.py` - YouTube provider with subprocess handling
 - `app/core/validation.py` - URL and format validation
 - `app/services/storage.py` - File storage and cleanup
 - `app/middleware/auth.py` - API key authentication
+
+### Tests
+- `tests/conftest.py` - Shared fixtures
+- `tests/unit/` - Unit tests
+- `tests/integration/` - API integration tests
+
+### Config
+- `pyproject.toml` - Tool configuration (Black, pytest, mypy)
+- `Makefile` - Development commands
+
+## Related Documentation
+
+- `CONTRIBUTING.md` - Complete contributor guide
+- `.gemini/styleguide.md` - Detailed code style guide
+- `RELEASING.md` - Release process
