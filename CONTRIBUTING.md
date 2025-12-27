@@ -27,6 +27,19 @@ venv\Scripts\activate
 which python  # Should show venv/bin/python
 ```
 
+## Reporting Issues
+
+### Bug Reports
+- Use the Bug Report issue template
+- Include: Python version, error message, steps to reproduce
+
+### Feature Requests
+- Open a Discussion first, not an Issue
+- Describe your use case
+
+### Security Issues
+- See [SECURITY.md](SECURITY.md) - do NOT open public issues
+
 ## Development Setup
 
 ```bash
@@ -138,6 +151,17 @@ make type-check # Mypy
 make check      # All checks
 ```
 
+## Pre-commit Hooks
+
+Pre-commit hooks run automatically on each commit. To set up:
+
+```bash
+pre-commit install
+pre-commit run --all-files  # Verify setup
+```
+
+If a hook fails, fix the issue, stage changes again, and retry the commit.
+
 ## Testing Requirements
 
 - Minimum 80% code coverage
@@ -194,6 +218,10 @@ Only create documentation files for:
 - [SECURITY.md](SECURITY.md) - Security policy
 - [CHANGELOG.md](CHANGELOG.md) - Version history
 - [.gemini/styleguide.md](.gemini/styleguide.md) - Complete code style guide
+
+## First-time Contributors
+
+Look for issues labeled `good first issue` - these are designed for newcomers.
 
 ## Questions?
 
