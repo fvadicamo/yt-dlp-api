@@ -136,13 +136,44 @@ history (releases, key decisions) into s2s artifacts for traceability;
 - [ ] Key architectural decisions captured in `.s2s/decisions/` (MADR)
 - [ ] `.claude/CLAUDE.md` quick links point to s2s as the live tracker
 
+### BUG-001: Unreadable cookie file crashes startup even in degraded mode
+
+**Status**: planned | **Created**: 2026-07-11
+
+**Context**: Found by the container smoke test: `StartupValidator.check_cookies`
+calls `path.exists()`, which raises an uncaught `PermissionError` when the
+cookie file/volume is unreadable (wrong mount permissions), killing startup
+even with `ALLOW_DEGRADED_START=true`. Production impact: crash loop instead
+of degraded start with a clear health status.
+
+**Acceptance Criteria**:
+- [ ] Unreadable cookie path is treated as a failed cookie check (message
+      includes the OS error), not an exception
+- [ ] Regression test covering `PermissionError`/`OSError` on cookie access
+- [ ] In degraded mode the app boots with the provider disabled
+
 ---
 
 ## In Progress
 
-### TECH-001: Repo hygiene and privacy guardrails
+### TECH-002: CI workflow with blocking quality gates
 
 **Status**: in_progress | **Created**: 2026-07-11
+
+**Context**: see Planned entry above (moved here 2026-07-11). Security alerts
+found on the way and folded into this work: run-gemini-cli < 0.1.22
+(critical RCE), black < 26.3.1 (high), pytest < 9.0.3 (medium).
+
+**Acceptance Criteria**: as in the Planned entry, plus:
+- [ ] Open dependabot security alerts fixed (gemini-cli, black, pytest)
+
+---
+
+## Completed
+
+### TECH-001: Repo hygiene and privacy guardrails
+
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-11 (PR #56)
 
 **Context**: Version drift (app 1.0.0 vs tag v0.1.5, Dockerfile label 0.1.0),
 pyproject/requirements.txt dependency divergence, placeholder URLs in
@@ -155,11 +186,7 @@ pyproject, no secret scanning, stale tracking docs.
 - [x] `.gitignore` covers local-only files (`.local/`, `CLAUDE.local.md`)
 - [x] `.kiro` tasks.md and `.claude/CLAUDE.md` reflect reality (15.x done)
 - [x] s2s initialized with backlog migrated from `.kiro` tracking
-- [ ] PR merged into develop
-
----
-
-## Completed
+- [x] PR merged into develop (#56, exact dependency pins added in review)
 
 ### MVP: Tasks 1-15 from the original .kiro plan (v0.1.0 - v0.1.5)
 
