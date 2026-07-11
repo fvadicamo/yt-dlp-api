@@ -80,6 +80,21 @@ repos:
         additional_dependencies: ["bandit[toml]"]
         exclude: ^tests/
 
+  # Secret scanning with gitleaks
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  # Local privacy denylist (no-op when .local/privacy-denylist.txt is absent)
+  - repo: local
+    hooks:
+      - id: privacy-denylist
+        name: privacy denylist
+        entry: scripts/check_privacy.sh
+        language: script
+        exclude: ^\.local/
+
   # Run tests with pytest
   - repo: local
     hooks:
