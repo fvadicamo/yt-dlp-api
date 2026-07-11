@@ -452,6 +452,50 @@ class TestCookieValidation:
         assert "youtube" in validator.disabled_providers
 
     @pytest.mark.asyncio
+    async def test_cookie_path_unreadable_strict(self, tmp_path: Path) -> None:
+        """Test unreadable cookie path fails the check instead of raising (BUG-001)."""
+        config = Config(
+            security=SecurityConfig(api_keys=["test"], allow_degraded_start=False),
+            storage=StorageConfig(output_dir=str(tmp_path)),
+            providers=ProvidersConfig(
+                youtube=YouTubeProviderConfig(
+                    enabled=True,
+                    cookie_path=str(tmp_path / "cookies.txt"),
+                )
+            ),
+        )
+        validator = StartupValidator(config)
+
+        with patch.object(Path, "exists", side_effect=PermissionError("Permission denied")):
+            result = await validator.check_cookies()
+
+        assert result.passed is False
+        assert result.critical is True
+        assert "cannot access" in result.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_cookie_path_unreadable_degraded(self, tmp_path: Path) -> None:
+        """Test unreadable cookie path degrades the provider, no crash (BUG-001)."""
+        config = Config(
+            security=SecurityConfig(api_keys=["test"], allow_degraded_start=True),
+            storage=StorageConfig(output_dir=str(tmp_path)),
+            providers=ProvidersConfig(
+                youtube=YouTubeProviderConfig(
+                    enabled=True,
+                    cookie_path=str(tmp_path / "cookies.txt"),
+                )
+            ),
+        )
+        validator = StartupValidator(config)
+
+        with patch.object(Path, "exists", side_effect=PermissionError("Permission denied")):
+            result = await validator.check_cookies()
+
+        assert result.passed is False
+        assert result.critical is False
+        assert "youtube" in validator.disabled_providers
+
+    @pytest.mark.asyncio
     async def test_cookie_file_empty(self, tmp_path: Path) -> None:
         """Test cookie check fails when file is empty."""
         cookie_file = tmp_path / "cookies.txt"
