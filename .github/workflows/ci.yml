@@ -1,0 +1,104 @@
+# Continuous Integration with blocking quality gates.
+#
+# Unlike the AI review workflows (advisory, continue-on-error), every job
+# here is a hard gate: branch protection requires these contexts on PRs
+# to develop and main, including dependabot PRs.
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Black (format check)
+        run: black --check app/ tests/
+
+      - name: isort (import order)
+        run: isort --check-only app/ tests/
+
+      - name: Flake8 (style)
+        run: flake8 app/ tests/
+
+      - name: mypy (types)
+        run: mypy app/
+
+      - name: Bandit (security lint)
+        run: bandit -c pyproject.toml -r app/
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests with coverage gate
+        run: pytest tests/ --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 14
+
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker-smoke:
+    name: Docker Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build image
+        run: docker build -t ytdlp-api:ci --build-arg VERSION=ci .
+
+      - name: Run container smoke test
+        run: bash scripts/docker_smoke.sh ytdlp-api:ci
