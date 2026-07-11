@@ -1,10 +1,24 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2025-12-26
+**Last Updated**: 2026-07-11
 **Branch**: `develop`
-**Current Task**: Post-MVP maintenance
+**Current Task**: Production readiness waves (CI gates, coverage, GHCR, transcript/webhook features)
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
-**Latest Release**: v0.1.3 - Security Hardening
+**Latest Release**: v0.1.5 - Dependency updates
+
+@../.s2s/CONTEXT.md
+
+---
+
+## 🔒 Public Repo Privacy
+
+This repository is PUBLIC. Never commit references to private infrastructure
+(internal hostnames, private IPs, personal domains, absolute home paths).
+Deployment specifics for private hosts live outside this repo. A pre-commit
+guard is active: `scripts/check_privacy.sh` reads a gitignored local denylist
+(`.local/privacy-denylist.txt`) and blocks offending commits; `gitleaks` scans
+for generic secrets. This applies to file contents, commit messages, branch
+names, and PR/issue text.
 
 ---
 
@@ -74,6 +88,7 @@
 - v0.1.1 (2025-12-26): Bug fixes from v0.1.0 review
 - v0.1.2 (2025-12-26): OSS files for public release
 - v0.1.3 (2025-12-26): Security hardening (CodeQL fixes) + Dependabot
+- v0.1.5 (2025-12-26): Dependency updates and maintenance
 
 ### MVP Critical Completed
 - [x] Task 1.4: Configuration and logging tests
@@ -89,13 +104,18 @@
 
 ## 📚 Quick Links to Source of Truth
 
-### Project Specifications
+### Live Tracking (Spec2Ship)
+- **Backlog**: [.s2s/BACKLOG.md](../.s2s/BACKLOG.md) - work items correnti (source of truth per il lavoro nuovo)
+- **Context**: [.s2s/CONTEXT.md](../.s2s/CONTEXT.md) - dominio, obiettivi, vincoli, scope
+- **Ideas**: [.s2s/ideas.md](../.s2s/ideas.md) - idee valutate/parcheggiate con rationale
+
+### Project Specifications (archivio storico Kiro, MVP v0.1.x)
 - **Requirements**: [.kiro/specs/yt-dlp-rest-api/requirements.md](../.kiro/specs/yt-dlp-rest-api/requirements.md)
   47 requisiti funzionali con pattern EARS
 - **Design**: [.kiro/specs/yt-dlp-rest-api/design.md](../.kiro/specs/yt-dlp-rest-api/design.md)
   Architettura completa, data models, provider interface
 - **Tasks**: [.kiro/specs/yt-dlp-rest-api/tasks.md](../.kiro/specs/yt-dlp-rest-api/tasks.md)
-  15 task principali con 80+ subtask, progresso tracciato
+  15 task principali con 80+ subtask, completati (v0.1.0-v0.1.5)
 
 ### Workflow & Standards
 - **Git Workflow**: [.kiro/steering/git-workflow.md](../.kiro/steering/git-workflow.md)
@@ -225,19 +245,27 @@ git push origin --delete feature/<task-name>
 
 ## 📊 Project Status
 
-**Coverage**: ~87% (target: 80%, goal: 90%) ✅
-**Tests Passing**: 748+ tests ✅
-**Latest Release**: v0.1.3
+**Coverage**: ~90.5% (target: 80%, goal: 90%) ✅
+**Tests Passing**: 785 tests ✅
+**Latest Release**: v0.1.5
 
 ### MVP Status: COMPLETE ✅
 
-All core tasks (1-14) completed. Project is public on GitHub.
+All tasks (1-15) completed. Project is public on GitHub.
 
-**Post-MVP Tasks (optional):**
-- [ ] Task 15.1: Test mode configuration
-- [ ] Task 15.2: End-to-end tests
+**Post-MVP Tasks:**
+- [x] Task 15.1: Test mode configuration ✅ (app/testing/, 2025-12-25)
+- [x] Task 15.2: End-to-end tests ✅ (tests/e2e/, 2025-12-25)
 - [x] Task 15.3: Basic security validation ✅
-- [ ] Task 15.4: Resource requirements validation
+- [x] Task 15.4: Resource requirements validation ✅ (app/core/resources.py, 2025-12-25)
+
+### Production Readiness Waves (2026-07, tracked in .s2s/BACKLOG.md)
+1. ✅ Repo hygiene and privacy guardrails (versions, deps alignment, gitleaks + privacy hook)
+2. CI with real gates (blocking lint/type/test/coverage/docker jobs, unblock dependabot PRs)
+3. Test robustness (coverage 90+ on weak modules, deprecation warnings, container-level e2e)
+4. Differentiating features (GHCR multi-arch publishing, yt-dlp pin strategy, transcript endpoint, job webhooks)
+5. Private production deployment (out of repo scope)
+6. s2s backlog migration, README overhaul, release v0.2.0
 
 ---
 
