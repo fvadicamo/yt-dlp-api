@@ -14,7 +14,7 @@ DENYLIST="${PRIVACY_DENYLIST:-.local/privacy-denylist.txt}"
 
 [ -f "$DENYLIST" ] || exit 0
 
-patterns_file=$(mktemp)
+patterns_file=$(mktemp "${TMPDIR:-/tmp}/privacy-patterns.XXXXXX")
 trap 'rm -f "$patterns_file"' EXIT
 grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$DENYLIST" > "$patterns_file" || true
 [ -s "$patterns_file" ] || exit 0
@@ -25,7 +25,7 @@ for file in "$@"; do
     # grep -I skips binary files; -i case-insensitive; -E extended regex
     if matches=$(grep -nHiE -I -f "$patterns_file" -- "$file"); then
         echo "Privacy check FAILED:"
-        echo "$matches" | head -10
+        printf "%s\n" "$matches" | head -10
         status=1
     fi
 done
