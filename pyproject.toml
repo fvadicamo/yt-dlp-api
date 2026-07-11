@@ -1,20 +1,22 @@
 [project]
 name = "ytdlp-api"
-version = "1.0.0"
+version = "0.1.5"
 description = "REST API backend for yt-dlp video downloads and metadata extraction"
 authors = [
-    {name = "YT-DLP API Team"}
+    {name = "Francesco Vadicamo"}
 ]
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
+# Keep in sync with requirements.txt (canonical source used by Docker and CI)
 dependencies = [
-    "fastapi==0.109.1",
-    "uvicorn[standard]==0.27.0",
+    "fastapi==0.125.0",
+    "uvicorn[standard]==0.51.0",
     "pydantic==2.5.3",
     "pydantic-settings==2.1.0",
     "structlog==24.1.0",
     "prometheus-client==0.23.1",
+    "psutil==7.2.2",
     "pyyaml==6.0.1",
     "cachetools==6.2.4",
 ]
@@ -48,9 +50,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/ytdlp-api"
-Documentation = "https://github.com/yourusername/ytdlp-api/docs"
-Repository = "https://github.com/yourusername/ytdlp-api"
+Homepage = "https://github.com/fvadicamo/yt-dlp-api"
+Documentation = "https://github.com/fvadicamo/yt-dlp-api#readme"
+Repository = "https://github.com/fvadicamo/yt-dlp-api"
+Changelog = "https://github.com/fvadicamo/yt-dlp-api/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=68.0"]

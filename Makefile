@@ -15,7 +15,7 @@ install-dev:  ## Install development dependencies
 setup:  ## Complete development setup (install deps + pre-commit)
 	pip install -e ".[dev]"
 	pre-commit install
-	pre-commit install --hook-type push
+	pre-commit install --hook-type pre-push
 	@echo "✓ Development environment ready!"
 
 test:  ## Run tests

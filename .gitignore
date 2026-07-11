@@ -32,6 +32,7 @@ ENV/
 .coverage.*
 htmlcov/
 coverage.xml
+coverage.json
 .tox/
 .hypothesis/
 *.cover
@@ -78,3 +79,11 @@ dmypy.json
 
 .archive
 .claude/settings.local.json
+
+# Local-only overrides (never commit)
+CLAUDE.local.md
+.local/
+
+# Spec2Ship runtime state (plugin-generated, per-session)
+.s2s/state.json
+.s2s/context-window.json
