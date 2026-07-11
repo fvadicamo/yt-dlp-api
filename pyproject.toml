@@ -10,13 +10,13 @@ requires-python = ">=3.11"
 license = {text = "MIT"}
 # Keep in sync with requirements.txt (canonical source used by Docker and CI)
 dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
+    "fastapi==0.125.0",
+    "uvicorn[standard]==0.51.0",
     "pydantic==2.5.3",
     "pydantic-settings==2.1.0",
     "structlog==24.1.0",
     "prometheus-client==0.23.1",
-    "psutil>=5.9.0",
+    "psutil==7.2.2",
     "pyyaml==6.0.1",
     "cachetools==6.2.4",
 ]

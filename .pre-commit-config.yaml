@@ -67,7 +67,7 @@ repos:
           - pydantic==2.5.3
           - pydantic-settings==2.1.0
           - structlog==24.1.0
-          - fastapi==0.109.1
+          - fastapi==0.125.0
           - prometheus-client==0.23.1
         exclude: ^tests/
 
