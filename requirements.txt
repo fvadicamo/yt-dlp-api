@@ -1,15 +1,15 @@
 # Core dependencies
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
+fastapi==0.125.0
+uvicorn[standard]==0.51.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
 # Logging
-structlog==24.1.0
+structlog==25.5.0
 
 # Monitoring
 prometheus-client==0.23.1
-psutil>=5.9.0
+psutil==7.2.2
 
 # Configuration
 pyyaml==6.0.1

@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-07-11
+
+Maintenance and security release: real CI quality gates, dependency modernization, repo hygiene.
+
+### Added
+
+- CI workflow with blocking quality gates on PRs and pushes to develop/main,
+  dependabot included: lint (black, isort, flake8, mypy, bandit), tests with
+  90% coverage floor, secret scan (gitleaks), Docker build + container smoke test
+- Container smoke test script (`scripts/docker_smoke.sh`): boots the image in
+  test mode and exercises liveness, docs, metrics, auth rejection and mocked
+  video info from outside the container
+- Secret scanning (gitleaks) and local privacy guard hooks in pre-commit
+- Spec2Ship project tracking (`.s2s/`): live backlog, context and ideas;
+  `.kiro/specs/` remains as the original MVP spec archive
+
+### Changed
+
+- Test stack modernized: pytest 7.4.4 -> 9.1.1, pytest-asyncio 0.23.3 -> 1.4.0,
+  pytest-cov 4.1.0 -> 7.1.0, pytest-mock 3.12.0 -> 3.15.1
+- Tooling: mypy 1.8.0 -> 1.19.1, flake8-simplify 0.21.0 -> 0.22.0
+- Runtime: structlog 24.1.0 -> 25.5.0; fastapi, uvicorn and psutil now pinned
+  to exact tested versions (0.125.0, 0.51.0, 7.2.2)
+- GitHub Actions: actions/checkout v4/v5 -> v6, actions/upload-artifact v4 -> v6
+- Branch protection required checks switched from advisory AI review jobs to
+  the blocking CI jobs (unblocks dependabot PRs, which previously never
+  received the required contexts)
+- pyproject.toml metadata fixed (real repository URLs, author) and
+  dependencies aligned with requirements.txt as the canonical source
+- Dockerfile: stale hardcoded version label replaced with OCI annotations and
+  a `VERSION` build argument
+
+### Fixed
+
+- Application version now reports the released version (was hardcoded 1.0.0
+  in `/health` and OpenAPI since v0.1.0)
+- Makefile: deprecated pre-commit `--hook-type push` corrected to `pre-push`
+
+### Security
+
+- **run-gemini-cli** 0.1.18 -> 0.1.22: critical RCE advisory (workspace trust
+  and tool allowlisting bypasses)
+- **black** 24.3.0 -> 26.5.1: arbitrary file write from unsanitized user input
+  in cache file name (high)
+- **pytest** 7.4.4 -> 9.1.1: vulnerable tmpdir handling (medium)
+
 ## [0.1.5] - 2025-12-26
 
 Dependency updates and maintenance release.
@@ -189,7 +235,8 @@ Initial MVP release of yt-dlp REST API.
 - Trivy security scan passed (0 critical vulnerabilities)
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
-[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.3...v0.1.5
 [0.1.3]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.1...v0.1.2

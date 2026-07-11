@@ -1,20 +1,22 @@
 [project]
 name = "ytdlp-api"
-version = "1.0.0"
+version = "0.1.6"
 description = "REST API backend for yt-dlp video downloads and metadata extraction"
 authors = [
-    {name = "YT-DLP API Team"}
+    {name = "Francesco Vadicamo"}
 ]
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
+# Keep in sync with requirements.txt (canonical source used by Docker and CI)
 dependencies = [
-    "fastapi==0.109.1",
-    "uvicorn[standard]==0.27.0",
+    "fastapi==0.125.0",
+    "uvicorn[standard]==0.51.0",
     "pydantic==2.5.3",
     "pydantic-settings==2.1.0",
-    "structlog==24.1.0",
+    "structlog==25.5.0",
     "prometheus-client==0.23.1",
+    "psutil==7.2.2",
     "pyyaml==6.0.1",
     "cachetools==6.2.4",
 ]
@@ -22,25 +24,26 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     # Testing
-    "pytest==7.4.4",
-    "pytest-asyncio==0.23.3",
-    "pytest-mock==3.12.0",
-    "pytest-cov==4.1.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-mock==3.15.1",
+    "pytest-cov==7.1.0",
     "httpx==0.26.0",
     # Code formatting
-    "black==24.3.0",
+    "black==26.5.1",
     "isort==5.13.2",
     # Linting
     "flake8==7.0.0",
     "flake8-bugbear==24.1.17",
     "flake8-comprehensions==3.17.0",
-    "flake8-simplify==0.21.0",
+    "flake8-simplify==0.22.0",
     "flake8-docstrings==1.7.0",
     "pep8-naming==0.15.1",
     # Type checking
-    "mypy==1.8.0",
+    "mypy==1.19.1",
     "types-PyYAML==6.0.12.12",
     "types-cachetools==6.2.0.20251022",
+    "types-psutil==6.1.0.20241221",
     # Security
     "bandit==1.7.7",
     # Pre-commit
@@ -48,9 +51,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/ytdlp-api"
-Documentation = "https://github.com/yourusername/ytdlp-api/docs"
-Repository = "https://github.com/yourusername/ytdlp-api"
+Homepage = "https://github.com/fvadicamo/yt-dlp-api"
+Documentation = "https://github.com/fvadicamo/yt-dlp-api#readme"
+Repository = "https://github.com/fvadicamo/yt-dlp-api"
+Changelog = "https://github.com/fvadicamo/yt-dlp-api/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=68.0"]

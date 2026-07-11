@@ -1,0 +1,105 @@
+# Spec2Ship Project Configuration
+# This file is created by /s2s:init
+#
+# AUTHORITATIVE SOURCE for strategy/participant defaults at runtime.
+# See plugin profiles in skills/roundtable-execution/profiles/{workflow}.yaml
+# for fallback values consulted ONLY when a key is omitted from this file.
+# Resolution hierarchy: CLI --strategy → this file → profile fallback → error.
+
+name: "yt-dlp-api"
+type: "standalone"
+version: "0.1.0"
+
+# Git workflow
+git:
+  branch_convention: "feature/{slug}"
+  commit_convention: "conventional"
+  default_branch: "main"
+
+# Roundtable configuration
+roundtable:
+  verbose: false           # Save full responses in session file
+  interactive: false       # Pause after each round for user input
+
+  # === STRATEGY ===
+  strategy:
+    default: "standard"            # Used by /s2s:roundtable when no workflow
+
+    by_workflow_type:
+      specs: "consensus-driven"    # Best for requirements agreement
+      design: "debate"             # Best for evaluating architectural options
+      brainstorm: "disney"         # Best for creative ideation
+
+    # Consensus rules per strategy
+    consensus:
+      standard:
+        threshold: 0.6             # 60% (ensures an exact 2/3 majority passes)
+        mechanism: "majority"      # majority | consent | facilitator_decides | none
+        block_prevents_terminal: true
+      consensus-driven:
+        threshold: 1.0             # Unanimous consent
+        mechanism: "consent"       # Stand-aside allowed, block triggers discussion
+        block_prevents_terminal: true
+        stand_aside_allowed: true
+      debate:
+        threshold: null            # No voting
+        mechanism: "facilitator_decides"  # Facilitator weighs arguments
+        block_prevents_terminal: false
+      disney:
+        threshold: null            # No voting per phase
+        mechanism: "none"          # Ideas collected, not voted
+        block_prevents_terminal: false
+      six-hats:
+        threshold: 0.6             # 60% after all perspectives (exact 2/3 passes)
+        mechanism: "majority"
+        block_prevents_terminal: true
+
+  # === PARTICIPANTS ===
+  participants:
+    default:
+      - software-architect         # System design, patterns, scalability
+      - technical-lead             # Implementation feasibility, code quality
+
+    by_workflow_type:
+      specs:
+        - product-manager          # User value, priorities, scope
+        - ux-researcher            # User needs, accessibility, experience
+        - business-analyst         # Requirements clarity, domain rules
+        - qa-lead                  # Testability, edge cases, acceptance
+      design:
+        - software-architect       # System structure, patterns, trade-offs
+        - security-champion        # Threat modeling, secure design, OWASP
+        - technical-lead           # Code quality, effort, maintainability
+        - devops-engineer          # Deployment, scalability, monitoring
+      brainstorm:
+        - product-manager          # User value, market fit
+        - software-architect       # Technical feasibility
+        - technical-lead           # Implementation complexity
+        - devops-engineer          # Infrastructure considerations
+
+  # === ESCALATION ===
+  escalation:
+    enabled: true
+    triggers:
+      max_rounds_per_conflict: 3   # Escalate if conflict persists
+      confidence_below: 0.5        # Escalate if confidence drops
+      critical_keywords:           # Escalate if detected
+        - security
+        - must-have
+        - blocking
+        - legal
+    presentation:
+      show_all_positions: true
+      show_rationale: true
+      facilitator_recommendation: true
+
+  # === LIMITS ===
+  limits:
+    min_rounds: 3                  # Minimum before allowing conclusion
+    max_rounds: 20                 # Force conclude after this
+    max_rounds_per_phase: 10       # Force phase advance after this
+
+# File naming
+naming:
+  timestamp_format: "YYYYMMDD-HHMMSS"
+  slug_max_length: 50

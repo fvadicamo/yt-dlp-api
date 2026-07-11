@@ -593,18 +593,20 @@ For rapid and robust delivery, the following are REQUIRED:
 
 ---
 
-- [ ] 15. Final Integration and Testing
+- [x] 15. Final Integration and Testing
   - Perform end-to-end testing and validation
   - _Requirements: 38_
+  - **Completed**: 2025-12-25 (PR #17), tasks.md updated retroactively on 2026-07-11
 
-- [ ] 15.1 Create test mode configuration
+- [x] 15.1 Create test mode configuration
   - Add TEST_MODE environment variable
   - Create demo video fixtures
   - Implement yt-dlp command mocking for tests
   - Add test mode indicator in logs and health checks
   - _Requirements: 38_
+  - **Completed**: 2025-12-25, `app/testing/` (fixtures + MockYtdlpExecutor), commit c8ea756
 
-- [ ]* 15.2 Run end-to-end tests
+- [x]* 15.2 Run end-to-end tests
   - Test complete download workflow
   - Test error scenarios and recovery
   - Test rate limiting under load
@@ -612,6 +614,7 @@ For rapid and robust delivery, the following are REQUIRED:
   - Test cleanup scheduler
   - Verify metrics collection
   - _Requirements: 38_
+  - **Completed**: 2025-12-25, `tests/e2e/` (workflow, error scenarios, metrics), commit efff6df
 
 - [x] 15.3 Perform basic security validation
   - Run security scanner on Docker image (Trivy or Snyk)
@@ -621,8 +624,9 @@ For rapid and robust delivery, the following are REQUIRED:
   - _Requirements: 32, 33_
   - **Completed**: 2025-12-25, Trivy scan passed (0 CRITICAL, 5 HIGH OS-level no fix, 1 HIGH starlette → Issue #15)
 
-- [ ] 15.4 Validate resource requirements
+- [x] 15.4 Validate resource requirements
   - Test with minimum resources (1GB RAM, 2 CPU)
   - Measure actual resource usage under load
   - Document recommended resources for production
   - _Requirements: 43_
+  - **Completed**: 2025-12-25, `app/core/resources.py` + tests, resource tiers documented in README, commit 4478d36

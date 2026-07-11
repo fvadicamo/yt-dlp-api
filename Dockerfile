@@ -27,10 +27,17 @@ RUN pip install --user --no-cache-dir -r requirements.txt yt-dlp
 # =============================================================================
 FROM python:3.11-slim AS runtime
 
-# Labels for container metadata
-LABEL maintainer="yt-dlp-api" \
+# Labels for container metadata (OCI annotations)
+# Version is injected at build time; org.opencontainers.image.source links
+# the image to the repository on GHCR.
+ARG VERSION=dev
+LABEL maintainer="Francesco Vadicamo" \
       description="REST API for video downloads using yt-dlp" \
-      version="0.1.0"
+      org.opencontainers.image.title="yt-dlp REST API" \
+      org.opencontainers.image.description="REST API for video downloads and metadata extraction using yt-dlp" \
+      org.opencontainers.image.source="https://github.com/fvadicamo/yt-dlp-api" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}"
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
