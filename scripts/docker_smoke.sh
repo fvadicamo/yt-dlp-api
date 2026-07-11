@@ -20,7 +20,9 @@ COOKIE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/smoke-cookies.XXXXXX")
 
 cleanup() {
     $DOCKER rm -f "$NAME" >/dev/null 2>&1 || true
-    rm -rf "$COOKIE_DIR"
+    if [ -n "${COOKIE_DIR:-}" ]; then
+        rm -rf "$COOKIE_DIR"
+    fi
 }
 trap cleanup EXIT
 
@@ -44,8 +46,8 @@ $DOCKER run -d --name "$NAME" -p "${PORT}:8000" \
     "$IMAGE" >/dev/null
 
 echo "Waiting for liveness..."
-for i in $(seq 1 30); do
-    if curl -fsS "http://localhost:${PORT}/liveness" >/dev/null 2>&1; then
+for i in {1..30}; do
+    if curl -fsS "http://127.0.0.1:${PORT}/liveness" >/dev/null 2>&1; then
         break
     fi
     if [ "$i" -eq 30 ]; then
@@ -60,7 +62,9 @@ check() {
     local name="$1" expected="$2"
     shift 2
     local status
-    status=$(curl -s -o /dev/null -w "%{http_code}" "$@")
+    # `|| true`: under set -e a connection failure inside the command
+    # substitution would kill the script before the diagnostics below.
+    status=$(curl -s -o /dev/null -w "%{http_code}" "$@" || true)
     if [ "$status" != "$expected" ]; then
         echo "FAIL: ${name} expected HTTP ${expected}, got ${status}"
         $DOCKER logs "$NAME" 2>&1 | tail -50
@@ -69,13 +73,13 @@ check() {
     echo "OK: ${name} (${status})"
 }
 
-check "liveness" 200 "http://localhost:${PORT}/liveness"
-check "openapi docs" 200 "http://localhost:${PORT}/docs"
-check "metrics" 200 "http://localhost:${PORT}/metrics"
+check "liveness" 200 "http://127.0.0.1:${PORT}/liveness"
+check "openapi docs" 200 "http://127.0.0.1:${PORT}/docs"
+check "metrics" 200 "http://127.0.0.1:${PORT}/metrics"
 check "auth rejected without key" 401 \
-    "http://localhost:${PORT}/api/v1/info?url=${DEMO_URL}"
+    "http://127.0.0.1:${PORT}/api/v1/info?url=${DEMO_URL}"
 check "video info (mocked)" 200 \
     -H "X-API-Key: ${API_KEY}" \
-    "http://localhost:${PORT}/api/v1/info?url=${DEMO_URL}"
+    "http://127.0.0.1:${PORT}/api/v1/info?url=${DEMO_URL}"
 
 echo "Container smoke test passed."
