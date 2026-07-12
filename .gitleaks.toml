@@ -9,8 +9,8 @@ useDefault = true
 [allowlist]
 description = "Documentation and test placeholder credentials"
 regexes = [
-  '''your(-secure)?-api-key''',
-  '''ci-smoke-key''',
-  '''e2e-test-api-key''',
-  '''test-api-key''',
+  '''^your(-secure)?-api-key$''',
+  '''^ci-smoke-key$''',
+  '''^e2e-test-api-key$''',
+  '''^test-api-key$''',
 ]
