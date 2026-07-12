@@ -7,12 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-12
+
 ### Added
 
 - Browser TLS-fingerprint impersonation in the image: yt-dlp is now
   installed with the `default` and `curl-cffi` extras, removing the
   "no impersonate target is available" warning and improving resilience
   against anti-bot blocks, especially from datacenter IPs
+
+### Changed
+
+- Contributor docs consolidated into CONTRIBUTING.md (setup, venv policy,
+  git workflow, commit conventions, documentation guidelines); the Kiro
+  steering files and docs/DEVELOPMENT_SETUP.md are removed, `.kiro/specs/`
+  stays as the MVP spec archive
 
 ## [0.2.1] - 2026-07-12
 
@@ -306,7 +315,8 @@ Initial MVP release of yt-dlp REST API.
 - Trivy security scan passed (0 critical vulnerabilities)
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
-[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.6...v0.2.0
 [0.1.6]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.5...v0.1.6
