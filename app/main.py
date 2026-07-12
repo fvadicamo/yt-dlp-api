@@ -33,6 +33,7 @@ from app.services.download_queue import configure_download_queue, get_download_q
 from app.services.download_worker import configure_download_worker, get_download_worker
 from app.services.job_service import configure_job_service, get_job_service
 from app.services.storage import configure_storage
+from app.services.webhook_service import configure_webhook_service
 
 logger = structlog.get_logger(__name__)
 
@@ -167,6 +168,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         max_queue_size=config.downloads.queue_size,
     )
 
+    # Configure webhook service (disabled unless explicitly enabled)
+    configure_webhook_service(
+        enabled=config.webhooks.enabled,
+        allowed_hosts=config.webhooks.allowed_hosts,
+        secret=config.webhooks.secret,
+        timeout=config.webhooks.timeout,
+        max_retries=config.webhooks.max_retries,
+    )
+    logger.info(
+        "Webhook service configured",
+        enabled=config.webhooks.enabled,
+        allowed_hosts_count=len(config.webhooks.allowed_hosts),
+    )
+
     # Configure cookie service
     cookie_config = {
         "providers": {
@@ -268,6 +283,7 @@ Rate limited responses include a `Retry-After` header.
 | `TRANSCRIPT_NOT_FOUND` | 404 | No transcript available for the requested language |
 | `VIDEO_UNAVAILABLE` | 404 | Video is private, deleted, or geo-blocked |
 | `RATE_LIMIT_EXCEEDED` | 429 | Rate limit reached, check Retry-After header |
+| `WEBHOOK_NOT_ALLOWED` | 400 | Webhooks disabled or host not in the allowlist |
 | `DOWNLOAD_FAILED` | 500 | Download operation failed |
 | `PROVIDER_ERROR` | 500 | Video provider error |
 | `QUEUE_FULL` | 503 | Download queue is at capacity |

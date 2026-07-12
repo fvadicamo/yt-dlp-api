@@ -132,6 +132,14 @@ class DownloadRequest(BaseModel):
         alias="async",
         description="Async mode returns job_id immediately. Sync mode waits for completion.",
     )
+    webhook_url: Optional[str] = Field(
+        None,
+        description=(
+            "URL to POST a signed notification to when the job completes or fails. "
+            "Requires webhooks enabled on the server and the host in the allowlist."
+        ),
+        examples=["https://automation.example.com/hooks/ytdlp"],
+    )
 
     @field_validator("audio_format")
     @classmethod
