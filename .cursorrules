@@ -169,10 +169,8 @@ Configured tools:
 - `.pre-commit-config.yaml`: Automatic git hooks
 
 ### Complete Documentation
-- **Git Workflow**: `CONTRIBUTING.md`
+- **Contributor guide** (git workflow, venv, documentation policy): `CONTRIBUTING.md`
 - **Code Style**: `.gemini/styleguide.md`
-- **Python venv**: `CONTRIBUTING.md`
-- **Documentation Policy**: `CONTRIBUTING.md`
 - **Project Specs**: `.kiro/specs/yt-dlp-rest-api/` (requirements, design, tasks)
 
 ## When to Create New Files
