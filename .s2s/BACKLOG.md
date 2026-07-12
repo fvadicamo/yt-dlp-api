@@ -22,7 +22,7 @@
 
 ### FEAT-001: GHCR publishing with yt-dlp update strategy
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-11 (PR #62)
 
 **Context**: There is no published image: users must clone and build. yt-dlp
 is installed unpinned at build time and never updated by dependabot
@@ -40,7 +40,7 @@ is installed unpinned at build time and never updated by dependabot
 
 ### FEAT-002: Transcript endpoint
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12 (PR #63)
 
 **Context**: Consumers (automation pipelines, AI/RAG ingestion) want the
 transcript of a video as text, without downloading media. yt-dlp can fetch
@@ -57,22 +57,22 @@ API exposes this cleanly.
 
 ### FEAT-003: Job completion webhooks
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12 (PR #64)
 
 **Context**: Downstream systems (workflow engines, data platforms, external
 STT pipelines) need push notifications when a download job completes or
 fails, instead of polling `GET /jobs/{id}`.
 
 **Acceptance Criteria**:
-- [ ] Optional `webhook_url` on download requests
-- [ ] POST with job payload on completion/failure, retries with backoff
-- [ ] HMAC signature header (shared secret from config)
-- [ ] SSRF protection: outbound host allowlist in config, off by default
-- [ ] Unit + e2e coverage
+- [x] Optional `webhook_url` on download requests
+- [x] POST with job payload on completion/failure, retries with backoff
+- [x] HMAC signature header (shared secret from config)
+- [x] SSRF protection: outbound host allowlist in config, off by default
+- [x] Unit coverage for service/worker/endpoint (22 tests)
 
 ### TECH-004: README and docs overhaul for reference status
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: in_progress | **Created**: 2026-07-11
 
 **Context**: README quick start requires cloning; no badges, no published
 image, docs don't cover the new capabilities.
@@ -96,7 +96,7 @@ first GHCR-published version.
 
 ### TECH-006: Reconstruct project history in s2s format
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12
 
 **Context**: The project was specified in `.kiro/specs/` (47 requirements,
 15 tasks, completed through v0.1.5) before adopting s2s. Reconstruct the
@@ -104,9 +104,26 @@ history (releases, key decisions) into s2s artifacts for traceability;
 `.kiro/` remains as the original spec archive.
 
 **Acceptance Criteria**:
-- [ ] Completed work mapped into this backlog with release references
-- [ ] Key architectural decisions captured in `.s2s/decisions/` (MADR)
-- [ ] `.claude/CLAUDE.md` quick links point to s2s as the live tracker
+- [x] Completed work mapped into this backlog with release references
+      (MVP entry + TECH/FEAT entries with PR and release numbers)
+- [x] Key architectural decisions captured in `.s2s/decisions/`:
+      ADR-0001..0005 reconstructed from the MVP design, ADR-0006/0007
+      for the 2026-07 production-readiness work
+- [x] `.claude/CLAUDE.md` quick links point to s2s as the live tracker
+
+### DEBT-001: Reconcile or close the docs-consolidation branch
+
+**Status**: planned | **Created**: 2026-07-12
+
+**Context**: Remote branch `feature/docs-consolidation` (2025-12) removes
+`.kiro/steering/` and `docs/DEVELOPMENT_SETUP.md`, folding their content
+into CONTRIBUTING/AGENTS/RELEASING. It predates the 2026-07 waves and now
+conflicts with the refreshed docs. The consolidation *idea* is still valid.
+
+**Acceptance Criteria**:
+- [ ] Decide: rebase and land the consolidation, or close the branch as
+      superseded (recommended: re-do the consolidation fresh, small PR)
+- [ ] Either way, delete the stale remote branch afterwards
 
 ---
 

@@ -1,0 +1,16 @@
+# Gitleaks configuration: default rules plus an allowlist for the
+# documentation/test placeholders used across README, docs and fixtures.
+# The allowlist matches placeholder VALUES, never file paths, so real
+# secrets in any file still trigger detection.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documentation and test placeholder credentials"
+regexes = [
+  '''your(-secure)?-api-key''',
+  '''ci-smoke-key''',
+  '''e2e-test-api-key''',
+  '''test-api-key''',
+]

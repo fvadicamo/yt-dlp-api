@@ -83,6 +83,14 @@ gh release create vX.Y.Z \
   --target main
 ```
 
+The tag triggers the `Docker Publish` workflow: multi-arch images
+(`linux/amd64`, `linux/arm64`) are smoke-tested and pushed to
+`ghcr.io/fvadicamo/yt-dlp-api` as `X.Y.Z`, `X.Y` and `latest`. Verify the
+workflow run is green and the new tags appear on the GHCR package page.
+Before the release, bump the version in BOTH `app/__init__.py` (single
+source exposed by /health and OpenAPI) and `pyproject.toml`, and refresh
+the static coverage badge in README.md if the percentage changed.
+
 ### 4. Close Milestone (if applicable)
 
 ```bash

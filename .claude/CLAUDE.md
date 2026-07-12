@@ -260,12 +260,12 @@ All tasks (1-15) completed. Project is public on GitHub.
 - [x] Task 15.4: Resource requirements validation ✅ (app/core/resources.py, 2025-12-25)
 
 ### Production Readiness Waves (2026-07, tracked in .s2s/BACKLOG.md)
-1. ✅ Repo hygiene and privacy guardrails (versions, deps alignment, gitleaks + privacy hook)
-2. CI with real gates (blocking lint/type/test/coverage/docker jobs, unblock dependabot PRs)
-3. Test robustness (coverage 90+ on weak modules, deprecation warnings, container-level e2e)
-4. Differentiating features (GHCR multi-arch publishing, yt-dlp pin strategy, transcript endpoint, job webhooks)
+1. ✅ Repo hygiene and privacy guardrails (versions, deps alignment, gitleaks + privacy hook) - PR #56
+2. ✅ CI with real gates + dependabot unblock + security alerts fixed - PRs #57 #58, release v0.1.6
+3. ✅ Test robustness (weak modules to 100%, 0 warnings, coverage gate 90) - PR #61
+4. ✅ Differentiating features (GHCR multi-arch, yt-dlp pin, transcript endpoint, job webhooks) - PRs #62 #63 #64
 5. Private production deployment (out of repo scope)
-6. s2s backlog migration, README overhaul, release v0.2.0
+6. ✅ s2s history (ADRs), README overhaul, release v0.2.0
 
 ---
 
