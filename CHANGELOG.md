@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-12
+
+Fixes from the first production deployment against real YouTube (all three
+issues were structurally masked by test mode).
+
+### Fixed
+
+- **Read-only cookie mounts work again**: yt-dlp rewrites the cookie jar on
+  every run, so the documented `:ro` cookies mount crashed every real
+  invocation with `OSError: Read-only file system`. Executions now run
+  against a private writable copy of the cookie file, discarded afterwards;
+  the hot-reload endpoint remains the cookie refresh path (jar rotation is
+  no longer persisted)
+- **PO-token subtitle failures**: the hardcoded
+  `--extractor-args youtube:player_client=web` triggered YouTube's PO-token
+  requirement and got web-client subtitles discarded. The forced client is
+  removed in favor of yt-dlp's maintained client selection
+- **Signature solving**: pip installs of yt-dlp do not bundle the EJS
+  challenge-solver scripts; `yt-dlp-ejs` is now installed in the image,
+  fixing `/info` degrading to images-only
+
 ## [0.2.0] - 2026-07-12
 
 First release with the differentiator features: transcripts as data, signed webhooks, published multi-arch images.
@@ -278,7 +299,8 @@ Initial MVP release of yt-dlp REST API.
 - Trivy security scan passed (0 critical vulnerabilities)
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
-[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.6...v0.2.0
 [0.1.6]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.3...v0.1.5
