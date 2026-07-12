@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-12
+
+First release with the differentiator features: transcripts as data, signed webhooks, published multi-arch images.
+
+### Added
+
+- **Transcript endpoint**: `GET /api/v1/transcript` returns manual subtitles
+  or auto-captions as timed JSON segments, plain text, SRT or raw VTT,
+  without downloading media (`lang`, `source=any|manual|auto`, `fmt`
+  parameters; 404 `TRANSCRIPT_NOT_FOUND` when no captions exist). The WebVTT
+  parser deduplicates YouTube auto-caption rolling cues and strips inline
+  word-level tags
+- **Job completion webhooks**: optional `webhook_url` on download requests;
+  HMAC-SHA256-signed `job.completed`/`job.failed` POSTs with retries and
+  exponential backoff; disabled by default with an exact-host allowlist
+  (SSRF protection); `webhook_deliveries_total` metric; new
+  `APP_WEBHOOKS_*` configuration section
+- **Published images**: multi-arch (linux/amd64, linux/arm64) builds pushed
+  to `ghcr.io/fvadicamo/yt-dlp-api` on every release (semver + `latest`)
+  and weekly as `weekly` with the latest yt-dlp; every image passes the
+  container smoke test before push
+- yt-dlp pinned in `requirements-ytdlp.txt` (dependabot-managed) instead of
+  installed unpinned at build time
+- Architecture Decision Records in `.s2s/decisions/` (0001-0007)
+- Repo-level gitleaks config with anchored placeholder allowlist
+
+### Changed
+
+- README repositioned as reference documentation: image-first quick start,
+  positioning section, integration recipes, mermaid architecture diagram
+- pydantic 2.5.3 -> 2.13.4, pydantic-settings 2.1.0 -> 2.14.2 (removes the
+  fastapi Field(deprecated=...) warning storm); httpx 0.28.1 promoted to
+  runtime dependency (webhook delivery client)
+- Test suite: 893 tests at 94% coverage with zero warnings; coverage gate
+  raised from 80 to 90; weak modules covered to 100% (provider manager,
+  download worker, download/video endpoints)
+
+### Fixed
+
+- Unreadable cookie file/volume now degrades the provider instead of
+  crashing startup with an uncaught `PermissionError`, even in degraded
+  mode (found by the container smoke test)
+
 ## [0.1.6] - 2026-07-11
 
 Maintenance and security release: real CI quality gates, dependency modernization, repo hygiene.
@@ -235,7 +278,8 @@ Initial MVP release of yt-dlp REST API.
 - Trivy security scan passed (0 critical vulnerabilities)
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
-[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.6...v0.2.0
 [0.1.6]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.3...v0.1.5
 [0.1.3]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.2...v0.1.3
