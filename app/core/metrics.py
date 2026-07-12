@@ -87,6 +87,13 @@ rate_limit_exceeded_total = Counter(
     ["api_key_hash", "category"],
 )
 
+# Webhook metrics
+webhook_deliveries_total = Counter(
+    "webhook_deliveries_total",
+    "Total webhook delivery attempts by final status",
+    ["event", "status"],
+)
+
 # Cookie metrics
 cookie_age_seconds = Gauge(
     "cookie_age_seconds",
@@ -213,6 +220,16 @@ class MetricsCollector:
             age_seconds: Age of cookie file in seconds.
         """
         cookie_age_seconds.labels(provider=provider).set(age_seconds)
+
+    @staticmethod
+    def record_webhook_delivery(event: str, status: str) -> None:
+        """Record a webhook delivery outcome.
+
+        Args:
+            event: Webhook event name (e.g., 'job.completed').
+            status: Final delivery status ('success' or 'failed').
+        """
+        webhook_deliveries_total.labels(event=event, status=status).inc()
 
     @staticmethod
     def record_cookie_validation(provider: str, result: str) -> None:

@@ -164,6 +164,23 @@ class TestingConfig(BaseConfigSection):
     model_config = SettingsConfigDict(env_prefix="APP_TESTING_")
 
 
+class WebhooksConfig(BaseConfigSection):
+    """Job completion webhook configuration.
+
+    Disabled by default. When enabled, download requests may carry a
+    webhook_url whose host MUST be in allowed_hosts (SSRF protection:
+    an empty allowlist rejects every webhook).
+    """
+
+    enabled: bool = False
+    allowed_hosts: List[str] = Field(default_factory=list)
+    secret: Optional[str] = None  # HMAC-SHA256 signing key for deliveries
+    timeout: float = 5.0  # seconds per delivery attempt
+    max_retries: int = 3
+
+    model_config = SettingsConfigDict(env_prefix="APP_WEBHOOKS_")
+
+
 class Config(BaseSettings):
     """Main application configuration"""
 
@@ -178,6 +195,7 @@ class Config(BaseSettings):
     security: SecurityConfig = Field(default_factory=SecurityConfig)
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
     testing: TestingConfig = Field(default_factory=TestingConfig)
+    webhooks: WebhooksConfig = Field(default_factory=WebhooksConfig)
 
     model_config = SettingsConfigDict(env_prefix="APP_")
 
@@ -216,6 +234,7 @@ class ConfigService:
         security = SecurityConfig(**config_data.get("security", {}))
         monitoring = MonitoringConfig(**config_data.get("monitoring", {}))
         testing = TestingConfig(**config_data.get("testing", {}))
+        webhooks = WebhooksConfig(**config_data.get("webhooks", {}))
 
         # Handle providers
         providers_data = config_data.get("providers", {})
@@ -235,6 +254,7 @@ class ConfigService:
             security=security,
             monitoring=monitoring,
             testing=testing,
+            webhooks=webhooks,
         )
 
         return self._config

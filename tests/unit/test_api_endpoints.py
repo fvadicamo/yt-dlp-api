@@ -1295,3 +1295,136 @@ class TestTranscriptEndpoint:
 
         assert response.status_code == 400
         assert response.json()["detail"]["error_code"] == "INVALID_URL"
+
+
+# ============================================================================
+# Download Webhook Parameter Tests
+# ============================================================================
+
+
+class TestDownloadWebhookParam:
+    """webhook_url handling on the download endpoint."""
+
+    def _post(self, app: FastAPI, payload: dict) -> "TestClient.post":
+        client = TestClient(app)
+        return client.post("/api/v1/download", json=payload)
+
+    def test_webhook_rejected_when_disabled(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+    ) -> None:
+        """webhook_url on a server without webhooks returns 400."""
+        from app.api import download as download_module
+        from app.services.webhook_service import WebhookService
+
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+        app.dependency_overrides[download_module.get_webhook_service] = lambda: WebhookService(
+            enabled=False
+        )
+
+        response = self._post(
+            app,
+            {
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "async": True,
+                "webhook_url": "https://hooks.example.com/x",
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "WEBHOOK_NOT_ALLOWED"
+
+    def test_webhook_host_not_allowed(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+    ) -> None:
+        """webhook_url with a host outside the allowlist returns 400."""
+        from app.api import download as download_module
+        from app.services.webhook_service import WebhookService
+
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+        app.dependency_overrides[download_module.get_webhook_service] = lambda: WebhookService(
+            enabled=True, allowed_hosts=["hooks.example.com"]
+        )
+
+        response = self._post(
+            app,
+            {
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "async": True,
+                "webhook_url": "https://evil.example.net/x",
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "WEBHOOK_NOT_ALLOWED"
+
+    def test_webhook_accepted_and_stored_in_params(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """An allowed webhook_url is stored in the job params."""
+        from app.api import download as download_module
+        from app.services.webhook_service import WebhookService
+
+        mock_job_service.create_job.return_value = sample_job
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+        app.dependency_overrides[download_module.get_webhook_service] = lambda: WebhookService(
+            enabled=True, allowed_hosts=["hooks.example.com"]
+        )
+
+        response = self._post(
+            app,
+            {
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "async": True,
+                "webhook_url": "https://hooks.example.com/x",
+            },
+        )
+
+        assert response.status_code == 202
+        params = mock_job_service.create_job.call_args.kwargs["params"]
+        assert params["webhook_url"] == "https://hooks.example.com/x"
+
+    def test_no_webhook_url_needs_no_service(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """Requests without webhook_url work with the default disabled service."""
+        mock_job_service.create_job.return_value = sample_job
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        response = self._post(
+            app,
+            {"url": "https://www.youtube.com/watch?v=abc123", "async": True},
+        )
+
+        assert response.status_code == 202

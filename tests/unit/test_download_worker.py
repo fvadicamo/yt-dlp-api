@@ -172,7 +172,8 @@ class TestProcessJob:
     @pytest.mark.asyncio
     async def test_job_vanishing_mid_flight_fails_job(self, worker, services, mock_job):
         """Job disappearing between dequeue and download fails cleanly."""
-        services["job_service"].get_job.side_effect = [mock_job, None]
+        # Third get_job call comes from the webhook notification hook
+        services["job_service"].get_job.side_effect = [mock_job, None, None]
 
         await worker.process_single_job("job-1")
 
@@ -310,3 +311,84 @@ class TestGlobalWorker:
 
         await stop_download_worker()
         assert worker._running is False
+
+
+class TestWebhookNotifications:
+    """Webhook notifications on terminal job states."""
+
+    @pytest.fixture
+    def webhook_service(self):
+        """Enabled webhook service installed as the global instance."""
+        import app.services.webhook_service as webhook_module
+
+        service = MagicMock()
+        service.enabled = True
+        service.deliver = AsyncMock(return_value=True)
+        saved = webhook_module._webhook_service
+        webhook_module._webhook_service = service
+        yield service
+        webhook_module._webhook_service = saved
+
+    @pytest.mark.asyncio
+    async def test_completed_job_notifies_webhook(
+        self, worker, services, mock_job, webhook_service
+    ):
+        """Successful jobs fire a job.completed delivery."""
+        mock_job.params["webhook_url"] = "https://hooks.example.com/x"
+        mock_job.job_id = "job-1"
+        mock_job.status.value = "completed"
+
+        await worker.process_single_job("job-1")
+        await asyncio.sleep(0)  # let the fire-and-forget task run
+
+        webhook_service.deliver.assert_awaited_once()
+        args = webhook_service.deliver.call_args[0]
+        assert args[0] == "https://hooks.example.com/x"
+        assert args[1] == "job.completed"
+        assert args[2]["job_id"] == "job-1"
+
+    @pytest.mark.asyncio
+    async def test_failed_job_notifies_webhook(self, worker, services, mock_job, webhook_service):
+        """Failed jobs fire a job.failed delivery."""
+        mock_job.params["webhook_url"] = "https://hooks.example.com/x"
+        services["provider"].download.side_effect = ProviderError("boom")
+
+        await worker.process_single_job("job-1")
+        await asyncio.sleep(0)
+
+        webhook_service.deliver.assert_awaited_once()
+        assert webhook_service.deliver.call_args[0][1] == "job.failed"
+
+    @pytest.mark.asyncio
+    async def test_no_webhook_url_no_delivery(self, worker, services, webhook_service):
+        """Jobs without webhook_url never trigger deliveries."""
+        await worker.process_single_job("job-1")
+        await asyncio.sleep(0)
+
+        webhook_service.deliver.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_disabled_service_no_delivery(self, worker, services, mock_job, webhook_service):
+        """A disabled webhook service suppresses deliveries."""
+        mock_job.params["webhook_url"] = "https://hooks.example.com/x"
+        webhook_service.enabled = False
+
+        await worker.process_single_job("job-1")
+        await asyncio.sleep(0)
+
+        webhook_service.deliver.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_max_retries_failure_notifies_webhook(
+        self, worker, services, mock_job, webhook_service
+    ):
+        """Retry exhaustion fires a job.failed delivery."""
+        mock_job.params["webhook_url"] = "https://hooks.example.com/x"
+        services["provider"].download.side_effect = DownloadError("network reset")
+        mock_job.can_retry.return_value = False
+
+        await worker.process_single_job("job-1")
+        await asyncio.sleep(0)
+
+        webhook_service.deliver.assert_awaited_once()
+        assert webhook_service.deliver.call_args[0][1] == "job.failed"

@@ -23,6 +23,7 @@ from app.providers.manager import ProviderManager
 from app.services.download_queue import DownloadQueue, get_download_queue
 from app.services.job_service import JobService, get_job_service
 from app.services.storage import StorageManager, get_storage_manager
+from app.services.webhook_service import get_webhook_service
 
 logger = structlog.get_logger(__name__)
 
@@ -62,6 +63,9 @@ class DownloadWorker:
         self.poll_interval = poll_interval
         self._running = False
         self._worker_task: Optional[asyncio.Task] = None
+        # Strong references to in-flight webhook deliveries (fire-and-forget
+        # tasks would otherwise be garbage collected mid-delivery)
+        self._webhook_tasks: set = set()
 
         logger.debug(
             "download_worker_initialized",
@@ -204,6 +208,8 @@ class DownloadWorker:
                     duration=result.duration,
                 )
 
+                self._notify_webhook(job_id, "job.completed")
+
         except DownloadError as e:
             await self._handle_download_error(job_id, e)
 
@@ -215,6 +221,7 @@ class DownloadWorker:
                 job_id=job_id,
                 error=str(e),
             )
+            self._notify_webhook(job_id, "job.failed")
 
         except Exception as e:
             # Unexpected error
@@ -225,6 +232,7 @@ class DownloadWorker:
                 error=str(e),
                 exc_info=True,
             )
+            self._notify_webhook(job_id, "job.failed")
 
         finally:
             # Record metrics once in finally block (reduces duplication)
@@ -237,6 +245,44 @@ class DownloadWorker:
             )
             # Release the download slot
             await self.download_queue.release_slot(job_id)
+
+    def _notify_webhook(self, job_id: str, event: str) -> None:
+        """Fire a webhook notification for a terminal job state.
+
+        Delivery runs as a background task and never blocks or fails job
+        processing.
+
+        Args:
+            job_id: The job's unique identifier.
+            event: Event name ("job.completed" or "job.failed").
+        """
+        job = self.job_service.get_job(job_id)
+        if not job:
+            return
+
+        webhook_url = (job.params or {}).get("webhook_url")
+        if not webhook_url:
+            return
+
+        service = get_webhook_service()
+        if not service.enabled:
+            return
+
+        payload = {
+            "event": event,
+            "job_id": job.job_id,
+            "url": job.url,
+            "status": job.status.value,
+            "file_path": job.file_path,
+            "file_size": job.file_size,
+            "duration": job.duration,
+            "error_message": job.error_message,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+        }
+
+        task = asyncio.create_task(service.deliver(webhook_url, event, payload))
+        self._webhook_tasks.add(task)
+        task.add_done_callback(self._webhook_tasks.discard)
 
     async def _execute_download(
         self,
@@ -320,6 +366,7 @@ class DownloadWorker:
                     queue_error=str(queue_error),
                     original_error=str(error),
                 )
+                self._notify_webhook(job_id, "job.failed")
                 return
 
         else:
@@ -335,6 +382,7 @@ class DownloadWorker:
                 retry_count=job.retry_count,
                 error=str(error),
             )
+            self._notify_webhook(job_id, "job.failed")
 
     async def process_single_job(self, job_id: str) -> None:
         """Process a single job synchronously (for testing or sync mode).
