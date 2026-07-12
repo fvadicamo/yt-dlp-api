@@ -59,11 +59,15 @@ class MockYtdlpExecutor:
         """
         logger.debug("mock_ytdlp_execute", cmd=cmd)
 
-        # Parse command to determine operation
+        # Parse command to determine operation.
+        # Transcript commands must be checked before downloads: their
+        # "--output" flag would otherwise match the download detection.
         if "--dump-json" in cmd or "-j" in cmd:
             return await self._mock_get_info(cmd)
         elif "-F" in cmd or "--list-formats" in cmd:
             return await self._mock_list_formats(cmd)
+        elif "--write-subs" in cmd or "--write-auto-subs" in cmd:
+            return await self._mock_transcript(cmd)
         elif self._is_download_command(cmd):
             return await self._mock_download(cmd)
         else:
@@ -129,6 +133,66 @@ class MockYtdlpExecutor:
 
         stdout = "\n".join(lines).encode("utf-8")
         return MockProcessResult(returncode=0, stdout=stdout, stderr=b"")
+
+    # Demo transcript availability: video id -> sources with captions.
+    # dQw4w9WgXcQ has manual subtitles and auto-captions, jNQXAC9IVRw
+    # only auto-captions. Only language "en" exists, so other languages
+    # exercise the transcript-not-found path.
+    TRANSCRIPT_SOURCES = {
+        "dQw4w9WgXcQ": {"manual", "auto"},
+        "jNQXAC9IVRw": {"auto"},
+    }
+
+    DEMO_VTT = (
+        "WEBVTT\n"
+        "\n"
+        "00:00:00.000 --> 00:00:02.500\n"
+        "We're no strangers to love\n"
+        "\n"
+        "00:00:02.500 --> 00:00:05.000\n"
+        "You know the rules and so do I\n"
+        "\n"
+        "00:00:05.000 --> 00:00:08.200\n"
+        "A full commitment's what I'm thinking of\n"
+    )
+
+    async def _mock_transcript(self, cmd: List[str]) -> MockProcessResult:
+        """Mock subtitle fetch (--write-subs / --write-auto-subs).
+
+        Writes a demo VTT file into the --paths directory when the demo
+        video has captions for the requested source and language.
+        """
+        url = self._extract_url(cmd)
+        video_id = self._extract_video_id(url)
+        source = "manual" if "--write-subs" in cmd else "auto"
+
+        lang = "en"
+        paths_dir: Optional[str] = None
+        for i, arg in enumerate(cmd):
+            if arg == "--sub-langs" and i + 1 < len(cmd):
+                lang = cmd[i + 1]
+            elif arg == "--paths" and i + 1 < len(cmd):
+                paths_dir = cmd[i + 1]
+
+        logger.debug(
+            "mock_transcript",
+            video_id=video_id,
+            source=source,
+            lang=lang,
+            paths_dir=paths_dir,
+        )
+
+        available = self.TRANSCRIPT_SOURCES.get(video_id or "", set())
+        if paths_dir and source in available and lang == "en":
+            vtt_path = Path(paths_dir) / f"transcript.{lang}.vtt"
+            vtt_path.parent.mkdir(parents=True, exist_ok=True)
+            vtt_path.write_text(self.DEMO_VTT)
+            stdout = f"[info] Writing video subtitles to: {vtt_path}".encode("utf-8")
+            return MockProcessResult(returncode=0, stdout=stdout, stderr=b"")
+
+        # yt-dlp exits 0 with a warning when no subtitles exist
+        stderr = b"WARNING: video doesn't have subtitles"
+        return MockProcessResult(returncode=0, stdout=b"", stderr=stderr)
 
     async def _mock_download(self, cmd: List[str]) -> MockProcessResult:
         """Mock download operation.

@@ -48,10 +48,12 @@ manual subtitles and auto-captions with `--skip-download`. No comparable OSS
 API exposes this cleanly.
 
 **Acceptance Criteria**:
-- [ ] `GET /api/v1/transcript?url=&lang=&fmt=` returning text/JSON/SRT/VTT
-- [ ] Source selection: manual subtitles preferred, auto-captions fallback
-- [ ] Clear 404 semantics when no transcript exists for the language
-- [ ] Rate-limited as metadata category, covered by unit + e2e tests
+- [x] `GET /api/v1/transcript?url=&lang=&source=&fmt=` returning
+      JSON segments / text / SRT / raw VTT
+- [x] Source selection: manual subtitles preferred, auto-captions fallback
+- [x] 404 TRANSCRIPT_NOT_FOUND when no captions exist for the language
+- [x] Rate-limited as metadata; VTT parser handles auto-caption rolling
+      duplicates and inline tags; unit + endpoint + e2e + container smoke
 
 ### FEAT-003: Job completion webhooks
 

@@ -9,7 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api import download, health, jobs, video
+from app.api import download, health, jobs, transcript, video
 from app.middleware.auth import get_api_key
 from app.models.job import Job, JobStatus
 from app.models.video import VideoFormat
@@ -27,6 +27,7 @@ def app() -> FastAPI:
     app = FastAPI()
     app.include_router(health.router)
     app.include_router(video.router)
+    app.include_router(transcript.router)
     app.include_router(download.router)
     app.include_router(jobs.router)
 
@@ -1080,3 +1081,217 @@ class TestFormatsErrorPaths:
 
         assert response.status_code == 500
         assert response.json()["detail"]["error_code"] == "INTERNAL_ERROR"
+
+
+# ============================================================================
+# Transcript Endpoint Tests
+# ============================================================================
+
+
+class TestTranscriptEndpoint:
+    """Tests for GET /api/v1/transcript."""
+
+    @staticmethod
+    def _demo_transcript() -> dict:
+        from app.utils.transcript import TranscriptSegment
+
+        return {
+            "video_id": "dQw4w9WgXcQ",
+            "lang": "en",
+            "source": "manual",
+            "segments": [
+                TranscriptSegment(start=0.0, end=2.5, text="We're no strangers to love"),
+                TranscriptSegment(start=2.5, end=5.0, text="You know the rules and so do I"),
+            ],
+            "raw_vtt": "WEBVTT\n\n00:00:00.000 --> 00:00:02.500\nWe're no strangers to love\n",
+        }
+
+    def _client(self, app: FastAPI, mock_provider_manager: MagicMock) -> TestClient:
+        app.dependency_overrides[transcript.get_provider_manager] = lambda: mock_provider_manager
+        return TestClient(app)
+
+    def test_transcript_json(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Default JSON format returns segments and flattened text."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(return_value=self._demo_transcript())
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["video_id"] == "dQw4w9WgXcQ"
+        assert data["source"] == "manual"
+        assert data["segment_count"] == 2
+        assert data["segments"][0]["text"] == "We're no strangers to love"
+        assert "You know the rules" in data["text"]
+
+    def test_transcript_text_format(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """fmt=text returns plain text with one segment per line."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(return_value=self._demo_transcript())
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "fmt": "text"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/plain")
+        assert response.text == "We're no strangers to love\nYou know the rules and so do I"
+
+    def test_transcript_srt_format(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """fmt=srt returns SubRip cues."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(return_value=self._demo_transcript())
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "fmt": "srt"},
+        )
+
+        assert response.status_code == 200
+        assert response.text.startswith("1\n00:00:00,000 --> 00:00:02,500")
+
+    def test_transcript_vtt_format(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """fmt=vtt returns the raw VTT file."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(return_value=self._demo_transcript())
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "fmt": "vtt"},
+        )
+
+        assert response.status_code == 200
+        assert response.text.startswith("WEBVTT")
+
+    def test_transcript_not_found(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Missing captions map to 404 TRANSCRIPT_NOT_FOUND."""
+        from app.providers.exceptions import TranscriptNotFoundError
+
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(
+            side_effect=TranscriptNotFoundError("No transcript available for language 'it'")
+        )
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "lang": "it"},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"]["error_code"] == "TRANSCRIPT_NOT_FOUND"
+
+    def test_transcript_invalid_url(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Malformed URLs return 400 before provider involvement."""
+        client = self._client(app, mock_provider_manager)
+        response = client.get("/api/v1/transcript", params={"url": "not-a-url"})
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_URL"
+
+    def test_transcript_invalid_lang_rejected(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Language codes outside the pattern are rejected with 422."""
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={
+                "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                "lang": "en; rm -rf /",
+            },
+        )
+
+        assert response.status_code == 422
+
+    def test_transcript_invalid_fmt_rejected(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Unknown output formats are rejected with 422."""
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "fmt": "xml"},
+        )
+
+        assert response.status_code == 422
+
+    def test_transcript_provider_error(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Provider errors map to 500 PROVIDER_ERROR."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(side_effect=ProviderError("boom"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "PROVIDER_ERROR"
+
+    def test_transcript_video_unavailable(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Unavailable videos map to 404 VIDEO_UNAVAILABLE."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(side_effect=VideoUnavailableError("gone"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"]["error_code"] == "VIDEO_UNAVAILABLE"
+
+    def test_transcript_unexpected_error(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Generic exceptions map to 500 INTERNAL_ERROR."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "INTERNAL_ERROR"
+
+    def test_transcript_no_provider(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Provider selection failure maps to 400 INVALID_URL."""
+        from app.providers.exceptions import InvalidURLError
+
+        mock_provider_manager.get_provider_for_url.side_effect = InvalidURLError("No provider")
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_URL"
