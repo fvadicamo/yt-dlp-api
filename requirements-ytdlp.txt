@@ -1,0 +1,5 @@
+# yt-dlp pin, kept in its own file so the Docker build and the weekly
+# image refresh can manage it independently from the app dependencies.
+# Dependabot bumps this weekly; the docker-publish workflow's scheduled
+# run additionally builds a rolling `weekly` tag with the latest release.
+yt-dlp==2026.7.4

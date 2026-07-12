@@ -17,5 +17,5 @@ pyyaml==6.0.1
 # Caching
 cachetools==6.2.4
 
-# yt-dlp (installed separately in Docker)
-# yt-dlp>=2024.1.1
+# yt-dlp is pinned separately in requirements-ytdlp.txt (used by the
+# Docker build and refreshed weekly by the docker-publish workflow)
