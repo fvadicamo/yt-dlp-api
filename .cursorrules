@@ -1,7 +1,7 @@
 # Cursor Rules - yt-dlp REST API
 
 This file contains operational rules for Cursor AI to follow project guidelines.
-For complete details, consult documents in `.kiro/steering/` and `.gemini/styleguide.md`.
+For complete details, consult `CONTRIBUTING.md` and `.gemini/styleguide.md`.
 
 ## Git Workflow - CRITICAL
 
@@ -41,7 +41,7 @@ test: add unit tests for provider manager
 docs: update README with cookie setup instructions
 ```
 
-**Complete reference:** `.kiro/steering/git-workflow.md`
+**Complete reference:** `CONTRIBUTING.md` (Git workflow)
 
 ## Code Style - Python
 
@@ -109,7 +109,7 @@ def function_name(param: str) -> dict[str, Any]:
   3. Activate: `source venv/bin/activate` (macOS/Linux) or `venv\Scripts\activate` (Windows)
   4. Verify: `which python` must show `venv/bin/python`
 
-**Complete reference:** `.kiro/steering/python-venv-requirement.md`
+**Complete reference:** `CONTRIBUTING.md` (Virtual environment)
 
 ## Documentation Policy
 
@@ -124,12 +124,12 @@ def function_name(param: str) -> dict[str, Any]:
   - Information duplicated in commit messages
 
 - **Create** documentation only for:
-  - Reusable setup guides (e.g., DEVELOPMENT_SETUP.md)
+  - Reusable setup guides (e.g., CONTRIBUTING.md)
   - Long-term architectural decisions
   - API contracts for external consumers
   - Configuration references for complex systems
 
-**Complete reference:** `.kiro/steering/documentation-policy.md`
+**Complete reference:** `CONTRIBUTING.md` (Documentation guidelines)
 
 ## Testing Standards
 
@@ -169,10 +169,8 @@ Configured tools:
 - `.pre-commit-config.yaml`: Automatic git hooks
 
 ### Complete Documentation
-- **Git Workflow**: `.kiro/steering/git-workflow.md`
+- **Contributor guide** (git workflow, venv, documentation policy): `CONTRIBUTING.md`
 - **Code Style**: `.gemini/styleguide.md`
-- **Python venv**: `.kiro/steering/python-venv-requirement.md`
-- **Documentation Policy**: `.kiro/steering/documentation-policy.md`
 - **Project Specs**: `.kiro/specs/yt-dlp-rest-api/` (requirements, design, tasks)
 
 ## When to Create New Files

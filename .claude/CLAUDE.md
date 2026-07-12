@@ -118,12 +118,10 @@ names, and PR/issue text.
   15 task principali con 80+ subtask, completati (v0.1.0-v0.1.5)
 
 ### Workflow & Standards
-- **Git Workflow**: [.kiro/steering/git-workflow.md](../.kiro/steering/git-workflow.md)
-  **CRITICAL**: NEVER commit to main/develop, feature branches ALWAYS
-- **Python venv**: [.kiro/steering/python-venv-requirement.md](../.kiro/steering/python-venv-requirement.md)
-  Uso obbligatorio virtual environment
-- **Documentation Policy**: [.kiro/steering/documentation-policy.md](../.kiro/steering/documentation-policy.md)
-  Policy minimalista: evitare doc files non necessari
+- **Contributor guide**: [CONTRIBUTING.md](../CONTRIBUTING.md)
+  **CRITICAL**: NEVER commit to main/develop, feature branches ALWAYS.
+  Copre anche venv obbligatorio, conventional commits e policy di
+  documentazione minimalista (ex steering files Kiro, consolidati qui)
 
 ### Code Review & Standards
 - **Style Guide**: [.gemini/styleguide.md](../.gemini/styleguide.md)
@@ -148,10 +146,8 @@ The project includes a `.cursorrules` file in the root directory that configures
 **Reference**: See [.cursorrules](../.cursorrules) for complete operational rules.
 
 For detailed guidelines, refer to:
-- Git workflow: `.kiro/steering/git-workflow.md`
+- Git workflow, venv, documentation policy: `CONTRIBUTING.md`
 - Code style: `.gemini/styleguide.md`
-- Python venv: `.kiro/steering/python-venv-requirement.md`
-- Documentation policy: `.kiro/steering/documentation-policy.md`
 
 ---
 
@@ -394,7 +390,7 @@ grep -r "@pytest.mark.asyncio" tests/unit/test_cookie_service.py
 ```
 
 ### Documentation Philosophy
-Per `.kiro/steering/documentation-policy.md`:
+Per le Documentation guidelines in `CONTRIBUTING.md`:
 - Evitare doc files non necessari
 - Code comments solo dove logica non è self-evident
 - Docstrings per public APIs (Google-style)
@@ -427,6 +423,6 @@ Per `.kiro/steering/documentation-policy.md`:
 
 ---
 
-**Note**: Questo file è un quick reference per Claude Code. Per la source of truth completa, fare sempre riferimento ai file in `.kiro/specs/` e `.kiro/steering/`.
+**Note**: Questo file è un quick reference per Claude Code. Source of truth: `.s2s/` (tracking vivo) + `CONTRIBUTING.md` (workflow); `.kiro/specs/` resta come archivio storico MVP.
 
 **Handoff completato**: Kiro AWS → Claude Sonnet 4.5 (2025-12-05)

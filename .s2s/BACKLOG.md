@@ -1,6 +1,6 @@
 # yt-dlp-api Backlog
 
-**Updated**: 2026-07-11
+**Updated**: 2026-07-12
 **Format**: Single markdown file for tracking work items
 
 ---
@@ -20,19 +20,7 @@
 
 ## Planned
 
-### DEBT-001: Reconcile or close the docs-consolidation branch
-
-**Status**: planned | **Created**: 2026-07-12
-
-**Context**: Remote branch `feature/docs-consolidation` (2025-12) removes
-`.kiro/steering/` and `docs/DEVELOPMENT_SETUP.md`, folding their content
-into CONTRIBUTING/AGENTS/RELEASING. It predates the 2026-07 waves and now
-conflicts with the refreshed docs. The consolidation *idea* is still valid.
-
-**Acceptance Criteria**:
-- [ ] Decide: rebase and land the consolidation, or close the branch as
-      superseded (recommended: re-do the consolidation fresh, small PR)
-- [ ] Either way, delete the stale remote branch afterwards
+<!-- Add items here using the ID conventions above -->
 
 ---
 
@@ -43,6 +31,22 @@ conflicts with the refreshed docs. The consolidation *idea* is still valid.
 ---
 
 ## Completed
+
+### DEBT-001: Reconcile or close the docs-consolidation branch
+
+**Status**: completed | **Created**: 2026-07-12 | **Completed**: 2026-07-12
+
+**Context**: Remote branch `feature/docs-consolidation` (2025-12) removes
+`.kiro/steering/` and `docs/DEVELOPMENT_SETUP.md`, folding their content
+into CONTRIBUTING/AGENTS/RELEASING. It predates the 2026-07 waves and now
+conflicts with the refreshed docs. The consolidation *idea* is still valid.
+
+**Acceptance Criteria**:
+- [x] Consolidation re-done fresh: CONTRIBUTING.md now hosts setup, venv
+      policy, git workflow, commit conventions and documentation
+      guidelines; the Kiro steering files and docs/DEVELOPMENT_SETUP.md
+      are removed; .cursorrules and .claude/CLAUDE.md references updated
+- [x] Stale remote branch deleted after the merge
 
 ### FEAT-001: GHCR publishing with yt-dlp update strategy
 
