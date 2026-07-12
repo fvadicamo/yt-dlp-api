@@ -27,7 +27,7 @@
 - **Async patterns**: Proper `await` usage, no blocking I/O in async functions
 - **Type hints**: Complete annotations on all public functions
 - **Error handling**: Structured exceptions, proper logging
-- **Test coverage**: Minimum 85%, critical paths 95%
+- **Test coverage**: Minimum 90%, critical paths 95%
 - **Complexity**: Adhere to complexity limits (McCabe complexity < 10) to keep functions maintainable
 
 ## Code Style
@@ -71,7 +71,26 @@ tests/
 
 ## Key Files
 
+### Source
 - `app/providers/youtube.py` - YouTube provider with subprocess handling
 - `app/core/validation.py` - URL and format validation
 - `app/services/storage.py` - File storage and cleanup
 - `app/middleware/auth.py` - API key authentication
+- `app/services/webhook_service.py` - HMAC-signed job notifications
+- `app/utils/transcript.py` - WebVTT parsing for the transcript endpoint
+
+### Tests
+- `tests/conftest.py` - Shared fixtures
+- `tests/unit/` - Unit tests
+- `tests/integration/` - API integration tests
+- `tests/e2e/` - End-to-end tests in mock mode
+
+### Config
+- `pyproject.toml` - Tool configuration (Black, pytest, mypy)
+- `Makefile` - Development commands
+
+## Related Documentation
+
+- `CONTRIBUTING.md` - Complete contributor guide (setup, git workflow, style)
+- `.gemini/styleguide.md` - Detailed code style guide
+- `RELEASING.md` - Release process

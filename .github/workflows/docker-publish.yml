@@ -38,7 +38,8 @@ jobs:
         if: github.event_name != 'push'
         run: |
           LATEST=$(curl -fsSL https://pypi.org/pypi/yt-dlp/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
-          sed -i "s/^yt-dlp==.*/yt-dlp==${LATEST}/" requirements-ytdlp.txt
+          # Preserve the extras suffix (e.g. yt-dlp[default,curl-cffi]==X)
+          sed -E -i "s/^yt-dlp(\[[^]]*\])?==.*/yt-dlp\1==${LATEST}/" requirements-ytdlp.txt
           echo "Weekly build with yt-dlp ${LATEST}"
           cat requirements-ytdlp.txt
 
