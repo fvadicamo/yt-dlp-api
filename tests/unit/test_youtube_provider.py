@@ -9,11 +9,17 @@ Test Pattern Reference: tests/unit/test_cookie_service.py (Task 3.4)
 
 import asyncio
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.providers.exceptions import DownloadError, InvalidURLError, VideoUnavailableError
+from app.providers.exceptions import (
+    DownloadError,
+    InvalidURLError,
+    TranscriptNotFoundError,
+    VideoUnavailableError,
+)
 from app.providers.youtube import YouTubeProvider
 
 # ============================================================================
@@ -1335,11 +1341,16 @@ class TestProcessCleanup:
             mock_process.wait = AsyncMock()
             mock_subprocess.return_value = mock_process
 
+            # Close the never-awaited coroutine to avoid RuntimeWarning
+            async def timeout_wait_for(coro, timeout):
+                coro.close()
+                raise asyncio.TimeoutError()
+
             with (
                 patch.object(
                     youtube_provider, "_cleanup_process", new_callable=AsyncMock
                 ) as mock_cleanup,
-                patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()),
+                patch("asyncio.wait_for", side_effect=timeout_wait_for),
                 patch("asyncio.sleep", new_callable=AsyncMock),
                 pytest.raises(DownloadError),
             ):
@@ -1370,3 +1381,149 @@ class TestProcessCleanup:
 
             # Should have called cleanup on exception
             assert mock_cleanup.call_count >= 1
+
+
+# =============================================================================
+# Transcript tests
+# =============================================================================
+
+
+DEMO_TRANSCRIPT_VTT = (
+    "WEBVTT\n"
+    "\n"
+    "00:00:00.000 --> 00:00:02.500\n"
+    "We're no strangers to love\n"
+    "\n"
+    "00:00:02.500 --> 00:00:05.000\n"
+    "You know the rules and so do I\n"
+)
+
+
+class TestGetTranscript:
+    """Tests for transcript extraction via subtitles/auto-captions."""
+
+    @staticmethod
+    def _write_vtt_side_effect(write_on_flags):
+        """Build an _execute_with_retry stub writing a VTT per sub flag.
+
+        Args:
+            write_on_flags: Set of yt-dlp flags ("--write-subs",
+                "--write-auto-subs") for which the stub creates the file.
+        """
+        import subprocess as sp
+
+        async def side_effect(cmd, timeout=None):
+            paths_dir = cmd[cmd.index("--paths") + 1]
+            lang = cmd[cmd.index("--sub-langs") + 1]
+            if any(flag in cmd for flag in write_on_flags):
+                vtt = Path(paths_dir) / f"transcript.{lang}.vtt"
+                vtt.write_text(DEMO_TRANSCRIPT_VTT)
+            return sp.CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+
+        return side_effect
+
+    @pytest.mark.asyncio
+    async def test_manual_transcript_found(self, youtube_provider):
+        """Manual subtitles found on the first pass."""
+        with patch.object(
+            youtube_provider,
+            "_execute_with_retry",
+            side_effect=self._write_vtt_side_effect({"--write-subs"}),
+        ) as mock_exec:
+            result = await youtube_provider.get_transcript(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ", lang="en"
+            )
+
+        assert result["video_id"] == "dQw4w9WgXcQ"
+        assert result["source"] == "manual"
+        assert len(result["segments"]) == 2
+        assert result["segments"][0].text == "We're no strangers to love"
+        assert "WEBVTT" in result["raw_vtt"]
+        assert mock_exec.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_fallback_to_auto_captions(self, youtube_provider):
+        """With source=any, missing manual subs fall back to auto-captions."""
+        with patch.object(
+            youtube_provider,
+            "_execute_with_retry",
+            side_effect=self._write_vtt_side_effect({"--write-auto-subs"}),
+        ) as mock_exec:
+            result = await youtube_provider.get_transcript(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ", lang="en", source="any"
+            )
+
+        assert result["source"] == "auto"
+        assert mock_exec.call_count == 2
+        first_cmd = mock_exec.call_args_list[0][0][0]
+        second_cmd = mock_exec.call_args_list[1][0][0]
+        assert "--write-subs" in first_cmd
+        assert "--write-auto-subs" in second_cmd
+
+    @pytest.mark.asyncio
+    async def test_manual_only_does_not_fall_back(self, youtube_provider):
+        """With source=manual, no auto-caption pass happens."""
+        with (
+            patch.object(
+                youtube_provider,
+                "_execute_with_retry",
+                side_effect=self._write_vtt_side_effect(set()),
+            ) as mock_exec,
+            pytest.raises(TranscriptNotFoundError, match="manual transcript"),
+        ):
+            await youtube_provider.get_transcript(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ", lang="en", source="manual"
+            )
+
+        assert mock_exec.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_no_transcript_raises(self, youtube_provider):
+        """No subtitles from either source raises TranscriptNotFoundError."""
+        with (
+            patch.object(
+                youtube_provider,
+                "_execute_with_retry",
+                side_effect=self._write_vtt_side_effect(set()),
+            ),
+            pytest.raises(TranscriptNotFoundError, match="language 'it'"),
+        ):
+            await youtube_provider.get_transcript(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ", lang="it"
+            )
+
+    @pytest.mark.asyncio
+    async def test_empty_vtt_treated_as_missing(self, youtube_provider):
+        """A VTT without cues (header only) counts as no transcript."""
+        import subprocess as sp
+
+        async def write_empty(cmd, timeout=None):
+            paths_dir = cmd[cmd.index("--paths") + 1]
+            (Path(paths_dir) / "transcript.en.vtt").write_text("WEBVTT\n")
+            return sp.CompletedProcess(cmd, 0, stdout=b"", stderr=b"")
+
+        with (
+            patch.object(youtube_provider, "_execute_with_retry", side_effect=write_empty),
+            pytest.raises(TranscriptNotFoundError),
+        ):
+            await youtube_provider.get_transcript(
+                "https://youtube.com/watch?v=dQw4w9WgXcQ", lang="en"
+            )
+
+    @pytest.mark.asyncio
+    async def test_invalid_url_raises(self, youtube_provider):
+        """Non-YouTube URLs are rejected before any execution."""
+        with pytest.raises(InvalidURLError):
+            await youtube_provider.get_transcript("https://vimeo.com/123456")
+
+    @pytest.mark.asyncio
+    async def test_cookie_validation_called(self, youtube_provider, mock_cookie_service):
+        """Cookie validation runs before fetching the transcript."""
+        with patch.object(
+            youtube_provider,
+            "_execute_with_retry",
+            side_effect=self._write_vtt_side_effect({"--write-subs"}),
+        ):
+            await youtube_provider.get_transcript("https://youtube.com/watch?v=dQw4w9WgXcQ")
+
+        mock_cookie_service.validate_cookie.assert_awaited_once_with("youtube")

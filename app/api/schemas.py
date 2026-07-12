@@ -76,6 +76,27 @@ class FormatsResponse(BaseModel):
     )
 
 
+class TranscriptSegmentResponse(BaseModel):
+    """A single timed transcript segment."""
+
+    start: float = Field(..., description="Segment start in seconds", examples=[1.24])
+    end: float = Field(..., description="Segment end in seconds", examples=[4.12])
+    text: str = Field(..., examples=["Never gonna give you up"])
+
+
+class TranscriptResponse(BaseModel):
+    """Transcript of a video as timed segments plus flattened text."""
+
+    video_id: str = Field(..., examples=["dQw4w9WgXcQ"])
+    lang: str = Field(..., examples=["en"])
+    source: Literal["manual", "auto"] = Field(
+        ..., description="Whether the transcript comes from manual subtitles or auto-captions"
+    )
+    segment_count: int = Field(..., examples=[42])
+    segments: List[TranscriptSegmentResponse]
+    text: str = Field(..., description="Full transcript as plain text")
+
+
 class DownloadRequest(BaseModel):
     """Request body for download endpoint."""
 

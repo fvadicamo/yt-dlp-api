@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
 from app.models.video import DownloadResult, VideoFormat
+from app.providers.exceptions import ProviderError
 
 
 class VideoProvider(ABC):
@@ -95,6 +96,29 @@ class VideoProvider(ABC):
             TranscodingError: If audio conversion fails
         """
         pass
+
+    async def get_transcript(self, url: str, lang: str = "en", source: str = "any") -> Dict:
+        """
+        Fetch the transcript (subtitles/captions) of a video as timed segments.
+
+        Providers that support transcripts override this method; the default
+        reports the capability as unsupported.
+
+        Args:
+            url: Video URL
+            lang: Subtitle language code (e.g. "en", "it")
+            source: Preferred source: "manual", "auto", or "any"
+                (manual first, auto-captions as fallback)
+
+        Returns:
+            Dictionary with video_id, lang, source and segments
+
+        Raises:
+            InvalidURLError: If URL is invalid
+            TranscriptNotFoundError: If no transcript exists for the language
+            ProviderError: If the provider does not support transcripts
+        """
+        raise ProviderError(f"{type(self).__name__} does not support transcripts")
 
     @abstractmethod
     def get_cookie_path(self) -> Optional[str]:

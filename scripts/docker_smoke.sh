@@ -81,5 +81,8 @@ check "auth rejected without key" 401 \
 check "video info (mocked)" 200 \
     -H "X-API-Key: ${API_KEY}" \
     "http://127.0.0.1:${PORT}/api/v1/info?url=${DEMO_URL}"
+check "transcript (mocked)" 200 \
+    -H "X-API-Key: ${API_KEY}" \
+    "http://127.0.0.1:${PORT}/api/v1/transcript?url=${DEMO_URL}&fmt=text"
 
 echo "Container smoke test passed."
