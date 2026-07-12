@@ -229,6 +229,34 @@ monitoring:
 | `metrics_enabled` | boolean | `true` | `APP_MONITORING_METRICS_ENABLED` | - |
 | `metrics_port` | integer | `9090` | `APP_MONITORING_METRICS_PORT` | 1-65535 |
 
+### Webhooks Configuration
+
+Job completion webhooks (disabled by default). When enabled, download
+requests may carry a `webhook_url` whose host MUST appear in
+`allowed_hosts` (SSRF protection: an empty allowlist rejects every
+webhook). Deliveries are signed with HMAC-SHA256 when `secret` is set.
+
+```yaml
+webhooks:
+  enabled: false       # Master switch
+  allowed_hosts: []    # Exact hostnames allowed as webhook targets
+  secret: null         # HMAC-SHA256 signing key (recommended)
+  timeout: 5           # Seconds per delivery attempt
+  max_retries: 3       # Attempts with exponential backoff (1s, 2s, ...)
+```
+
+| Field | Type | Default | Env Variable | Validation |
+|-------|------|---------|--------------|------------|
+| `enabled` | boolean | `false` | `APP_WEBHOOKS_ENABLED` | - |
+| `allowed_hosts` | list | `[]` | `APP_WEBHOOKS_ALLOWED_HOSTS` | JSON array, e.g. `'["hooks.example.com"]'` |
+| `secret` | string | `null` | `APP_WEBHOOKS_SECRET` | - |
+| `timeout` | float | `5.0` | `APP_WEBHOOKS_TIMEOUT` | > 0 |
+| `max_retries` | integer | `3` | `APP_WEBHOOKS_MAX_RETRIES` | >= 1 |
+
+Receivers should verify the `X-Webhook-Signature` header
+(`sha256=<hex>` of the raw body with the shared secret) before trusting
+a payload.
+
 ## Configuration Patterns
 
 ### Light Workload (< 100 downloads/day)

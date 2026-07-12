@@ -4,6 +4,22 @@ This guide covers deploying yt-dlp REST API in various environments.
 
 ## Docker Deployment (Recommended)
 
+### Published images (GHCR)
+
+Multi-arch images (`linux/amd64`, `linux/arm64`) are published to GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/fvadicamo/yt-dlp-api:latest    # latest release
+docker pull ghcr.io/fvadicamo/yt-dlp-api:weekly    # weekly build with the latest yt-dlp
+```
+
+| Tag | Content | Refresh |
+|-----|---------|---------|
+| `latest`, `X.Y.Z`, `X.Y` | Release build, yt-dlp pinned at release time | On release |
+| `weekly` | Default branch + latest yt-dlp | Every Monday |
+
+Every published image passes the container smoke test (liveness, docs, auth, mocked info and transcript) before being pushed.
+
 ### Prerequisites
 
 - Docker 20.10+

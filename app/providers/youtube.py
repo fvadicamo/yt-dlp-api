@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess  # nosec B404 - subprocess used for returning CompletedProcess
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -12,7 +13,13 @@ import structlog
 
 from app.models.video import DownloadResult, VideoFormat
 from app.providers.base import VideoProvider
-from app.providers.exceptions import DownloadError, InvalidURLError, VideoUnavailableError
+from app.providers.exceptions import (
+    DownloadError,
+    InvalidURLError,
+    TranscriptNotFoundError,
+    VideoUnavailableError,
+)
+from app.utils.transcript import parse_vtt
 
 logger = structlog.get_logger(__name__)
 
@@ -352,6 +359,97 @@ class YouTubeProvider(VideoProvider):
             return int(match.group(1))
 
         return 0
+
+    async def get_transcript(self, url: str, lang: str = "en", source: str = "any") -> Dict:
+        """
+        Fetch the transcript of a video from its subtitles or auto-captions.
+
+        Runs yt-dlp with --skip-download to fetch the subtitle track only,
+        preferring manual subtitles and falling back to auto-generated
+        captions when source is "any".
+
+        Args:
+            url: YouTube video URL
+            lang: Subtitle language code (e.g. "en", "it")
+            source: "manual", "auto", or "any" (manual first, then auto)
+
+        Returns:
+            Dictionary with video_id, lang, source, segments (list of
+            TranscriptSegment) and raw_vtt content.
+
+        Raises:
+            InvalidURLError: If URL is invalid
+            TranscriptNotFoundError: If no transcript exists for the language
+        """
+        if not self.validate_url(url):
+            raise InvalidURLError(f"Invalid YouTube URL: {url}")
+
+        video_id = self.extract_video_id(url)
+        if not video_id:
+            raise InvalidURLError(f"Could not extract video ID from URL: {url}")
+
+        # Validate cookie before execution
+        if self.cookie_service:
+            await self.cookie_service.validate_cookie("youtube")
+
+        logger.info(
+            "Getting transcript",
+            url=url,
+            video_id=video_id,
+            lang=lang,
+            source=source,
+        )
+
+        attempts = ["manual", "auto"] if source == "any" else [source]
+
+        with tempfile.TemporaryDirectory(prefix="transcript-") as tmpdir:
+            for attempt_source in attempts:
+                subs_flag = "--write-subs" if attempt_source == "manual" else "--write-auto-subs"
+                cmd = [
+                    "yt-dlp",
+                    "--skip-download",
+                    subs_flag,
+                    "--sub-langs",
+                    lang,
+                    "--sub-format",
+                    "vtt",
+                    "--paths",
+                    tmpdir,
+                    "--output",
+                    "transcript.%(ext)s",
+                    "--cookies",
+                    self.cookie_path,
+                    "--extractor-args",
+                    "youtube:player_client=web",
+                    url,
+                ]
+
+                await self._execute_with_retry(cmd, timeout=30.0)
+
+                # Subtitle files land as transcript.<lang>.vtt
+                for vtt_file in sorted(Path(tmpdir).glob("transcript*.vtt")):
+                    content = vtt_file.read_text(encoding="utf-8", errors="replace")
+                    segments = parse_vtt(content)
+                    if segments:
+                        logger.info(
+                            "transcript_retrieved",
+                            video_id=video_id,
+                            lang=lang,
+                            source=attempt_source,
+                            segment_count=len(segments),
+                        )
+                        return {
+                            "video_id": video_id,
+                            "lang": lang,
+                            "source": attempt_source,
+                            "segments": segments,
+                            "raw_vtt": content,
+                        }
+                    # Empty transcript file: remove before the fallback pass
+                    vtt_file.unlink()
+
+        wanted = "transcript" if source == "any" else f"{source} transcript"
+        raise TranscriptNotFoundError(f"No {wanted} available for language '{lang}'")
 
     async def download(  # noqa: C901
         self,

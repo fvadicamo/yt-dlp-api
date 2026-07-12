@@ -47,3 +47,9 @@ class TranscodingError(ProviderError):
     """Raised when audio/video transcoding fails."""
 
     pass
+
+
+class TranscriptNotFoundError(ProviderError):
+    """Raised when no transcript exists for the requested language/source."""
+
+    pass

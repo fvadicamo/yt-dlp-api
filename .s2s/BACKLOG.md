@@ -20,57 +20,27 @@
 
 ## Planned
 
-### TECH-002: CI workflow with blocking quality gates
-
-**Status**: planned | **Created**: 2026-07-11
-
-**Context**: Today the only PR checks come from the AI review workflow, where
-every step is `continue-on-error: true` (advisory) and dependabot PRs are
-skipped entirely, so the required status checks never report on them and 9
-dependabot PRs sit unmergeable. A dedicated `ci.yml` must provide real gates.
-
-**Acceptance Criteria**:
-- [ ] Blocking jobs: format (black/isort), lint (flake8), types (mypy),
-      security (bandit + gitleaks), tests with `--cov-fail-under=90`
-- [ ] Docker image build + container smoke test (health, auth, docs)
-- [ ] Runs on PRs from dependabot too
-- [ ] Branch protection required contexts switched to the new CI jobs
-- [ ] Open dependabot PRs rebased/merged or closed
-
-### TECH-003: Test robustness (weak modules, warnings, container e2e)
-
-**Status**: planned | **Created**: 2026-07-11
-
-**Context**: Suite is 785 tests / 90.5% total, but providers/manager.py sits
-at 54%, download_worker.py at 72%, api/download.py 76%, api/video.py 77%
-(historical task 2.4 never done). The run emits ~340 deprecation warnings.
-Existing e2e tests run in-process with TestClient, not against the real
-container.
-
-**Acceptance Criteria**:
-- [ ] providers/manager.py >= 90%, download_worker.py >= 85%, api modules >= 85%
-- [ ] `--cov-fail-under=90` in pyproject (aligned with pre-push hook)
-- [ ] Deprecation warnings triaged and eliminated or filtered with rationale
-- [ ] Container-level e2e smoke in CI (docker compose up + external HTTP checks)
-
 ### FEAT-001: GHCR publishing with yt-dlp update strategy
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-11 (PR #62)
 
 **Context**: There is no published image: users must clone and build. yt-dlp
 is installed unpinned at build time and never updated by dependabot
 (implements requirement 45). A reference project must be `docker run`-able.
 
 **Acceptance Criteria**:
-- [ ] Release workflow: on tag, build multi-arch (amd64/arm64) and push to
-      GHCR with semver + `latest` tags
-- [ ] Weekly scheduled rebuild refreshing yt-dlp, published as rolling tag
-- [ ] yt-dlp version pinned and visible (build arg + exposed in /health)
-- [ ] README quick start uses the published image (no clone required)
+- [x] Release workflow: on tag, build multi-arch (amd64/arm64) and push to
+      GHCR with semver + `latest` tags (docker-publish.yml, smoke-tested
+      before push)
+- [x] Weekly scheduled rebuild refreshing yt-dlp, published as `weekly` tag
+- [x] yt-dlp pinned in requirements-ytdlp.txt (dependabot-managed; version
+      already exposed in /health component checks)
+- [ ] README quick start uses the published image (with TECH-004, after the
+      first tagged publish)
 
 ### FEAT-002: Transcript endpoint
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12 (PR #63)
 
 **Context**: Consumers (automation pipelines, AI/RAG ingestion) want the
 transcript of a video as text, without downloading media. yt-dlp can fetch
@@ -78,29 +48,31 @@ manual subtitles and auto-captions with `--skip-download`. No comparable OSS
 API exposes this cleanly.
 
 **Acceptance Criteria**:
-- [ ] `GET /api/v1/transcript?url=&lang=&fmt=` returning text/JSON/SRT/VTT
-- [ ] Source selection: manual subtitles preferred, auto-captions fallback
-- [ ] Clear 404 semantics when no transcript exists for the language
-- [ ] Rate-limited as metadata category, covered by unit + e2e tests
+- [x] `GET /api/v1/transcript?url=&lang=&source=&fmt=` returning
+      JSON segments / text / SRT / raw VTT
+- [x] Source selection: manual subtitles preferred, auto-captions fallback
+- [x] 404 TRANSCRIPT_NOT_FOUND when no captions exist for the language
+- [x] Rate-limited as metadata; VTT parser handles auto-caption rolling
+      duplicates and inline tags; unit + endpoint + e2e + container smoke
 
 ### FEAT-003: Job completion webhooks
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12 (PR #64)
 
 **Context**: Downstream systems (workflow engines, data platforms, external
 STT pipelines) need push notifications when a download job completes or
 fails, instead of polling `GET /jobs/{id}`.
 
 **Acceptance Criteria**:
-- [ ] Optional `webhook_url` on download requests
-- [ ] POST with job payload on completion/failure, retries with backoff
-- [ ] HMAC signature header (shared secret from config)
-- [ ] SSRF protection: outbound host allowlist in config, off by default
-- [ ] Unit + e2e coverage
+- [x] Optional `webhook_url` on download requests
+- [x] POST with job payload on completion/failure, retries with backoff
+- [x] HMAC signature header (shared secret from config)
+- [x] SSRF protection: outbound host allowlist in config, off by default
+- [x] Unit coverage for service/worker/endpoint (22 tests)
 
 ### TECH-004: README and docs overhaul for reference status
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: in_progress | **Created**: 2026-07-11
 
 **Context**: README quick start requires cloning; no badges, no published
 image, docs don't cover the new capabilities.
@@ -124,7 +96,7 @@ first GHCR-published version.
 
 ### TECH-006: Reconstruct project history in s2s format
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12
 
 **Context**: The project was specified in `.kiro/specs/` (47 requirements,
 15 tasks, completed through v0.1.5) before adopting s2s. Reconstruct the
@@ -132,44 +104,85 @@ history (releases, key decisions) into s2s artifacts for traceability;
 `.kiro/` remains as the original spec archive.
 
 **Acceptance Criteria**:
-- [ ] Completed work mapped into this backlog with release references
-- [ ] Key architectural decisions captured in `.s2s/decisions/` (MADR)
-- [ ] `.claude/CLAUDE.md` quick links point to s2s as the live tracker
+- [x] Completed work mapped into this backlog with release references
+      (MVP entry + TECH/FEAT entries with PR and release numbers)
+- [x] Key architectural decisions captured in `.s2s/decisions/`:
+      ADR-0001..0005 reconstructed from the MVP design, ADR-0006/0007
+      for the 2026-07 production-readiness work
+- [x] `.claude/CLAUDE.md` quick links point to s2s as the live tracker
 
-### BUG-001: Unreadable cookie file crashes startup even in degraded mode
+### DEBT-001: Reconcile or close the docs-consolidation branch
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: planned | **Created**: 2026-07-12
 
-**Context**: Found by the container smoke test: `StartupValidator.check_cookies`
-calls `path.exists()`, which raises an uncaught `PermissionError` when the
-cookie file/volume is unreadable (wrong mount permissions), killing startup
-even with `ALLOW_DEGRADED_START=true`. Production impact: crash loop instead
-of degraded start with a clear health status.
+**Context**: Remote branch `feature/docs-consolidation` (2025-12) removes
+`.kiro/steering/` and `docs/DEVELOPMENT_SETUP.md`, folding their content
+into CONTRIBUTING/AGENTS/RELEASING. It predates the 2026-07 waves and now
+conflicts with the refreshed docs. The consolidation *idea* is still valid.
 
 **Acceptance Criteria**:
-- [ ] Unreadable cookie path is treated as a failed cookie check (message
-      includes the OS error), not an exception
-- [ ] Regression test covering `PermissionError`/`OSError` on cookie access
-- [ ] In degraded mode the app boots with the provider disabled
+- [ ] Decide: rebase and land the consolidation, or close the branch as
+      superseded (recommended: re-do the consolidation fresh, small PR)
+- [ ] Either way, delete the stale remote branch afterwards
 
 ---
 
 ## In Progress
 
-### TECH-002: CI workflow with blocking quality gates
+### TECH-003: Test robustness (weak modules, warnings, container e2e)
 
 **Status**: in_progress | **Created**: 2026-07-11
 
-**Context**: see Planned entry above (moved here 2026-07-11). Security alerts
-found on the way and folded into this work: run-gemini-cli < 0.1.22
-(critical RCE), black < 26.3.1 (high), pytest < 9.0.3 (medium).
+**Context**: Suite was 785 tests / 90.5% total, with providers/manager.py at
+54%, download_worker.py 72%, api/download.py 76%, api/video.py 77%
+(historical task 2.4 never done) and ~340 deprecation warnings per run.
 
-**Acceptance Criteria**: as in the Planned entry, plus:
-- [ ] Open dependabot security alerts fixed (gemini-cli, black, pytest)
+**Acceptance Criteria**:
+- [x] providers/manager.py >= 90%, download_worker.py >= 85%, api modules >= 85%
+      (all four now at 100%; total 94%, 837 tests)
+- [x] `--cov-fail-under=90` in pyproject (aligned with pre-push hook)
+- [x] Warnings eliminated: pydantic 2.13 upgrade removed the deprecation
+      storm, orphaned mock coroutines closed in timeout tests (0 warnings)
+- [x] Container-level e2e smoke in CI (Docker Smoke job, shipped with TECH-002)
+- [ ] PR merged into develop
 
 ---
 
 ## Completed
+
+### TECH-002: CI workflow with blocking quality gates
+
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-11 (PRs #57 #58, release v0.1.6)
+
+**Context**: The only PR checks came from the AI review workflow (all
+continue-on-error, dependabot excluded), so required contexts never reported
+on dependabot PRs and 9 of them sat unmergeable. Security alerts folded in:
+run-gemini-cli < 0.1.22 (critical RCE), black < 26.3.1 (high),
+pytest < 9.0.3 (medium).
+
+**Acceptance Criteria**:
+- [x] Blocking jobs: Lint (black/isort/flake8/mypy/bandit), Tests with
+      `--cov-fail-under=90`, Secret Scan (gitleaks), Docker Smoke
+- [x] Docker image build + container smoke test (`scripts/docker_smoke.sh`)
+- [x] Runs on PRs from dependabot too
+- [x] Branch protection required contexts switched to the CI jobs (develop+main)
+- [x] All 3 security alerts fixed; 9 dependabot PRs superseded and closed
+- [x] Shipped to main as maintenance release v0.1.6 (alerts on default branch: 0)
+
+### BUG-001: Unreadable cookie file crashes startup even in degraded mode
+
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-11
+
+**Context**: Found by the container smoke test: `StartupValidator.check_cookies`
+called `path.exists()` outside the try/except, so an unreadable cookie
+file/volume raised `PermissionError` from `os.stat` and killed startup even
+with `ALLOW_DEGRADED_START=true` (crash loop instead of degraded start).
+
+**Acceptance Criteria**:
+- [x] Unreadable cookie path treated as failed cookie check with the OS error
+      in the message (`_check_cookie_access` helper)
+- [x] Regression tests covering PermissionError in strict and degraded mode
+- [x] In degraded mode the app boots with the provider disabled
 
 ### TECH-001: Repo hygiene and privacy guardrails
 

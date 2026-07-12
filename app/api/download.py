@@ -18,6 +18,7 @@ from app.providers.manager import ProviderManager
 from app.services.download_queue import PRIORITY_DOWNLOAD, DownloadQueue
 from app.services.download_worker import DownloadWorker
 from app.services.job_service import JobService
+from app.services.webhook_service import WebhookService, get_webhook_service
 
 logger = structlog.get_logger(__name__)
 
@@ -67,6 +68,7 @@ async def download_video(  # noqa: C901
     job_service: JobService = Depends(get_job_service),  # noqa: B008
     download_queue: DownloadQueue = Depends(get_download_queue),  # noqa: B008
     download_worker: DownloadWorker = Depends(get_download_worker),  # noqa: B008
+    webhook_service: WebhookService = Depends(get_webhook_service),  # noqa: B008
 ) -> JSONResponse:
     """
     Download a video.
@@ -130,6 +132,18 @@ async def download_video(  # noqa: C901
                 },
             )
 
+    # Validate webhook URL if provided (SSRF protection: enabled + allowlist)
+    if request.webhook_url:
+        webhook_validation = webhook_service.validate_url(request.webhook_url)
+        if not webhook_validation.is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "WEBHOOK_NOT_ALLOWED",
+                    "message": webhook_validation.error_message,
+                },
+            )
+
     # Validate provider exists for URL
     try:
         provider_manager.get_provider_for_url(request.url)
@@ -150,6 +164,7 @@ async def download_video(  # noqa: C901
         "audio_format": request.audio_format,
         "include_subtitles": request.include_subtitles,
         "subtitle_lang": request.subtitle_lang,
+        "webhook_url": request.webhook_url,
     }
 
     # Create job

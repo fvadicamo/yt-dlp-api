@@ -65,10 +65,11 @@ repos:
           - types-PyYAML==6.0.12.12
           - types-cachetools==6.2.0.20251022
           - types-psutil==6.1.0.20241221
-          - pydantic==2.5.3
-          - pydantic-settings==2.1.0
+          - pydantic==2.13.4
+          - pydantic-settings==2.14.2
           - structlog==25.5.0
           - fastapi==0.125.0
+          - httpx==0.28.1
           - prometheus-client==0.23.1
         exclude: ^tests/
 

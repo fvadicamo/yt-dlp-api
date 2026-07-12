@@ -9,7 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api import download, health, jobs, video
+from app.api import download, health, jobs, transcript, video
 from app.middleware.auth import get_api_key
 from app.models.job import Job, JobStatus
 from app.models.video import VideoFormat
@@ -27,6 +27,7 @@ def app() -> FastAPI:
     app = FastAPI()
     app.include_router(health.router)
     app.include_router(video.router)
+    app.include_router(transcript.router)
     app.include_router(download.router)
     app.include_router(jobs.router)
 
@@ -709,3 +710,721 @@ class TestSchemaValidation:
         )
 
         assert response.status_code == 422  # Validation error
+
+
+# ============================================================================
+# Download Endpoint Error Path Tests (validation and sync mode)
+# ============================================================================
+
+
+def _override_download_deps(
+    app: FastAPI,
+    provider_manager: MagicMock,
+    job_service: MagicMock,
+    download_queue: MagicMock,
+    download_worker: MagicMock,
+) -> None:
+    """Wire mocked download dependencies into the test app."""
+    app.dependency_overrides[download.get_provider_manager] = lambda: provider_manager
+    app.dependency_overrides[download.get_job_service] = lambda: job_service
+    app.dependency_overrides[download.get_download_queue] = lambda: download_queue
+    app.dependency_overrides[download.get_download_worker] = lambda: download_worker
+
+
+def _make_job(status: JobStatus, error_message: str | None = None) -> Job:
+    """Build a job in the given terminal state."""
+    from datetime import datetime, timezone
+
+    return Job(
+        job_id="job-123",
+        url="https://www.youtube.com/watch?v=abc123",
+        status=status,
+        params={},
+        progress=100,
+        retry_count=0,
+        max_retries=3,
+        error_message=error_message,
+        file_path="/app/downloads/video.mp4" if status == JobStatus.COMPLETED else None,
+        file_size=10000000 if status == JobStatus.COMPLETED else None,
+        duration=12.5 if status == JobStatus.COMPLETED else None,
+        created_at=datetime.now(timezone.utc),
+        started_at=None,
+        completed_at=None,
+        queue_position=None,
+    )
+
+
+class TestDownloadValidationErrors:
+    """Request validation branches of the download endpoint."""
+
+    def test_invalid_format_id(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+    ) -> None:
+        """Malformed format_id returns 400 INVALID_FORMAT."""
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/download",
+            json={
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "format_id": "22; rm -rf /",
+                "async": True,
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_FORMAT"
+
+    def test_invalid_output_template(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+    ) -> None:
+        """Path traversal in output_template returns 400 INVALID_TEMPLATE."""
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/download",
+            json={
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "output_template": "../../etc/passwd",
+                "async": True,
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_TEMPLATE"
+
+    def test_no_provider_for_url(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+    ) -> None:
+        """URL without a provider returns 400 INVALID_URL."""
+        from app.providers.exceptions import InvalidURLError
+
+        mock_provider_manager.get_provider_for_url.side_effect = InvalidURLError(
+            "No provider available"
+        )
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/download",
+            json={"url": "https://www.youtube.com/watch?v=abc123", "async": True},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_URL"
+
+
+class TestSyncDownloadErrorPaths:
+    """Synchronous download branch coverage."""
+
+    def _post_sync(self, app: FastAPI) -> "TestClient.post":
+        client = TestClient(app)
+        return client.post(
+            "/api/v1/download",
+            json={"url": "https://www.youtube.com/watch?v=abc123", "async": False},
+        )
+
+    def test_no_slots_available(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """Saturated slots return 503 NO_SLOTS_AVAILABLE."""
+        mock_job_service.create_job.return_value = sample_job
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+        mock_download_queue.acquire_slot_for_sync = AsyncMock(return_value=False)
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        response = self._post_sync(app)
+
+        assert response.status_code == 503
+        assert response.json()["detail"]["error_code"] == "NO_SLOTS_AVAILABLE"
+        mock_job_service.fail_job.assert_called_once()
+
+    def test_job_missing_after_processing(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """Job vanished after processing returns 500 INTERNAL_ERROR."""
+        mock_job_service.create_job.return_value = sample_job
+        mock_job_service.get_job.return_value = None
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        response = self._post_sync(app)
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "INTERNAL_ERROR"
+
+    @pytest.mark.parametrize(
+        "error_message,expected_status,expected_code",
+        [
+            ("Video is unavailable in your region", 404, "VIDEO_UNAVAILABLE"),
+            ("Requested format not found", 400, "FORMAT_NOT_FOUND"),
+            ("Network connection reset", 500, "DOWNLOAD_FAILED"),
+        ],
+    )
+    def test_failed_job_error_mapping(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+        error_message: str,
+        expected_status: int,
+        expected_code: str,
+    ) -> None:
+        """Failed jobs map error messages to proper HTTP codes."""
+        mock_job_service.create_job.return_value = sample_job
+        mock_job_service.get_job.return_value = _make_job(JobStatus.FAILED, error_message)
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        response = self._post_sync(app)
+
+        assert response.status_code == expected_status
+        assert response.json()["detail"]["error_code"] == expected_code
+
+    def test_unexpected_job_status(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """A non-terminal status after sync processing returns 500."""
+        mock_job_service.create_job.return_value = sample_job
+        mock_job_service.get_job.return_value = _make_job(JobStatus.PENDING)
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        response = self._post_sync(app)
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "INTERNAL_ERROR"
+
+    def test_worker_exception_maps_to_download_failed(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """Unexpected worker exceptions return 500 DOWNLOAD_FAILED."""
+        mock_job_service.create_job.return_value = sample_job
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+        mock_download_worker.process_single_job = AsyncMock(side_effect=RuntimeError("boom"))
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        response = self._post_sync(app)
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "DOWNLOAD_FAILED"
+
+
+# ============================================================================
+# Video/Formats Endpoint Error Path Tests
+# ============================================================================
+
+
+class TestVideoInfoErrorPaths:
+    """Error branches of GET /api/v1/info."""
+
+    def test_no_provider_for_url(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Provider selection failure returns 400 INVALID_URL."""
+        from app.providers.exceptions import InvalidURLError
+
+        mock_provider_manager.get_provider_for_url.side_effect = InvalidURLError("No provider")
+        app.dependency_overrides[video.get_provider_manager] = lambda: mock_provider_manager
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/info", params={"url": "https://www.youtube.com/watch?v=abc123"}
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_URL"
+
+    def test_unexpected_error(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Generic provider exceptions return 500 INTERNAL_ERROR."""
+        mock_provider = MagicMock()
+        mock_provider.get_info = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+        app.dependency_overrides[video.get_provider_manager] = lambda: mock_provider_manager
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/info", params={"url": "https://www.youtube.com/watch?v=abc123"}
+        )
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "INTERNAL_ERROR"
+
+
+class TestFormatsErrorPaths:
+    """Error branches of GET /api/v1/formats."""
+
+    def test_invalid_url_param(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Malformed URL returns 400 INVALID_URL before provider lookup."""
+        app.dependency_overrides[video.get_provider_manager] = lambda: mock_provider_manager
+
+        client = TestClient(app)
+        response = client.get("/api/v1/formats", params={"url": "not-a-url"})
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_URL"
+
+    def test_no_provider_for_url(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Provider selection failure returns 400 INVALID_URL."""
+        from app.providers.exceptions import InvalidURLError
+
+        mock_provider_manager.get_provider_for_url.side_effect = InvalidURLError("No provider")
+        app.dependency_overrides[video.get_provider_manager] = lambda: mock_provider_manager
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/formats", params={"url": "https://www.youtube.com/watch?v=abc123"}
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_URL"
+
+    def test_video_unavailable(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Unavailable video returns 404 VIDEO_UNAVAILABLE."""
+        mock_provider = MagicMock()
+        mock_provider.list_formats = AsyncMock(side_effect=VideoUnavailableError("gone"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+        app.dependency_overrides[video.get_provider_manager] = lambda: mock_provider_manager
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/formats", params={"url": "https://www.youtube.com/watch?v=abc123"}
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"]["error_code"] == "VIDEO_UNAVAILABLE"
+
+    def test_provider_error(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Provider errors return 500 PROVIDER_ERROR."""
+        mock_provider = MagicMock()
+        mock_provider.list_formats = AsyncMock(side_effect=ProviderError("failed"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+        app.dependency_overrides[video.get_provider_manager] = lambda: mock_provider_manager
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/formats", params={"url": "https://www.youtube.com/watch?v=abc123"}
+        )
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "PROVIDER_ERROR"
+
+    def test_unexpected_error(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Generic exceptions return 500 INTERNAL_ERROR."""
+        mock_provider = MagicMock()
+        mock_provider.list_formats = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+        app.dependency_overrides[video.get_provider_manager] = lambda: mock_provider_manager
+
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/formats", params={"url": "https://www.youtube.com/watch?v=abc123"}
+        )
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "INTERNAL_ERROR"
+
+
+# ============================================================================
+# Transcript Endpoint Tests
+# ============================================================================
+
+
+class TestTranscriptEndpoint:
+    """Tests for GET /api/v1/transcript."""
+
+    @staticmethod
+    def _demo_transcript() -> dict:
+        from app.utils.transcript import TranscriptSegment
+
+        return {
+            "video_id": "dQw4w9WgXcQ",
+            "lang": "en",
+            "source": "manual",
+            "segments": [
+                TranscriptSegment(start=0.0, end=2.5, text="We're no strangers to love"),
+                TranscriptSegment(start=2.5, end=5.0, text="You know the rules and so do I"),
+            ],
+            "raw_vtt": "WEBVTT\n\n00:00:00.000 --> 00:00:02.500\nWe're no strangers to love\n",
+        }
+
+    def _client(self, app: FastAPI, mock_provider_manager: MagicMock) -> TestClient:
+        app.dependency_overrides[transcript.get_provider_manager] = lambda: mock_provider_manager
+        return TestClient(app)
+
+    def test_transcript_json(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Default JSON format returns segments and flattened text."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(return_value=self._demo_transcript())
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["video_id"] == "dQw4w9WgXcQ"
+        assert data["source"] == "manual"
+        assert data["segment_count"] == 2
+        assert data["segments"][0]["text"] == "We're no strangers to love"
+        assert "You know the rules" in data["text"]
+
+    def test_transcript_text_format(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """fmt=text returns plain text with one segment per line."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(return_value=self._demo_transcript())
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "fmt": "text"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/plain")
+        assert response.text == "We're no strangers to love\nYou know the rules and so do I"
+
+    def test_transcript_srt_format(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """fmt=srt returns SubRip cues."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(return_value=self._demo_transcript())
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "fmt": "srt"},
+        )
+
+        assert response.status_code == 200
+        assert response.text.startswith("1\n00:00:00,000 --> 00:00:02,500")
+
+    def test_transcript_vtt_format(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """fmt=vtt returns the raw VTT file."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(return_value=self._demo_transcript())
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "fmt": "vtt"},
+        )
+
+        assert response.status_code == 200
+        assert response.text.startswith("WEBVTT")
+
+    def test_transcript_not_found(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Missing captions map to 404 TRANSCRIPT_NOT_FOUND."""
+        from app.providers.exceptions import TranscriptNotFoundError
+
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(
+            side_effect=TranscriptNotFoundError("No transcript available for language 'it'")
+        )
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "lang": "it"},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"]["error_code"] == "TRANSCRIPT_NOT_FOUND"
+
+    def test_transcript_invalid_url(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Malformed URLs return 400 before provider involvement."""
+        client = self._client(app, mock_provider_manager)
+        response = client.get("/api/v1/transcript", params={"url": "not-a-url"})
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_URL"
+
+    def test_transcript_invalid_lang_rejected(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Language codes outside the pattern are rejected with 422."""
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={
+                "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                "lang": "en; rm -rf /",
+            },
+        )
+
+        assert response.status_code == 422
+
+    def test_transcript_invalid_fmt_rejected(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Unknown output formats are rejected with 422."""
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "fmt": "xml"},
+        )
+
+        assert response.status_code == 422
+
+    def test_transcript_provider_error(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Provider errors map to 500 PROVIDER_ERROR."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(side_effect=ProviderError("boom"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "PROVIDER_ERROR"
+
+    def test_transcript_video_unavailable(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Unavailable videos map to 404 VIDEO_UNAVAILABLE."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(side_effect=VideoUnavailableError("gone"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"]["error_code"] == "VIDEO_UNAVAILABLE"
+
+    def test_transcript_unexpected_error(
+        self, app: FastAPI, mock_provider_manager: MagicMock
+    ) -> None:
+        """Generic exceptions map to 500 INTERNAL_ERROR."""
+        mock_provider = MagicMock()
+        mock_provider.get_transcript = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_provider_manager.get_provider_for_url.return_value = mock_provider
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 500
+        assert response.json()["detail"]["error_code"] == "INTERNAL_ERROR"
+
+    def test_transcript_no_provider(self, app: FastAPI, mock_provider_manager: MagicMock) -> None:
+        """Provider selection failure maps to 400 INVALID_URL."""
+        from app.providers.exceptions import InvalidURLError
+
+        mock_provider_manager.get_provider_for_url.side_effect = InvalidURLError("No provider")
+
+        client = self._client(app, mock_provider_manager)
+        response = client.get(
+            "/api/v1/transcript",
+            params={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "INVALID_URL"
+
+
+# ============================================================================
+# Download Webhook Parameter Tests
+# ============================================================================
+
+
+class TestDownloadWebhookParam:
+    """webhook_url handling on the download endpoint."""
+
+    def _post(self, app: FastAPI, payload: dict) -> "TestClient.post":
+        client = TestClient(app)
+        return client.post("/api/v1/download", json=payload)
+
+    def test_webhook_rejected_when_disabled(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+    ) -> None:
+        """webhook_url on a server without webhooks returns 400."""
+        from app.api import download as download_module
+        from app.services.webhook_service import WebhookService
+
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+        app.dependency_overrides[download_module.get_webhook_service] = lambda: WebhookService(
+            enabled=False
+        )
+
+        response = self._post(
+            app,
+            {
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "async": True,
+                "webhook_url": "https://hooks.example.com/x",
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "WEBHOOK_NOT_ALLOWED"
+
+    def test_webhook_host_not_allowed(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+    ) -> None:
+        """webhook_url with a host outside the allowlist returns 400."""
+        from app.api import download as download_module
+        from app.services.webhook_service import WebhookService
+
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+        app.dependency_overrides[download_module.get_webhook_service] = lambda: WebhookService(
+            enabled=True, allowed_hosts=["hooks.example.com"]
+        )
+
+        response = self._post(
+            app,
+            {
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "async": True,
+                "webhook_url": "https://evil.example.net/x",
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error_code"] == "WEBHOOK_NOT_ALLOWED"
+
+    def test_webhook_accepted_and_stored_in_params(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """An allowed webhook_url is stored in the job params."""
+        from app.api import download as download_module
+        from app.services.webhook_service import WebhookService
+
+        mock_job_service.create_job.return_value = sample_job
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+        app.dependency_overrides[download_module.get_webhook_service] = lambda: WebhookService(
+            enabled=True, allowed_hosts=["hooks.example.com"]
+        )
+
+        response = self._post(
+            app,
+            {
+                "url": "https://www.youtube.com/watch?v=abc123",
+                "async": True,
+                "webhook_url": "https://hooks.example.com/x",
+            },
+        )
+
+        assert response.status_code == 202
+        params = mock_job_service.create_job.call_args.kwargs["params"]
+        assert params["webhook_url"] == "https://hooks.example.com/x"
+
+    def test_no_webhook_url_needs_no_service(
+        self,
+        app: FastAPI,
+        mock_provider_manager: MagicMock,
+        mock_job_service: MagicMock,
+        mock_download_queue: MagicMock,
+        mock_download_worker: MagicMock,
+        sample_job: Job,
+    ) -> None:
+        """Requests without webhook_url work with the default disabled service."""
+        mock_job_service.create_job.return_value = sample_job
+        mock_provider_manager.get_provider_for_url.return_value = MagicMock()
+        _override_download_deps(
+            app, mock_provider_manager, mock_job_service, mock_download_queue, mock_download_worker
+        )
+
+        response = self._post(
+            app,
+            {"url": "https://www.youtube.com/watch?v=abc123", "async": True},
+        )
+
+        assert response.status_code == 202

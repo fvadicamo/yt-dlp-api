@@ -17,7 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import Response
 
 from app import __version__
-from app.api import admin, download, health, jobs, metrics, video
+from app.api import admin, download, health, jobs, metrics, transcript, video
 from app.core.config import ConfigService, SecurityConfig
 from app.core.errors import APIError, global_exception_handler
 from app.core.logging import configure_logging
@@ -33,6 +33,7 @@ from app.services.download_queue import configure_download_queue, get_download_q
 from app.services.download_worker import configure_download_worker, get_download_worker
 from app.services.job_service import configure_job_service, get_job_service
 from app.services.storage import configure_storage
+from app.services.webhook_service import configure_webhook_service
 
 logger = structlog.get_logger(__name__)
 
@@ -167,6 +168,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         max_queue_size=config.downloads.queue_size,
     )
 
+    # Configure webhook service (disabled unless explicitly enabled)
+    configure_webhook_service(
+        enabled=config.webhooks.enabled,
+        allowed_hosts=config.webhooks.allowed_hosts,
+        secret=config.webhooks.secret,
+        timeout=config.webhooks.timeout,
+        max_retries=config.webhooks.max_retries,
+    )
+    logger.info(
+        "Webhook service configured",
+        enabled=config.webhooks.enabled,
+        allowed_hosts_count=len(config.webhooks.allowed_hosts),
+    )
+
     # Configure cookie service
     cookie_config = {
         "providers": {
@@ -265,8 +280,10 @@ Rate limited responses include a `Retry-After` header.
 | `FORMAT_NOT_FOUND` | 400 | Requested format not available for this video |
 | `AUTH_FAILED` | 401 | API key is missing or invalid |
 | `JOB_NOT_FOUND` | 404 | Job ID does not exist or has expired |
+| `TRANSCRIPT_NOT_FOUND` | 404 | No transcript available for the requested language |
 | `VIDEO_UNAVAILABLE` | 404 | Video is private, deleted, or geo-blocked |
 | `RATE_LIMIT_EXCEEDED` | 429 | Rate limit reached, check Retry-After header |
+| `WEBHOOK_NOT_ALLOWED` | 400 | Webhooks disabled or host not in the allowlist |
 | `DOWNLOAD_FAILED` | 500 | Download operation failed |
 | `PROVIDER_ERROR` | 500 | Video provider error |
 | `QUEUE_FULL` | 503 | Download queue is at capacity |
@@ -337,6 +354,9 @@ def create_app() -> FastAPI:
     # Video router dependencies
     app.dependency_overrides[video.get_provider_manager] = get_provider_manager
 
+    # Transcript router dependencies
+    app.dependency_overrides[transcript.get_provider_manager] = get_provider_manager
+
     # Download router dependencies
     app.dependency_overrides[download.get_provider_manager] = get_provider_manager
     app.dependency_overrides[download.get_job_service] = get_job_service
@@ -350,6 +370,7 @@ def create_app() -> FastAPI:
     # Register routers
     app.include_router(health.router)
     app.include_router(video.router)
+    app.include_router(transcript.router)
     app.include_router(download.router)
     app.include_router(jobs.router)
     app.include_router(admin.router)

@@ -45,3 +45,10 @@ security:
 monitoring:
   metrics_enabled: true
   metrics_port: 9090
+
+webhooks:
+  enabled: false  # Master switch for job completion webhooks
+  allowed_hosts: []  # Exact hostnames allowed as webhook targets (SSRF protection)
+  secret: null  # HMAC-SHA256 signing key; override with APP_WEBHOOKS_SECRET
+  timeout: 5  # seconds per delivery attempt
+  max_retries: 3

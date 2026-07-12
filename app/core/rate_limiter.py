@@ -81,6 +81,7 @@ class RateLimiter:
     ENDPOINT_CATEGORIES: Dict[str, str] = {
         "/api/v1/info": "metadata",
         "/api/v1/formats": "metadata",
+        "/api/v1/transcript": "metadata",
         "/api/v1/download": "download",
     }
 

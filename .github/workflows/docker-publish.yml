@@ -1,0 +1,104 @@
+# Build and publish multi-arch images to GHCR.
+#
+# Triggers:
+# - release tags (v*): semver tags + `latest`, yt-dlp as pinned in
+#   requirements-ytdlp.txt (reproducible release)
+# - weekly schedule: rolling `weekly` tag rebuilt from the default branch
+#   with the LATEST yt-dlp release, for users who want YouTube breakage
+#   fixes without waiting for an app release (requirement 45)
+# - manual dispatch: same as schedule, for on-demand refreshes
+#
+# Every image passes the container smoke test before being pushed.
+name: Docker Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  schedule:
+    - cron: "20 4 * * 1"  # Mondays 04:20 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  publish:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Refresh yt-dlp pin (weekly/manual builds only)
+        if: github.event_name != 'push'
+        run: |
+          LATEST=$(curl -fsSL https://pypi.org/pypi/yt-dlp/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+          sed -i "s/^yt-dlp==.*/yt-dlp==${LATEST}/" requirements-ytdlp.txt
+          echo "Weekly build with yt-dlp ${LATEST}"
+          cat requirements-ytdlp.txt
+
+      - name: Compute version metadata
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            {
+              echo "tags<<EOF"
+              echo "${IMAGE}:${VERSION}"
+              echo "${IMAGE}:${VERSION%.*}"
+              echo "${IMAGE}:latest"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "version=weekly-$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+            {
+              echo "tags<<EOF"
+              echo "${IMAGE}:weekly"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up QEMU (arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build amd64 image for smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ytdlp-api:smoke
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Container smoke test
+        run: bash scripts/docker_smoke.sh ytdlp-api:smoke
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
