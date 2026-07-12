@@ -379,6 +379,30 @@ class StartupValidator:
             message=message,
         )
 
+    def _check_cookie_access(self, path: Path, cookie_path: str) -> Optional[ComponentCheckResult]:
+        """Verify the cookie file exists and is accessible.
+
+        Guards against unreadable paths/mounts: os.stat raises
+        PermissionError there, which must degrade the check, not crash
+        startup (BUG-001).
+
+        Args:
+            path: Cookie file path object.
+            cookie_path: Configured cookie path string (for messages).
+
+        Returns:
+            A failure ComponentCheckResult, or None when accessible.
+        """
+        try:
+            if path.exists():
+                return None
+        except OSError as e:
+            logger.error("youtube_cookie_access_error", path=cookie_path, error=str(e))
+            return self._cookie_failure(f"Cannot access cookie file: {cookie_path} ({e})")
+
+        logger.warning("youtube_cookie_not_found", path=cookie_path)
+        return self._cookie_failure(f"Cookie file not found: {cookie_path}")
+
     async def check_cookies(self) -> ComponentCheckResult:
         """Check cookie file availability and format.
 
@@ -405,10 +429,9 @@ class StartupValidator:
 
         path = Path(cookie_path)
 
-        # Check if file exists
-        if not path.exists():
-            logger.warning("youtube_cookie_not_found", path=cookie_path)
-            return self._cookie_failure(f"Cookie file not found: {cookie_path}")
+        access_failure = self._check_cookie_access(path, cookie_path)
+        if access_failure is not None:
+            return access_failure
 
         # Check if file is readable and valid
         try:

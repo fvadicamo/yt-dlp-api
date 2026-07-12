@@ -290,8 +290,14 @@ class TestMetadataExtraction:
         ):
             mock_process = AsyncMock()
             mock_subprocess.return_value = mock_process
-            # Make wait_for raise TimeoutError on all attempts
-            mock_wait_for.side_effect = asyncio.TimeoutError()
+
+            # Make wait_for raise TimeoutError on all attempts, closing the
+            # never-awaited coroutine to avoid RuntimeWarning
+            async def timeout_wait_for(coro, timeout):
+                coro.close()
+                raise asyncio.TimeoutError()
+
+            mock_wait_for.side_effect = timeout_wait_for
 
             # With retry logic, timeout triggers retries then fails with "Failed after X attempts"
             with pytest.raises(DownloadError, match="Failed after 3 attempts.*Timeout"):
@@ -973,7 +979,12 @@ class TestRetryLogic:
             mock_subprocess.return_value = mock_process
 
             with patch("asyncio.wait_for", new_callable=AsyncMock) as mock_wait_for:
-                mock_wait_for.return_value = (b"output", b"")
+                # Close the never-awaited coroutine to avoid RuntimeWarning
+                async def wait_for_stub(coro, timeout):
+                    coro.close()
+                    return (b"output", b"")
+
+                mock_wait_for.side_effect = wait_for_stub
 
                 await youtube_provider._execute_with_retry(["yt-dlp", "url"], timeout=10.0)
 
@@ -997,6 +1008,8 @@ class TestRetryLogic:
             async def mock_wait_for_side_effect(coro, timeout):
                 nonlocal call_count
                 call_count += 1
+                # Close the never-awaited coroutine to avoid RuntimeWarning
+                coro.close()
                 if call_count == 1:
                     raise asyncio.TimeoutError()
                 return (b"success", b"")
@@ -1276,7 +1289,12 @@ class TestProcessCleanup:
         mock_process.returncode = None  # Still running
         mock_process.wait = AsyncMock()
 
-        with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
+        # Close the never-awaited coroutine to avoid RuntimeWarning
+        async def timeout_wait_for(coro, timeout):
+            coro.close()
+            raise asyncio.TimeoutError()
+
+        with patch("asyncio.wait_for", side_effect=timeout_wait_for):
             await youtube_provider._cleanup_process(mock_process)
 
         # Should call terminate() first

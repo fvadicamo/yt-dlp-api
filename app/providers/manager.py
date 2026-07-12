@@ -89,7 +89,7 @@ class ProviderManager:
         Raises:
             InvalidURLError: If no provider can handle the URL
         """
-        for name, provider in self._providers.items():  # pragma: no cover
+        for name, provider in self._providers.items():
             # Skip disabled providers
             if not self._enabled_providers.get(name, False):
                 continue
@@ -151,7 +151,7 @@ class ProviderManager:
         Raises:
             ProviderError: If operation fails
         """
-        try:  # pragma: no cover
+        try:
             logger.debug(
                 "Executing provider operation", provider=provider_name, operation=operation.__name__
             )

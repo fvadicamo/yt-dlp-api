@@ -468,7 +468,13 @@ class TestYouTubeConnectivityCheck:
             mock_process.communicate = slow_communicate
             mock_subprocess.return_value = mock_process
 
-            with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
+            async def timeout_wait_for(aw, timeout):
+                # Close the never-awaited coroutine to avoid RuntimeWarning
+                if asyncio.iscoroutine(aw):
+                    aw.close()
+                raise asyncio.TimeoutError()
+
+            with patch("asyncio.wait_for", new=timeout_wait_for):
                 result = await _check_youtube_connectivity()
 
             assert result.status == "unhealthy"
