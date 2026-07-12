@@ -18,9 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install to user local (including yt-dlp)
-COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt yt-dlp
+# Copy requirements and install to user local (including pinned yt-dlp)
+COPY requirements.txt requirements-ytdlp.txt ./
+RUN pip install --user --no-cache-dir -r requirements.txt -r requirements-ytdlp.txt
 
 # =============================================================================
 # Stage 2: Runtime - Minimal production image

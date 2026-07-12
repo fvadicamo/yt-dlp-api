@@ -29,11 +29,14 @@ is installed unpinned at build time and never updated by dependabot
 (implements requirement 45). A reference project must be `docker run`-able.
 
 **Acceptance Criteria**:
-- [ ] Release workflow: on tag, build multi-arch (amd64/arm64) and push to
-      GHCR with semver + `latest` tags
-- [ ] Weekly scheduled rebuild refreshing yt-dlp, published as rolling tag
-- [ ] yt-dlp version pinned and visible (build arg + exposed in /health)
-- [ ] README quick start uses the published image (no clone required)
+- [x] Release workflow: on tag, build multi-arch (amd64/arm64) and push to
+      GHCR with semver + `latest` tags (docker-publish.yml, smoke-tested
+      before push)
+- [x] Weekly scheduled rebuild refreshing yt-dlp, published as `weekly` tag
+- [x] yt-dlp pinned in requirements-ytdlp.txt (dependabot-managed; version
+      already exposed in /health component checks)
+- [ ] README quick start uses the published image (with TECH-004, after the
+      first tagged publish)
 
 ### FEAT-002: Transcript endpoint
 
