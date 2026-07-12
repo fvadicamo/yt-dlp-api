@@ -3,3 +3,6 @@
 # Dependabot bumps this weekly; the docker-publish workflow's scheduled
 # run additionally builds a rolling `weekly` tag with the latest release.
 yt-dlp==2026.7.4
+# EJS challenge-solver scripts: required since YouTube signature/n-challenge
+# enforcement; the pip install of yt-dlp does not bundle them (BUG-004)
+yt-dlp-ejs==0.8.0

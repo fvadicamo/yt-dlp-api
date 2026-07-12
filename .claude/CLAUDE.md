@@ -265,7 +265,7 @@ All tasks (1-15) completed. Project is public on GitHub.
 3. ✅ Test robustness (weak modules to 100%, 0 warnings, coverage gate 90) - PR #61
 4. ✅ Differentiating features (GHCR multi-arch, yt-dlp pin, transcript endpoint, job webhooks) - PRs #62 #63 #64
 5. Private production deployment (out of repo scope)
-6. ✅ s2s history (ADRs), README overhaul, release v0.2.0
+6. ✅ s2s history (ADRs), README overhaul, release v0.2.0 - PRs #65 #67, tag v0.2.0 published on GHCR
 
 ---
 
