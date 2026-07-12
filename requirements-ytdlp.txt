@@ -7,6 +7,10 @@
 # compatible curl_cffi version), which avoids anti-bot blocks especially
 # from datacenter IPs.
 yt-dlp[default,curl-cffi]==2026.7.4
+# Explicit pin for reproducible builds; the curl-cffi extra above keeps
+# pip checking it against yt-dlp's tested compatibility range (a conflict
+# fails the build loudly instead of drifting silently)
+curl_cffi==0.15.0
 # EJS challenge-solver scripts: required since YouTube signature/n-challenge
 # enforcement; the pip install of yt-dlp does not bundle them (BUG-004)
 yt-dlp-ejs==0.8.0
