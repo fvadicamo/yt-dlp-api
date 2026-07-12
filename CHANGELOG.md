@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Browser TLS-fingerprint impersonation in the image: yt-dlp is now
+  installed with the `default` and `curl-cffi` extras, removing the
+  "no impersonate target is available" warning and improving resilience
+  against anti-bot blocks, especially from datacenter IPs
+
 ## [0.2.1] - 2026-07-12
 
 Fixes from the first production deployment against real YouTube (all three
