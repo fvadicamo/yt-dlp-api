@@ -152,6 +152,30 @@ conflicts with the refreshed docs. The consolidation *idea* is still valid.
 
 ## Completed
 
+### BUG-002/003/004: Real-YouTube 2026 fixes (found by the first production deploy)
+
+**Status**: completed | **Created**: 2026-07-12 | **Completed**: 2026-07-12
+
+**Context**: The first deployment against real YouTube (test mode masks all
+three) surfaced: (BUG-002) yt-dlp rewrites the cookie jar on every run, so
+the documented read-only cookies mount crashed every real invocation with
+OSError 30; (BUG-003) the hardcoded `--extractor-args
+youtube:player_client=web` triggered YouTube's PO-token requirement and
+discarded all web-client subtitles; (BUG-004) pip installs of yt-dlp do not
+bundle the EJS challenge-solver scripts, so signature/n-challenge solving
+failed and /info returned only images.
+
+**Acceptance Criteria**:
+- [x] Executions run against a private writable cookie copy
+      (`app/utils/cookies.py`, single interception in the provider retry
+      wrapper + cookie auth test); read-only mounts work; jar rotation is
+      discarded by design (hot-reload is the refresh path)
+- [x] Forced web player client removed (yt-dlp maintained client selection)
+- [x] `yt-dlp-ejs` pinned in requirements-ytdlp.txt
+- [x] Verified against real YouTube with a read-only cookie mount:
+      /info 200 with full metadata, /transcript 200 with 60 manual-sub
+      segments
+
 ### TECH-002: CI workflow with blocking quality gates
 
 **Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-11 (PRs #57 #58, release v0.1.6)
