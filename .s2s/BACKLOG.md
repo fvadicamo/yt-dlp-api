@@ -72,27 +72,29 @@ fails, instead of polling `GET /jobs/{id}`.
 
 ### TECH-004: README and docs overhaul for reference status
 
-**Status**: in_progress | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12 (PR #65)
 
 **Context**: README quick start requires cloning; no badges, no published
 image, docs don't cover the new capabilities.
 
 **Acceptance Criteria**:
-- [ ] Badges (CI, coverage, GHCR, license), image-first quick start
-- [ ] Architecture diagram, transcript/webhook examples, integration recipes
-      (workflow engines, external STT) in generic form
-- [ ] DEPLOYMENT/CONFIGURATION updated with new env vars and GHCR flow
+- [x] Badges (CI, publish, release, coverage, license), image-first quick start
+- [x] Architecture diagram, transcript/webhook examples, integration recipes
+      (workflow engines, AI/RAG, external STT) in generic form
+- [x] DEPLOYMENT/CONFIGURATION/RELEASING updated (webhooks vars, GHCR flow)
 
 ### TECH-005: Release v0.2.0
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12 (PR #67, tag v0.2.0)
 
 **Context**: First release with the differentiator features and CI gates;
 first GHCR-published version.
 
 **Acceptance Criteria**:
-- [ ] CHANGELOG entry, version bump (single source), tag, GHCR publish green
-- [ ] RELEASING.md updated with the GHCR steps
+- [x] CHANGELOG entry, version bump, tag, GHCR publish green (8m04s,
+      multi-arch); image verified pullable anonymously with yt-dlp
+      2026.07.04 and app 0.2.0 inside
+- [x] RELEASING.md updated with the GHCR steps
 
 ### TECH-006: Reconstruct project history in s2s format
 
@@ -149,6 +151,30 @@ conflicts with the refreshed docs. The consolidation *idea* is still valid.
 ---
 
 ## Completed
+
+### BUG-002/003/004: Real-YouTube 2026 fixes (found by the first production deploy)
+
+**Status**: completed | **Created**: 2026-07-12 | **Completed**: 2026-07-12
+
+**Context**: The first deployment against real YouTube (test mode masks all
+three) surfaced: (BUG-002) yt-dlp rewrites the cookie jar on every run, so
+the documented read-only cookies mount crashed every real invocation with
+OSError 30; (BUG-003) the hardcoded `--extractor-args
+youtube:player_client=web` triggered YouTube's PO-token requirement and
+discarded all web-client subtitles; (BUG-004) pip installs of yt-dlp do not
+bundle the EJS challenge-solver scripts, so signature/n-challenge solving
+failed and /info returned only images.
+
+**Acceptance Criteria**:
+- [x] Executions run against a private writable cookie copy
+      (`app/utils/cookies.py`, single interception in the provider retry
+      wrapper + cookie auth test); read-only mounts work; jar rotation is
+      discarded by design (hot-reload is the refresh path)
+- [x] Forced web player client removed (yt-dlp maintained client selection)
+- [x] `yt-dlp-ejs` pinned in requirements-ytdlp.txt
+- [x] Verified against real YouTube with a read-only cookie mount:
+      /info 200 with full metadata, /transcript 200 with 60 manual-sub
+      segments
 
 ### TECH-002: CI workflow with blocking quality gates
 

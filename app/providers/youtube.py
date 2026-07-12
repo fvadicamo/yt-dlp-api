@@ -19,6 +19,7 @@ from app.providers.exceptions import (
     TranscriptNotFoundError,
     VideoUnavailableError,
 )
+from app.utils.cookies import exec_cookie_copy
 from app.utils.transcript import parse_vtt
 
 logger = structlog.get_logger(__name__)
@@ -156,8 +157,6 @@ class YouTubeProvider(VideoProvider):
             "--no-download",
             "--cookies",
             self.cookie_path,
-            "--extractor-args",
-            "youtube:player_client=web",
         ]
 
         if not include_formats:
@@ -419,8 +418,6 @@ class YouTubeProvider(VideoProvider):
                     "transcript.%(ext)s",
                     "--cookies",
                     self.cookie_path,
-                    "--extractor-args",
-                    "youtube:player_client=web",
                     url,
                 ]
 
@@ -505,8 +502,6 @@ class YouTubeProvider(VideoProvider):
             "yt-dlp",
             "--cookies",
             self.cookie_path,
-            "--extractor-args",
-            "youtube:player_client=web",
             "--print",
             "after_move:filepath",  # Print final file path
         ]
@@ -680,6 +675,30 @@ class YouTubeProvider(VideoProvider):
             result = await executor.execute(cmd, timeout)
             return subprocess.CompletedProcess(cmd, result.returncode, result.stdout, result.stderr)
 
+        # Real executions run against a private writable cookie copy:
+        # yt-dlp rewrites the jar on exit and the configured file may live
+        # on a read-only mount (BUG-002)
+        with exec_cookie_copy(cmd) as exec_cmd:
+            return await self._execute_attempts(exec_cmd, timeout)
+
+    async def _execute_attempts(  # noqa: C901
+        self,
+        cmd: List[str],
+        timeout: Optional[float] = None,
+    ) -> subprocess.CompletedProcess:
+        """Run the retry loop for a prepared yt-dlp command.
+
+        Args:
+            cmd: Command to execute as list of strings
+            timeout: Optional timeout in seconds for each attempt
+
+        Returns:
+            CompletedProcess with stdout and stderr
+
+        Raises:
+            DownloadError: If all retry attempts fail or a non-retriable
+                error occurs
+        """
         last_error: Optional[str] = None
         process: Optional[asyncio.subprocess.Process] = None
 

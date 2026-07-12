@@ -11,6 +11,7 @@ import structlog
 from cachetools import TTLCache
 
 from app.providers.exceptions import CookieError
+from app.utils.cookies import exec_cookie_copy
 
 logger = structlog.get_logger(__name__)
 
@@ -465,9 +466,11 @@ class CookieService:
             # This video is "Me at the zoo" - first YouTube video
             test_url = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
 
-            # Run yt-dlp with --simulate to test without downloading
-            # nosec B603: subprocess call with validated inputs
-            process = await asyncio.create_subprocess_exec(
+            # Run yt-dlp with --simulate to test without downloading.
+            # The cookie file is copied to a private writable location:
+            # yt-dlp rewrites the jar on exit and the configured file may
+            # live on a read-only mount (BUG-002).
+            auth_cmd = [
                 "yt-dlp",
                 "--cookies",
                 cookie_path,
@@ -475,11 +478,16 @@ class CookieService:
                 "--no-warnings",
                 "--quiet",
                 test_url,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+            ]
+            with exec_cookie_copy(auth_cmd) as exec_cmd:
+                # nosec B603: subprocess call with validated inputs
+                process = await asyncio.create_subprocess_exec(
+                    *exec_cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
 
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10.0)
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10.0)
 
             if process.returncode == 0:
                 logger.info("YouTube authentication test passed")
