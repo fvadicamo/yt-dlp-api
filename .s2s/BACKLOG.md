@@ -20,6 +20,30 @@
 
 ## Planned
 
+### DEBT-001: Reconcile or close the docs-consolidation branch
+
+**Status**: planned | **Created**: 2026-07-12
+
+**Context**: Remote branch `feature/docs-consolidation` (2025-12) removes
+`.kiro/steering/` and `docs/DEVELOPMENT_SETUP.md`, folding their content
+into CONTRIBUTING/AGENTS/RELEASING. It predates the 2026-07 waves and now
+conflicts with the refreshed docs. The consolidation *idea* is still valid.
+
+**Acceptance Criteria**:
+- [ ] Decide: rebase and land the consolidation, or close the branch as
+      superseded (recommended: re-do the consolidation fresh, small PR)
+- [ ] Either way, delete the stale remote branch afterwards
+
+---
+
+## In Progress
+
+<!-- Move items here when work begins -->
+
+---
+
+## Completed
+
 ### FEAT-001: GHCR publishing with yt-dlp update strategy
 
 **Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-11 (PR #62)
@@ -113,27 +137,9 @@ history (releases, key decisions) into s2s artifacts for traceability;
       for the 2026-07 production-readiness work
 - [x] `.claude/CLAUDE.md` quick links point to s2s as the live tracker
 
-### DEBT-001: Reconcile or close the docs-consolidation branch
-
-**Status**: planned | **Created**: 2026-07-12
-
-**Context**: Remote branch `feature/docs-consolidation` (2025-12) removes
-`.kiro/steering/` and `docs/DEVELOPMENT_SETUP.md`, folding their content
-into CONTRIBUTING/AGENTS/RELEASING. It predates the 2026-07 waves and now
-conflicts with the refreshed docs. The consolidation *idea* is still valid.
-
-**Acceptance Criteria**:
-- [ ] Decide: rebase and land the consolidation, or close the branch as
-      superseded (recommended: re-do the consolidation fresh, small PR)
-- [ ] Either way, delete the stale remote branch afterwards
-
----
-
-## In Progress
-
 ### TECH-003: Test robustness (weak modules, warnings, container e2e)
 
-**Status**: in_progress | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12 (PR #61)
 
 **Context**: Suite was 785 tests / 90.5% total, with providers/manager.py at
 54%, download_worker.py 72%, api/download.py 76%, api/video.py 77%
@@ -146,11 +152,9 @@ conflicts with the refreshed docs. The consolidation *idea* is still valid.
 - [x] Warnings eliminated: pydantic 2.13 upgrade removed the deprecation
       storm, orphaned mock coroutines closed in timeout tests (0 warnings)
 - [x] Container-level e2e smoke in CI (Docker Smoke job, shipped with TECH-002)
-- [ ] PR merged into develop
+- [x] PR merged into develop (#61)
 
 ---
-
-## Completed
 
 ### BUG-002/003/004: Real-YouTube 2026 fixes (found by the first production deploy)
 
