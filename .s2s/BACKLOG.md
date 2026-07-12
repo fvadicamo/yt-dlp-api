@@ -72,27 +72,29 @@ fails, instead of polling `GET /jobs/{id}`.
 
 ### TECH-004: README and docs overhaul for reference status
 
-**Status**: in_progress | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12 (PR #65)
 
 **Context**: README quick start requires cloning; no badges, no published
 image, docs don't cover the new capabilities.
 
 **Acceptance Criteria**:
-- [ ] Badges (CI, coverage, GHCR, license), image-first quick start
-- [ ] Architecture diagram, transcript/webhook examples, integration recipes
-      (workflow engines, external STT) in generic form
-- [ ] DEPLOYMENT/CONFIGURATION updated with new env vars and GHCR flow
+- [x] Badges (CI, publish, release, coverage, license), image-first quick start
+- [x] Architecture diagram, transcript/webhook examples, integration recipes
+      (workflow engines, AI/RAG, external STT) in generic form
+- [x] DEPLOYMENT/CONFIGURATION/RELEASING updated (webhooks vars, GHCR flow)
 
 ### TECH-005: Release v0.2.0
 
-**Status**: planned | **Created**: 2026-07-11
+**Status**: completed | **Created**: 2026-07-11 | **Completed**: 2026-07-12 (PR #67, tag v0.2.0)
 
 **Context**: First release with the differentiator features and CI gates;
 first GHCR-published version.
 
 **Acceptance Criteria**:
-- [ ] CHANGELOG entry, version bump (single source), tag, GHCR publish green
-- [ ] RELEASING.md updated with the GHCR steps
+- [x] CHANGELOG entry, version bump, tag, GHCR publish green (8m04s,
+      multi-arch); image verified pullable anonymously with yt-dlp
+      2026.07.04 and app 0.2.0 inside
+- [x] RELEASING.md updated with the GHCR steps
 
 ### TECH-006: Reconstruct project history in s2s format
 
