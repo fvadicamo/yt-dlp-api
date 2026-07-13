@@ -1,6 +1,6 @@
 # yt-dlp-api Backlog
 
-**Updated**: 2026-07-12
+**Updated**: 2026-07-13
 **Format**: Single markdown file for tracking work items
 
 ---
@@ -20,7 +20,36 @@
 
 ## Planned
 
-<!-- Add items here using the ID conventions above -->
+### TECH-007: Drive adoption of the published image
+
+**Status**: planned | **Created**: 2026-07-13
+
+**Context**: The project positions itself as the reference OSS dockerized
+yt-dlp REST API, but has no external users yet. Several roadmap decisions
+(IDEA-001 additional providers, IDEA-003 SDKs, IDEA-004 Helm chart) are
+explicitly demand-driven and stay parked until real usage shows up. Without
+adoption signals the roadmap cannot be prioritized.
+
+**Acceptance Criteria**:
+- [ ] GitHub Discussions enabled with a "which provider next?" thread
+- [ ] Repo topics and description tuned for discoverability
+- [ ] Announcement where self-hosters look for this (awesome-selfhosted
+      style lists, yt-dlp community)
+
+### FEAT-004: External STT callback contract (from IDEA-002)
+
+**Status**: planned | **Created**: 2026-07-13
+
+**Context**: IDEA-002. Subtitles and auto-captions cover most videos, but some
+have none. Audio extraction plus job webhooks already let an external STT
+pipeline do the work; what is missing is a documented contract so the
+transcript endpoint can fall back to a config-declared external service.
+
+**Acceptance Criteria**:
+- [ ] Documented `POST audio -> transcript` callback contract
+- [ ] Config-declared external STT endpoint, off by default
+- [ ] `/transcript` falls back to it when no captions exist
+- [ ] Decide first whether a concrete consumer needs it (do not build on spec)
 
 ---
 
@@ -31,6 +60,49 @@
 ---
 
 ## Completed
+
+### BUG-005: /formats returns 500 on real YouTube (fractional audio bitrate)
+
+**Status**: completed | **Created**: 2026-07-13 | **Completed**: 2026-07-13 (PR #88)
+
+**Context**: Found by calling the deployed v0.2.2 image. yt-dlp reports `abr`
+as a fractional float (129.796); the provider passed it into
+`VideoFormat.audio_bitrate` (typed int), and pydantic rejected every format at
+the response boundary, so `GET /api/v1/formats` answered 500 for effectively
+every video. Test fixtures used `"abr": 128`, which is why the suite was blind
+to it. `duration` had the same shape.
+
+**Acceptance Criteria**:
+- [x] Provider rounds yt-dlp numeric fields to the int its dataclass declares
+      (audio_bitrate, filesize, duration)
+- [x] Regression tests with the real float values from yt-dlp
+- [x] Verified against real YouTube: 37 formats, all response models built
+
+### BUG-006: /health reports unhealthy on a working deployment
+
+**Status**: completed | **Created**: 2026-07-13 | **Completed**: 2026-07-13 (PR #87)
+
+**Context**: The `youtube_connectivity` probe had a hardcoded 2s timeout, but
+a real yt-dlp invocation takes ~1.7s in the published image, so `/health`
+flipped to unhealthy on any jitter while every component worked.
+
+**Acceptance Criteria**:
+- [x] `timeouts.health_check` setting (`APP_TIMEOUTS_HEALTH_CHECK`), default 10s
+- [x] Documented in CONFIGURATION.md, DEPLOYMENT.md, config.yaml
+- [x] Test asserting the probe honours the configured value
+
+### DEBT-002: flake8 toolchain pinned below its plugins
+
+**Status**: completed | **Created**: 2026-07-13 | **Completed**: 2026-07-13 (PR #86)
+
+**Context**: Dependabot PR #85 (flake8-bugbear 25.11.29) could not install:
+bugbear requires flake8>=7.2.0 while requirements-dev pinned flake8==7.0.0.
+The new bugbear release also surfaced B042 on `APIError`, whose `__init__`
+passed only `message` to `super()`, breaking copy/pickle round-trips.
+
+**Acceptance Criteria**:
+- [x] flake8 7.3.0 + flake8-bugbear 25.11.29, lint clean
+- [x] `APIError` forwards all args to `super().__init__()`, `__str__` preserved
 
 ### DEBT-001: Reconcile or close the docs-consolidation branch
 

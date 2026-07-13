@@ -19,8 +19,9 @@
 
 ### IDEA-002: Pluggable external transcription contract
 
-**Status**: draft | **Created**: 2026-07-11
+**Status**: promoted | **Created**: 2026-07-11 | **Promoted**: 2026-07-13
 **Origin**: manual
+**Promoted to**: FEAT-004 (planned, gated on a concrete consumer)
 
 **Problem**: Subtitles/auto-captions (FEAT-002) cover most videos, but some
 have none, and dedicated STT pipelines (GPU whisper-class models, diarization)
