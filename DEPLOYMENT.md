@@ -388,6 +388,7 @@ All configuration options can be set via environment variables with the `APP_` p
 | `APP_TIMEOUTS_METADATA` | No | `10` | Metadata fetch timeout (seconds) |
 | `APP_TIMEOUTS_DOWNLOAD` | No | `300` | Download timeout (seconds) |
 | `APP_TIMEOUTS_AUDIO_CONVERSION` | No | `60` | Audio conversion timeout (seconds) |
+| `APP_TIMEOUTS_HEALTH_CHECK` | No | `10` | YouTube connectivity probe timeout in `/health` (seconds) |
 
 ### Storage
 

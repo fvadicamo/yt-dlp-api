@@ -50,6 +50,7 @@ class TimeoutsConfig(BaseConfigSection):
     metadata: int = 10  # seconds
     download: int = 300
     audio_conversion: int = 60
+    health_check: int = 10  # YouTube connectivity probe in /health
 
     model_config = SettingsConfigDict(env_prefix="APP_TIMEOUTS_")
 

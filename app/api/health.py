@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.api.schemas import ComponentHealth, HealthResponse, LivenessResponse, ReadinessResponse
 from app.core.checks import check_ffmpeg, check_nodejs, check_ytdlp
+from app.core.config import ConfigService
 
 
 def _is_test_mode() -> bool:
@@ -35,6 +36,9 @@ router = APIRouter(tags=["health"])
 
 # Track application start time for uptime calculation
 _start_time: float = time.time()
+
+# Lazily loaded so config (YAML + env) is read once, not on every /health call
+_health_check_timeout: int | None = None
 
 
 def reset_start_time() -> None:
@@ -105,6 +109,14 @@ def _check_storage() -> ComponentHealth:
         )
 
 
+def _get_health_check_timeout() -> int:
+    """Get the YouTube connectivity probe timeout, cached after first load."""
+    global _health_check_timeout
+    if _health_check_timeout is None:
+        _health_check_timeout = ConfigService().load().timeouts.health_check
+    return _health_check_timeout
+
+
 async def _check_youtube_connectivity() -> ComponentHealth:
     """Check YouTube connectivity with a lightweight test.
 
@@ -115,10 +127,11 @@ async def _check_youtube_connectivity() -> ComponentHealth:
     Uses "Me at the zoo" (jNQXAC9IVRw) - the first YouTube video ever uploaded,
     which is unlikely to be removed or made private.
 
-    Timeout: 2 seconds (per Req 30 acceptance criteria).
+    Timeout: `timeouts.health_check` seconds (APP_TIMEOUTS_HEALTH_CHECK).
     """
     proc = None
     start_time = time.time()
+    timeout = _get_health_check_timeout()
     test_video_id = "jNQXAC9IVRw"
     test_url = f"https://www.youtube.com/watch?v={test_video_id}"
 
@@ -134,7 +147,7 @@ async def _check_youtube_connectivity() -> ComponentHealth:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=2.0)
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=float(timeout))
 
         latency_ms = int((time.time() - start_time) * 1000)
 
@@ -162,7 +175,7 @@ async def _check_youtube_connectivity() -> ComponentHealth:
             await proc.wait()
         return ComponentHealth(
             status="unhealthy",
-            details={"error": "YouTube connectivity test timed out (>2s)"},
+            details={"error": f"YouTube connectivity test timed out (>{timeout}s)"},
         )
     except FileNotFoundError:
         return ComponentHealth(
@@ -241,7 +254,7 @@ async def health_check() -> JSONResponse:
     - Node.js >= 20 availability
     - Cookie file status
     - Storage availability
-    - YouTube connectivity (2s timeout)
+    - YouTube connectivity (timeouts.health_check, default 10s)
 
     Returns HTTP 200 if all components are healthy,
     HTTP 503 if any component is unhealthy.
