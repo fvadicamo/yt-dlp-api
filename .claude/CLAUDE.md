@@ -1,10 +1,11 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2026-07-11
+**Last Updated**: 2026-07-13
 **Branch**: `develop`
-**Current Task**: Production readiness waves (CI gates, coverage, GHCR, transcript/webhook features)
+**Current Task**: none open. Production readiness waves all closed; the backlog
+holds two demand-gated items (TECH-007 adoption, FEAT-004 external STT contract)
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
-**Latest Release**: v0.1.5 - Dependency updates
+**Latest Release**: v0.2.3 - Formats 500 and health probe fixes
 
 @../.s2s/CONTEXT.md
 
@@ -241,9 +242,9 @@ git push origin --delete feature/<task-name>
 
 ## 📊 Project Status
 
-**Coverage**: ~90.5% (target: 80%, goal: 90%) ✅
-**Tests Passing**: 785 tests ✅
-**Latest Release**: v0.1.5
+**Coverage**: 94% (gate: 90%, enforced in CI and pre-push) ✅
+**Tests Passing**: 911 tests ✅
+**Latest Release**: v0.2.3 (2026-07-13)
 
 ### MVP Status: COMPLETE ✅
 
@@ -260,8 +261,30 @@ All tasks (1-15) completed. Project is public on GitHub.
 2. ✅ CI with real gates + dependabot unblock + security alerts fixed - PRs #57 #58, release v0.1.6
 3. ✅ Test robustness (weak modules to 100%, 0 warnings, coverage gate 90) - PR #61
 4. ✅ Differentiating features (GHCR multi-arch, yt-dlp pin, transcript endpoint, job webhooks) - PRs #62 #63 #64
-5. Private production deployment (out of repo scope)
+5. ✅ Private production deployment (out of repo scope; runs from the `weekly` GHCR tag)
 6. ✅ s2s history (ADRs), README overhaul, release v0.2.0 - PRs #65 #67, tag v0.2.0 published on GHCR
+
+**All six waves closed.** Everything after them is maintenance plus the two
+demand-gated items in the backlog (TECH-007 adoption, FEAT-004 external STT).
+
+### Maintenance pass 2026-07-13 (release v0.2.3)
+
+Both production bugs were found by calling the *deployed image* against real
+YouTube, not by the suite. Test mode masks this class of defect: fixtures carry
+clean integers where yt-dlp returns floats.
+
+- BUG-005: `/api/v1/formats` returned 500 on every video (yt-dlp `abr` is a
+  fractional float, response model wanted `int`) - PR #88
+- BUG-006: `/health` reported `unhealthy` while healthy (probe timeout hardcoded
+  at 2s vs a ~1.7s real yt-dlp call); now `APP_TIMEOUTS_HEALTH_CHECK`, default
+  10s - PR #87
+- DEBT-002: flake8 pinned below its own plugins, blocking dependabot; the bugbear
+  bump surfaced B042 on `APIError` - PR #86
+- Dependency and CI action bumps - PRs #78 #79 #80 #81 #82 #83
+
+**Rule of thumb this produced**: before closing any release, exercise the built
+image against real YouTube (`/info`, `/formats`, `/transcript`), not only the
+suite and the container smoke test.
 
 ---
 
