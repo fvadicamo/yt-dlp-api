@@ -34,4 +34,4 @@ types-psutil==6.1.0.20241221
 bandit==1.7.7
 
 # Pre-commit
-pre-commit==4.5.1
+pre-commit==4.6.0
