@@ -417,6 +417,18 @@ class TestFormatListing:
         assert formats[0]["audio_bitrate"] is None
         assert formats[0]["filesize"] is None
 
+    @pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan"), "n/a"])
+    def test_parse_formats_handles_non_finite_bitrate(self, youtube_provider, value):
+        """Test non-finite or non-numeric values degrade to None instead of raising.
+
+        json.loads accepts Infinity and NaN, and round() raises on both.
+        """
+        formats = youtube_provider._parse_formats(
+            [{"format_id": "140", "ext": "m4a", "vcodec": "none", "acodec": "aac", "abr": value}]
+        )
+
+        assert formats[0]["audio_bitrate"] is None
+
     @pytest.mark.asyncio
     async def test_list_formats(self, youtube_provider, sample_video_metadata):
         """Test list_formats method returns sorted VideoFormat objects."""

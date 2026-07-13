@@ -211,8 +211,9 @@ class YouTubeProvider(VideoProvider):
         if value is None:
             return None
         try:
+            # OverflowError: round(inf); ValueError: round(nan). json.loads accepts both.
             return round(float(value))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return None
 
     def _parse_formats(self, formats: List[Dict]) -> List[Dict]:
