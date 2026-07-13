@@ -1,6 +1,6 @@
 [project]
 name = "ytdlp-api"
-version = "0.2.2"
+version = "0.2.3"
 description = "REST API backend for yt-dlp video downloads and metadata extraction"
 authors = [
     {name = "Francesco Vadicamo"}
@@ -17,8 +17,8 @@ dependencies = [
     "structlog==25.5.0",
     "prometheus-client==0.23.1",
     "psutil==7.2.2",
-    "pyyaml==6.0.1",
-    "cachetools==6.2.4",
+    "pyyaml==6.0.3",
+    "cachetools==7.1.4",
     "httpx==0.28.1",
 ]
 
@@ -45,9 +45,9 @@ dev = [
     "types-cachetools==6.2.0.20251022",
     "types-psutil==6.1.0.20241221",
     # Security
-    "bandit==1.7.7",
+    "bandit==1.9.4",
     # Pre-commit
-    "pre-commit==4.5.1",
+    "pre-commit==4.6.0",
 ]
 
 [project.urls]

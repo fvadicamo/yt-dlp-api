@@ -7,6 +7,7 @@ timeouts:
   metadata: 10  # seconds
   download: 300
   audio_conversion: 60
+  health_check: 10
 
 storage:
   output_dir: "/app/downloads"

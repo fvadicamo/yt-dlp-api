@@ -8,6 +8,9 @@ This module tests Task 10 implementation:
 """
 
 import asyncio
+import copy
+import pickle
+from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -149,6 +152,29 @@ class TestAPIError:
             raise error
 
         assert exc_info.value.error_code == ErrorCode.INTERNAL_ERROR
+
+    def test_api_error_str_is_message(self) -> None:
+        """Test str() returns the human-readable message, not the args tuple."""
+        error = APIError(error_code=ErrorCode.INVALID_URL, message="Bad URL", details="why")
+
+        assert str(error) == "Bad URL"
+
+    @pytest.mark.parametrize("roundtrip", [copy.copy, lambda e: pickle.loads(pickle.dumps(e))])
+    def test_api_error_survives_roundtrip(self, roundtrip: Any) -> None:
+        """Test all fields are preserved through copy and pickle round-trips."""
+        error = APIError(
+            error_code=ErrorCode.INVALID_URL,
+            message="Bad URL",
+            details="URL parsing failed",
+            suggestion="Check URL format",
+        )
+
+        restored = roundtrip(error)
+
+        assert restored.error_code == error.error_code
+        assert restored.message == error.message
+        assert restored.details == error.details
+        assert restored.suggestion == error.suggestion
 
 
 class TestExceptionMapping:
@@ -434,6 +460,15 @@ class TestMetricsEndpoint:
 class TestYouTubeConnectivityCheck:
     """Tests for YouTube connectivity health check."""
 
+    @pytest.fixture(autouse=True)
+    def reset_timeout_cache(self) -> Any:
+        """Clear the cached probe timeout so each test reloads config."""
+        import app.api.health as health_module
+
+        health_module._health_check_timeout = None
+        yield
+        health_module._health_check_timeout = None
+
     @pytest.mark.asyncio
     async def test_connectivity_check_success(self) -> None:
         """Test successful YouTube connectivity."""
@@ -480,6 +515,36 @@ class TestYouTubeConnectivityCheck:
             assert result.status == "unhealthy"
             assert result.details is not None
             assert "timed out" in result.details.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_connectivity_timeout_comes_from_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test the probe timeout is taken from timeouts.health_check."""
+        from app.api.health import _check_youtube_connectivity
+
+        monkeypatch.setenv("APP_TIMEOUTS_HEALTH_CHECK", "7")
+        captured: Dict[str, Any] = {}
+
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.kill = MagicMock()
+            mock_process.wait = AsyncMock()
+            mock_process.communicate = AsyncMock(return_value=(b"", b""))
+            mock_subprocess.return_value = mock_process
+
+            async def capturing_wait_for(aw: Any, timeout: float) -> tuple:
+                captured["timeout"] = timeout
+                if asyncio.iscoroutine(aw):
+                    aw.close()
+                raise asyncio.TimeoutError()
+
+            with patch("asyncio.wait_for", new=capturing_wait_for):
+                result = await _check_youtube_connectivity()
+
+        assert captured["timeout"] == 7.0
+        assert result.details is not None
+        assert ">7s" in result.details["error"]
 
     @pytest.mark.asyncio
     async def test_connectivity_check_failure(self) -> None:

@@ -176,7 +176,7 @@ class YouTubeProvider(VideoProvider):
             video_info: Dict = {
                 "video_id": info.get("id", video_id),
                 "title": info.get("title", ""),
-                "duration": info.get("duration", 0),
+                "duration": self._to_int(info.get("duration")) or 0,
                 "author": info.get("uploader", ""),
                 "upload_date": info.get("upload_date", ""),
                 "view_count": info.get("view_count", 0),
@@ -205,6 +205,17 @@ class YouTubeProvider(VideoProvider):
             logger.error("Failed to parse yt-dlp output", error=str(e))
             raise DownloadError(f"Failed to parse video info: {str(e)}")
 
+    @staticmethod
+    def _to_int(value: Any) -> Optional[int]:
+        """Round a yt-dlp numeric field to int (abr and duration come as floats)."""
+        if value is None:
+            return None
+        try:
+            # OverflowError: round(inf); ValueError: round(nan). json.loads accepts both.
+            return round(float(value))
+        except (TypeError, ValueError, OverflowError):
+            return None
+
     def _parse_formats(self, formats: List[Dict]) -> List[Dict]:
         """
         Parse format information from yt-dlp output.
@@ -222,10 +233,10 @@ class YouTubeProvider(VideoProvider):
                 "format_id": fmt.get("format_id", ""),
                 "ext": fmt.get("ext", ""),
                 "resolution": fmt.get("resolution"),
-                "audio_bitrate": fmt.get("abr"),
+                "audio_bitrate": self._to_int(fmt.get("abr")),
                 "video_codec": fmt.get("vcodec"),
                 "audio_codec": fmt.get("acodec"),
-                "filesize": fmt.get("filesize"),
+                "filesize": self._to_int(fmt.get("filesize")),
                 "format_type": self._categorize_format(fmt),
             }
             parsed_formats.append(format_dict)
