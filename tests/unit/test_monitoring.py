@@ -9,6 +9,8 @@ This module tests Task 10 implementation:
 
 import asyncio
 import copy
+import pickle
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -157,8 +159,9 @@ class TestAPIError:
 
         assert str(error) == "Bad URL"
 
-    def test_api_error_survives_copy(self) -> None:
-        """Test all fields are preserved through a copy round-trip."""
+    @pytest.mark.parametrize("roundtrip", [copy.copy, lambda e: pickle.loads(pickle.dumps(e))])
+    def test_api_error_survives_roundtrip(self, roundtrip: Any) -> None:
+        """Test all fields are preserved through copy and pickle round-trips."""
         error = APIError(
             error_code=ErrorCode.INVALID_URL,
             message="Bad URL",
@@ -166,12 +169,12 @@ class TestAPIError:
             suggestion="Check URL format",
         )
 
-        copied = copy.copy(error)
+        restored = roundtrip(error)
 
-        assert copied.error_code == error.error_code
-        assert copied.message == error.message
-        assert copied.details == error.details
-        assert copied.suggestion == error.suggestion
+        assert restored.error_code == error.error_code
+        assert restored.message == error.message
+        assert restored.details == error.details
+        assert restored.suggestion == error.suggestion
 
 
 class TestExceptionMapping:

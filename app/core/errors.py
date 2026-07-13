@@ -180,7 +180,7 @@ class APIError(Exception):
         self.details = details
         self.suggestion = suggestion or ERROR_SUGGESTIONS.get(error_code)
         # All args go to super() so the exception survives pickle/copy round-trips
-        super().__init__(error_code, message, details, suggestion)
+        super().__init__(error_code, message, details, self.suggestion)
 
     def __str__(self) -> str:
         """Return the human-readable message."""
