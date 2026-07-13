@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-07-13
+
+Maintenance release. Two bugs found by exercising the deployed v0.2.2 image
+against real YouTube, plus dependency updates.
+
+### Fixed
+
+- **`GET /api/v1/formats` returned 500 for essentially every video**: yt-dlp
+  reports the audio bitrate as a fractional float (`abr: 129.796`), the
+  provider passed it straight into an int-typed field, and the response model
+  rejected every format. Numeric fields from yt-dlp (`audio_bitrate`,
+  `filesize`, `duration`) are now rounded at the provider boundary, and
+  non-finite values (`Infinity`, `NaN`, both accepted by `json.loads`) degrade
+  to `None` instead of raising. Test fixtures used integer bitrates, which is
+  why the suite never caught it
+- **`/health` reported `unhealthy` on a working deployment**: the YouTube
+  connectivity probe had a hardcoded 2s timeout while a real yt-dlp invocation
+  takes ~1.7s in the published image, so the check flipped on any jitter. The
+  timeout is now configurable via `timeouts.health_check`
+  (`APP_TIMEOUTS_HEALTH_CHECK`), default 10s
+- `APIError` now forwards all arguments to `super().__init__()`, so it survives
+  `copy` and `pickle` round-trips (surfaced by flake8-bugbear B042)
+
+### Changed
+
+- Dev toolchain: flake8 7.3.0, flake8-bugbear 25.11.29 (the two must move
+  together: bugbear requires flake8 >= 7.2.0), bandit 1.9.4, pre-commit 4.6.0
+- Dependencies: cachetools 7.1.4, pyyaml 6.0.3
+- CI actions: upload-artifact v7, setup-buildx-action v4
+
 ## [0.2.2] - 2026-07-12
 
 ### Added
@@ -316,6 +346,7 @@ Initial MVP release of yt-dlp REST API.
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
 [Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.2...HEAD
+[0.2.3]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.1.6...v0.2.0
