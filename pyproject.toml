@@ -18,7 +18,7 @@ dependencies = [
     "prometheus-client==0.23.1",
     "psutil==7.2.2",
     "pyyaml==6.0.3",
-    "cachetools==6.2.4",
+    "cachetools==7.1.4",
     "httpx==0.28.1",
 ]
 
