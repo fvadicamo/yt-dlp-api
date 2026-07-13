@@ -390,6 +390,33 @@ class TestFormatListing:
         assert formats[0]["resolution"] == "1920x1080"
         assert formats[0]["format_type"] == "video+audio"
 
+    def test_parse_formats_rounds_fractional_bitrate(self, youtube_provider):
+        """Test yt-dlp float abr is rounded (real output has abr=129.796)."""
+        formats = youtube_provider._parse_formats(
+            [
+                {
+                    "format_id": "140",
+                    "ext": "m4a",
+                    "vcodec": "none",
+                    "acodec": "mp4a.40.2",
+                    "abr": 129.796,
+                    "filesize": 3407872,
+                }
+            ]
+        )
+
+        assert formats[0]["audio_bitrate"] == 130
+        assert isinstance(formats[0]["audio_bitrate"], int)
+
+    def test_parse_formats_handles_missing_bitrate(self, youtube_provider):
+        """Test formats without abr keep a None bitrate."""
+        formats = youtube_provider._parse_formats(
+            [{"format_id": "160", "ext": "mp4", "vcodec": "avc1", "acodec": "none"}]
+        )
+
+        assert formats[0]["audio_bitrate"] is None
+        assert formats[0]["filesize"] is None
+
     @pytest.mark.asyncio
     async def test_list_formats(self, youtube_provider, sample_video_metadata):
         """Test list_formats method returns sorted VideoFormat objects."""
@@ -410,6 +437,57 @@ class TestFormatListing:
             # Formats should be sorted (highest resolution first)
             assert formats[0].format_id == "137"
             assert formats[0].resolution == "1920x1080"
+
+    @pytest.mark.asyncio
+    async def test_list_formats_with_real_float_bitrates(self, youtube_provider):
+        """Test VideoFormat gets int bitrates when yt-dlp reports floats.
+
+        Regression: real yt-dlp output carries fractional abr (e.g. 129.796),
+        which made the VideoFormatResponse model reject the format with a 500.
+        """
+        metadata = {
+            "id": "dQw4w9WgXcQ",
+            "title": "Test",
+            "duration": 212.6,
+            "formats": [
+                {
+                    "format_id": "140",
+                    "ext": "m4a",
+                    "resolution": None,
+                    "vcodec": "none",
+                    "acodec": "mp4a.40.2",
+                    "abr": 129.796,
+                    "filesize": 3407872,
+                }
+            ],
+        }
+
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.returncode = 0
+            mock_process.communicate = AsyncMock(return_value=(json.dumps(metadata).encode(), b""))
+            mock_subprocess.return_value = mock_process
+
+            formats = await youtube_provider.list_formats("https://youtube.com/watch?v=dQw4w9WgXcQ")
+
+        assert formats[0].audio_bitrate == 130
+        assert isinstance(formats[0].audio_bitrate, int)
+
+    @pytest.mark.asyncio
+    async def test_get_info_rounds_fractional_duration(self, youtube_provider):
+        """Test yt-dlp float duration is rounded to the int the API contract declares."""
+        metadata = {"id": "abc123", "title": "Test", "duration": 212.6, "uploader": "u"}
+
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            mock_process = AsyncMock()
+            mock_process.returncode = 0
+            mock_process.communicate = AsyncMock(return_value=(json.dumps(metadata).encode(), b""))
+            mock_subprocess.return_value = mock_process
+
+            info = await youtube_provider.get_info("https://youtube.com/watch?v=abc123")
+
+        assert info["duration"] == 213
+        assert isinstance(info["duration"], int)
 
     def test_get_resolution_value_with_resolution(self, youtube_provider):
         """Test _get_resolution_value extracts numeric value from resolution string."""
