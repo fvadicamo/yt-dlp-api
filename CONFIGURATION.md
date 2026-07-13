@@ -52,6 +52,7 @@ timeouts:
   metadata: 10       # Video info fetch timeout
   download: 300      # Download operation timeout (5 min)
   audio_conversion: 60  # FFmpeg conversion timeout
+  health_check: 10   # YouTube connectivity probe in /health
 ```
 
 | Field | Type | Default | Env Variable | Validation |
@@ -59,6 +60,12 @@ timeouts:
 | `metadata` | integer | `10` | `APP_TIMEOUTS_METADATA` | >= 1 |
 | `download` | integer | `300` | `APP_TIMEOUTS_DOWNLOAD` | >= 1 |
 | `audio_conversion` | integer | `60` | `APP_TIMEOUTS_AUDIO_CONVERSION` | >= 1 |
+| `health_check` | integer | `10` | `APP_TIMEOUTS_HEALTH_CHECK` | >= 1 |
+
+The `health_check` timeout bounds the yt-dlp probe behind the
+`youtube_connectivity` component in `GET /health`. A real yt-dlp invocation
+rarely completes in under a couple of seconds, so a value that is too low makes
+`/health` report `unhealthy` while the service is perfectly functional.
 
 ### Storage Configuration
 
