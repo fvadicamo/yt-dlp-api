@@ -70,7 +70,7 @@ jobs:
         run: pytest tests/ --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=90
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-xml
           path: coverage.xml
