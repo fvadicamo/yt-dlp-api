@@ -1,6 +1,6 @@
 [project]
 name = "ytdlp-api"
-version = "0.2.2"
+version = "0.2.3"
 description = "REST API backend for yt-dlp video downloads and metadata extraction"
 authors = [
     {name = "Francesco Vadicamo"}
