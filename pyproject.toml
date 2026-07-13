@@ -45,7 +45,7 @@ dev = [
     "types-cachetools==6.2.0.20251022",
     "types-psutil==6.1.0.20241221",
     # Security
-    "bandit==1.7.7",
+    "bandit==1.9.4",
     # Pre-commit
     "pre-commit==4.5.1",
 ]
