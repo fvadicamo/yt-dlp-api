@@ -8,6 +8,7 @@ This module tests Task 10 implementation:
 """
 
 import asyncio
+import copy
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -149,6 +150,28 @@ class TestAPIError:
             raise error
 
         assert exc_info.value.error_code == ErrorCode.INTERNAL_ERROR
+
+    def test_api_error_str_is_message(self) -> None:
+        """Test str() returns the human-readable message, not the args tuple."""
+        error = APIError(error_code=ErrorCode.INVALID_URL, message="Bad URL", details="why")
+
+        assert str(error) == "Bad URL"
+
+    def test_api_error_survives_copy(self) -> None:
+        """Test all fields are preserved through a copy round-trip."""
+        error = APIError(
+            error_code=ErrorCode.INVALID_URL,
+            message="Bad URL",
+            details="URL parsing failed",
+            suggestion="Check URL format",
+        )
+
+        copied = copy.copy(error)
+
+        assert copied.error_code == error.error_code
+        assert copied.message == error.message
+        assert copied.details == error.details
+        assert copied.suggestion == error.suggestion
 
 
 class TestExceptionMapping:
