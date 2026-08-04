@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-04
+
+Dependency maintenance release. No application code changed: the API surface,
+behaviour and configuration are identical to 0.2.3.
+
+### Changed
+
+- Runtime dependencies: fastapi 0.139.2 (from 0.125.0, includes a thread-safety
+  fix in router route building and a routing fix for dotted paths such as
+  `/users/john.doe`), structlog 26.1.0 (from 25.5.0; the major only drops
+  Python 3.8/3.9, never supported here)
+- Dev toolchain: mypy 2.3.0, types-psutil 7.2.2.20260518 (the stubs were still
+  on the 6.x line while `psutil` has been pinned at 7.2.2), types-PyYAML
+  6.0.12.20260518
+- CI actions: github-script v9, setup-qemu-action v4, login-action v4,
+  gitleaks-action v3
+
+### Fixed
+
+- `make check` failed on a clean checkout: two test helpers were annotated
+  `-> "TestClient.post"`, which is a method and not a type, and `mypy .`
+  descended into the in-tree virtualenv. The CI gate never saw either, because
+  it runs `mypy app/` while the Makefile runs `mypy .`
+- `pyproject.toml` dev extras still pinned flake8 7.0.0 with flake8-bugbear
+  24.1.17, so `pip install -e ".[dev]"` reproduced the exact incompatibility
+  fixed in 0.2.3 (bugbear requires flake8 >= 7.2.0); the extras now match
+  `requirements-dev.txt`
+
+### Security
+
+- The pre-commit privacy guard now scans only the lines a commit adds, so a
+  token already present in a committed line no longer wedges every later edit
+  to that file, and the commit that *removes* a leak is no longer rejected
+
 ## [0.2.3] - 2026-07-13
 
 Maintenance release. Two bugs found by exercising the deployed v0.2.2 image
@@ -345,7 +379,8 @@ Initial MVP release of yt-dlp REST API.
 - Trivy security scan passed (0 critical vulnerabilities)
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
-[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.0...v0.2.1

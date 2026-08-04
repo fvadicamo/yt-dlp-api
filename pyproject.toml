@@ -1,6 +1,6 @@
 [project]
 name = "ytdlp-api"
-version = "0.2.3"
+version = "0.2.4"
 description = "REST API backend for yt-dlp video downloads and metadata extraction"
 authors = [
     {name = "Francesco Vadicamo"}
@@ -33,8 +33,8 @@ dev = [
     "black==26.5.1",
     "isort==5.13.2",
     # Linting
-    "flake8==7.0.0",
-    "flake8-bugbear==24.1.17",
+    "flake8==7.3.0",
+    "flake8-bugbear==25.11.29",
     "flake8-comprehensions==3.17.0",
     "flake8-simplify==0.22.0",
     "flake8-docstrings==1.7.0",
@@ -184,6 +184,9 @@ max-complexity = 10
 
 [tool.mypy]
 python_version = "3.11"
+# `make type-check` runs `mypy .`, which would otherwise descend into the
+# local virtualenv the contributor guide tells you to create in-tree.
+exclude = ["^\\.?venv/"]
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

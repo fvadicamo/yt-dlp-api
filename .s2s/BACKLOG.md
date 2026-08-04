@@ -1,6 +1,6 @@
 # yt-dlp-api Backlog
 
-**Updated**: 2026-07-13
+**Updated**: 2026-08-04
 **Format**: Single markdown file for tracking work items
 
 ---
@@ -19,6 +19,27 @@
 ---
 
 ## Planned
+
+### DEBT-003: The CI type gate is narrower than the documented local one
+
+**Status**: planned | **Created**: 2026-08-04
+
+**Context**: The CI `Lint` job runs `mypy app/`, while `make type-check` (the
+command CONTRIBUTING tells contributors to run) runs `mypy .`. The gap is not
+theoretical: `make check` had been failing on a clean checkout for an unknown
+number of releases while every required check stayed green, because the 19
+errors were all in `tests/`. The errors themselves are fixed in v0.2.4; the
+asymmetry that hid them is not.
+
+**Acceptance Criteria**:
+- [ ] Decide the intended scope of the blocking type gate: widen CI to `mypy .`,
+      or narrow the Makefile to match CI and say so in CONTRIBUTING. Widening is
+      the recommended one, since it is the local command that is documented
+- [ ] Whichever is chosen, the two are the same command, so a green CI implies a
+      green `make check`
+- [ ] If CI widens: `tests.*` mypy overrides in `pyproject.toml` reviewed, since
+      they currently disable `arg-type`, `union-attr`, `operator` and `misc`
+      and would become part of a blocking gate
 
 ### TECH-007: Drive adoption of the published image
 
@@ -60,6 +81,31 @@ transcript endpoint can fall back to a config-declared external service.
 ---
 
 ## Completed
+
+### TECH-008: Drain the dependabot queue and release v0.2.4
+
+**Status**: completed | **Created**: 2026-08-04 | **Completed**: 2026-08-04
+
+**Context**: Eight dependabot PRs open since 2026-07-20 with both queues at
+their configured limit (pip 5/5, github-actions 3/3), so dependabot could not
+propose anything new, including the next yt-dlp release. Two of the eight were
+runtime dependencies baked into the published image (fastapi, structlog), which
+is what made this a release rather than a sync.
+
+**Acceptance Criteria**:
+- [x] PRs #94-#101 merged into develop, both queues free, CI green on the
+      combined state
+- [x] The two CI-action bumps that no PR check exercises (`setup-qemu-action`,
+      `login-action`, used only in `docker-publish.yml`, which never runs on
+      `pull_request`) verified by dispatching that workflow on develop, where it
+      publishes only the rolling `weekly` tag
+- [x] `make check` restored to green: the two `-> "TestClient.post"`
+      annotations corrected, the in-tree venv excluded from `mypy .` (the
+      asymmetry that hid them is DEBT-003)
+- [x] `pyproject.toml` dev extras realigned with `requirements-dev.txt`: they
+      still pinned flake8 7.0.0 with flake8-bugbear 24.1.17, reproducing under
+      `pip install -e ".[dev]"` the exact incompatibility DEBT-002 fixed
+- [x] Image exercised against real YouTube before the tag
 
 ### BUG-005: /formats returns 500 on real YouTube (fractional audio bitrate)
 

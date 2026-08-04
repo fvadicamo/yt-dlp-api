@@ -5,6 +5,7 @@ This module tests the API endpoints implementation (Task 9).
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -840,7 +841,7 @@ class TestDownloadValidationErrors:
 class TestSyncDownloadErrorPaths:
     """Synchronous download branch coverage."""
 
-    def _post_sync(self, app: FastAPI) -> "TestClient.post":
+    def _post_sync(self, app: FastAPI) -> httpx.Response:
         client = TestClient(app)
         return client.post(
             "/api/v1/download",
@@ -1305,7 +1306,7 @@ class TestTranscriptEndpoint:
 class TestDownloadWebhookParam:
     """webhook_url handling on the download endpoint."""
 
-    def _post(self, app: FastAPI, payload: dict) -> "TestClient.post":
+    def _post(self, app: FastAPI, payload: dict) -> httpx.Response:
         client = TestClient(app)
         return client.post("/api/v1/download", json=payload)
 

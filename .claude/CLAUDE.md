@@ -1,11 +1,12 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2026-07-13
+**Last Updated**: 2026-08-04
 **Branch**: `develop`
 **Current Task**: none open. Production readiness waves all closed; the backlog
 holds two demand-gated items (TECH-007 adoption, FEAT-004 external STT contract)
+plus DEBT-003 (CI type gate narrower than the local one)
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
-**Latest Release**: v0.2.3 - Formats 500 and health probe fixes
+**Latest Release**: v0.2.4 - Dependency maintenance
 
 @../.s2s/CONTEXT.md
 
@@ -244,7 +245,7 @@ git push origin --delete feature/<task-name>
 
 **Coverage**: 94% (gate: 90%, enforced in CI and pre-push) ✅
 **Tests Passing**: 911 tests ✅
-**Latest Release**: v0.2.3 (2026-07-13)
+**Latest Release**: v0.2.4 (2026-08-04)
 
 ### MVP Status: COMPLETE ✅
 
@@ -285,6 +286,33 @@ clean integers where yt-dlp returns floats.
 **Rule of thumb this produced**: before closing any release, exercise the built
 image against real YouTube (`/info`, `/formats`, `/transcript`), not only the
 suite and the container smoke test.
+
+### Maintenance pass 2026-08-04 (release v0.2.4)
+
+Dependency-only release: no application code changed. Eight dependabot PRs had
+been sitting since 2026-07-20 with both queues saturated (pip 5/5,
+github-actions 3/3), so nothing new could be proposed, including the next
+yt-dlp release. PRs #94-#101 absorbed, DEBT-003 opened.
+
+**Two things a green CI did not measure**, both found by looking instead of
+trusting the checkmarks:
+
+- `docker-publish.yml` never runs on `pull_request` (triggers: tag, schedule,
+  dispatch). The bumps to `setup-qemu-action` and `login-action` live *only*
+  there, so their green PR checks exercised `ci.yml` and nothing else. Verified
+  before tagging with `gh workflow run docker-publish.yml --ref develop`, which
+  publishes only the rolling `weekly` tag: that is the way to test the publish
+  path without minting a release.
+- `make check` had been failing on a clean checkout while CI stayed green,
+  because the CI Lint job runs `mypy app/` and the Makefile runs `mypy .`. Two
+  test helpers annotated `-> "TestClient.post"` (a method, not a type) plus the
+  in-tree venv being scanned. Pre-existing, not a regression of the mypy 2.x
+  bump: mypy 1.19.1 reports the same 19 errors.
+
+**Rule of thumb this produced**: when a check is green, ask which files it
+actually read. A required check that never triggers on the workflow it is
+supposed to guard, or that scans a narrower path than the documented local
+command, reports a pass over work it never did.
 
 ---
 
