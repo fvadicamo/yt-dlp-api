@@ -45,6 +45,32 @@ produced DEBT-003.
 - [ ] Remaining Lint steps either routed through their make target or left
       duplicated on purpose, with the reason written down
 
+### DEBT-006: a few tests cannot fail
+
+**Status**: planned | **Created**: 2026-08-05
+
+**Context**: Found reviewing DEBT-003, same defect class as the debt itself: a
+check that cannot fail reads as a pass. Four sites, all pre-existing and all
+counted in the 911:
+
+- `test_template.py::test_unicode_path_traversal` asserts inside
+  `if result.is_valid:`, and both of its cases are rejected by
+  `validate_template`, so the body never runs and the test asserts nothing.
+  Its sibling `test_security.py::test_unicode_normalization_attacks` has the
+  same shape but 2 of its 4 cases do validate, so that one is live.
+- `test_monitoring.py:464` asserts `X or response.status_code == 200` inside
+  `if response.status_code == 200`, so the right operand is always true.
+- `test_monitoring.py:453` has the same `or response.status_code == 200`
+  escape hatch, which defeats the check on exactly the healthy path.
+- `test_rate_limiter.py:652` is `status != 429 or status == 200`, which is
+  merely a convoluted way to write `status != 429`. Correct, only obscure.
+
+**Acceptance Criteria**:
+- [ ] `test_unicode_path_traversal` asserts something on the rejected branch
+      too (its comment says "rejected or sanitized"; only one half is checked)
+- [ ] The `or status == 200` escape hatches removed, so the assertions bind
+- [ ] Quick scan for the same two shapes elsewhere in the suite
+
 ### DEBT-005: starlette is unpinned and the resolved version deprecates httpx
 
 **Status**: planned | **Created**: 2026-08-05
