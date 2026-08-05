@@ -84,6 +84,14 @@ DEBT-003 hit this as a CI-only failure and worked around it per line. At
 runtime the same version emits `StarletteDeprecationWarning: Using httpx with
 starlette.testclient is deprecated; install httpx2 instead` on every suite run.
 
+The sharp part is not that starlette is unpinned but that it is **unbounded**:
+fastapi 0.139.2 declares `starlette>=0.46.0` with no ceiling
+(`importlib.metadata.requires("fastapi")`), so every fresh install takes the
+newest starlette in existence. A major version (0.50 → 1.3.1) already landed
+that way, in a repo that pins everything else to the exact version. This is
+therefore the one open item that can turn CI red with nobody having changed a
+line, on a PR whose author did not cause it.
+
 **Acceptance Criteria**:
 - [ ] Decide between pinning starlette and adopting `httpx2` in the test
       dependencies (adopting it would also restore the `TestClient` types and
