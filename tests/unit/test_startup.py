@@ -144,6 +144,7 @@ class TestCheckYtdlp:
             result = await check_ytdlp(timeout=0.1)
 
             assert result.available is False
+            assert result.error is not None
             assert "timed out" in result.error.lower()
 
     @pytest.mark.asyncio
@@ -158,6 +159,7 @@ class TestCheckYtdlp:
             result = await check_ytdlp()
 
             assert result.available is False
+            assert result.error is not None
             assert "non-zero" in result.error.lower()
 
 
@@ -237,6 +239,7 @@ class TestCheckNodejs:
 
             assert result.available is False
             assert result.version == "v18.0.0"
+            assert result.error is not None
             assert "20" in result.error
             assert "18" in result.error
 
@@ -299,6 +302,7 @@ class TestStartupValidatorChecks:
 
             assert result.passed is False
             assert result.critical is True
+            assert result.message is not None
             assert "not found" in result.message.lower()
 
     @pytest.mark.asyncio
@@ -342,6 +346,7 @@ class TestStartupValidatorChecks:
 
             assert result.passed is False
             assert result.critical is True
+            assert result.message is not None
             assert "20" in result.message
 
 
@@ -357,6 +362,7 @@ class TestStorageValidation:
 
         assert result.passed is True
         assert result.critical is True
+        assert result.message is not None
         assert "writable" in result.message.lower()
 
     @pytest.mark.asyncio
@@ -393,6 +399,7 @@ class TestStorageValidation:
 
             assert result.passed is False
             assert result.critical is True
+            assert result.message is not None
             assert "cannot write" in result.message.lower()
 
 
@@ -428,6 +435,7 @@ class TestCookieValidation:
 
         assert result.passed is False
         assert result.critical is True
+        assert result.message is not None
         assert "not found" in result.message.lower()
 
     @pytest.mark.asyncio
@@ -471,6 +479,7 @@ class TestCookieValidation:
 
         assert result.passed is False
         assert result.critical is True
+        assert result.message is not None
         assert "cannot access" in result.message.lower()
 
     @pytest.mark.asyncio
@@ -516,6 +525,7 @@ class TestCookieValidation:
         result = await validator.check_cookies()
 
         assert result.passed is False
+        assert result.message is not None
         assert "empty" in result.message.lower()
 
     @pytest.mark.asyncio
@@ -539,6 +549,7 @@ class TestCookieValidation:
         result = await validator.check_cookies()
 
         assert result.passed is False
+        assert result.message is not None
         assert "invalid format" in result.message.lower()
 
     @pytest.mark.asyncio
@@ -554,6 +565,7 @@ class TestCookieValidation:
         result = await validator.check_cookies()
 
         assert result.passed is True
+        assert result.message is not None
         assert "disabled" in result.message.lower()
 
 

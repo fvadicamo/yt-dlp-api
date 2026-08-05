@@ -187,6 +187,7 @@ class TestValidateTemplate(TestTemplateProcessor):
         """Test that path traversal attempts are rejected."""
         result = processor.validate_template(template)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "traversal" in result.error_message.lower()
 
     @pytest.mark.parametrize(
@@ -201,6 +202,7 @@ class TestValidateTemplate(TestTemplateProcessor):
         """Test that absolute paths are rejected."""
         result = processor.validate_template(template)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "absolute" in result.error_message.lower()
 
     def test_absolute_path_with_traversal_rejected(self, processor: TemplateProcessor):
@@ -208,29 +210,33 @@ class TestValidateTemplate(TestTemplateProcessor):
         # This is caught as path traversal first
         result = processor.validate_template("/app/downloads/../secrets")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "traversal" in result.error_message.lower()
 
     def test_null_bytes_rejected(self, processor: TemplateProcessor):
         """Test that null bytes in template are rejected."""
         result = processor.validate_template("file\x00name.%(ext)s")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "invalid" in result.error_message.lower()
 
     def test_empty_template_rejected(self, processor: TemplateProcessor):
         """Test that empty templates are rejected."""
         result = processor.validate_template("")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "required" in result.error_message.lower()
 
     def test_whitespace_only_template_rejected(self, processor: TemplateProcessor):
         """Test that whitespace-only templates are rejected."""
         result = processor.validate_template("   ")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "empty" in result.error_message.lower()
 
     def test_none_template_rejected(self, processor: TemplateProcessor):
         """Test that None template is rejected."""
-        result = processor.validate_template(None)
+        result = processor.validate_template(None)  # type: ignore[arg-type]
         assert result.is_valid is False
 
 
@@ -248,6 +254,7 @@ class TestValidateOutputPath(TestTemplateProcessor):
         """Test that paths outside output directory are rejected."""
         result = temp_processor.validate_output_path("/etc/passwd")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "output directory" in result.error_message.lower()
 
     def test_empty_path_rejected(self, temp_processor: TemplateProcessor):
@@ -266,6 +273,7 @@ class TestProcessTemplate(TestTemplateProcessor):
 
         result = processor.process_template(template, variables)
         assert result.is_valid is True
+        assert result.processed_path is not None
         assert "My Video" in result.processed_path
         assert "abc123" in result.processed_path
         assert result.processed_path.endswith(".mp4")
@@ -277,6 +285,7 @@ class TestProcessTemplate(TestTemplateProcessor):
 
         result = processor.process_template(template, variables)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "missing" in result.error_message.lower()
 
     def test_invalid_template_format(self, processor: TemplateProcessor):
@@ -296,6 +305,7 @@ class TestProcessTemplate(TestTemplateProcessor):
         result = processor.process_template(template, variables)
         assert result.is_valid is True
         # Illegal chars should be replaced
+        assert result.processed_path is not None
         assert "<" not in result.processed_path
         assert ">" not in result.processed_path
 
@@ -307,6 +317,7 @@ class TestProcessTemplate(TestTemplateProcessor):
 
         result = processor.process_template(template, variables)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "type" in result.error_message.lower() or "mismatch" in result.error_message.lower()
         assert result.processed_path is None
 
@@ -318,6 +329,7 @@ class TestProcessTemplate(TestTemplateProcessor):
 
         result = processor.process_template(template, variables)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "type" in result.error_message.lower() or "mismatch" in result.error_message.lower()
 
 
@@ -371,6 +383,7 @@ class TestBuildOutputPath(TestTemplateProcessor):
         )
 
         assert result.is_valid is True
+        assert result.processed_path is not None
         assert "My Video" in result.processed_path
         assert result.processed_path.startswith(str(tmp_path))
 
@@ -383,6 +396,7 @@ class TestBuildOutputPath(TestTemplateProcessor):
         result = temp_processor.build_output_path(None, variables, ensure_unique=False)
 
         assert result.is_valid is True
+        assert result.processed_path is not None
         assert "My Video" in result.processed_path
 
     def test_build_path_ensures_unique(self, temp_processor: TemplateProcessor, tmp_path: Path):
@@ -393,6 +407,7 @@ class TestBuildOutputPath(TestTemplateProcessor):
         first_result = temp_processor.build_output_path(
             "%(title)s.%(ext)s", variables, ensure_unique=False
         )
+        assert first_result.processed_path is not None
         Path(first_result.processed_path).touch()
 
         # Build path again - should be unique
@@ -402,6 +417,7 @@ class TestBuildOutputPath(TestTemplateProcessor):
 
         assert second_result.is_valid is True
         assert second_result.processed_path != first_result.processed_path
+        assert second_result.processed_path is not None
         assert "_1" in second_result.processed_path
 
 
@@ -424,7 +440,7 @@ class TestTemplateResult:
         """Test that TemplateResult is immutable."""
         result = TemplateResult(is_valid=True, processed_path="/path")
         with pytest.raises(AttributeError):
-            result.is_valid = False
+            result.is_valid = False  # type: ignore[misc]
 
 
 class TestConvenienceFunctions:
@@ -472,6 +488,7 @@ class TestSecurityEdgeCases:
             result = processor.validate_template(template)
             # Should either be rejected or sanitized
             if result.is_valid:
+                assert result.processed_path is not None
                 assert ".." not in result.processed_path
 
     def test_url_encoded_in_filename(self, processor: TemplateProcessor):

@@ -61,6 +61,7 @@ class TestURLValidator:
         """Test that non-whitelisted domains are rejected."""
         result = validator.validate(url)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert expected_domain in result.error_message
 
     # Dangerous URL schemes
@@ -77,6 +78,7 @@ class TestURLValidator:
         """Test that dangerous URL schemes are rejected."""
         result = validator.validate(url)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "not allowed" in result.error_message.lower()
 
     # Empty and invalid inputs
@@ -94,6 +96,7 @@ class TestURLValidator:
         """Test that empty and invalid inputs are rejected."""
         result = validator.validate(url)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert expected_error in result.error_message.lower()
 
     def test_url_with_port_number(self, validator: URLValidator):
@@ -109,6 +112,7 @@ class TestURLValidator:
         result = validator.validate(malicious_url)
         assert result.is_valid is False
         # Should reject evil.com, not accept youtube.com
+        assert result.error_message is not None
         assert (
             "evil.com" in result.error_message or "not in the allowed list" in result.error_message
         )
@@ -119,6 +123,7 @@ class TestURLValidator:
         malicious_url = "https://youtube.com:password@evil.com:443/malicious"
         result = validator.validate(malicious_url)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert (
             "evil.com" in result.error_message or "not in the allowed list" in result.error_message
         )
@@ -188,6 +193,7 @@ class TestFormatValidator:
         """Test that invalid format IDs are rejected."""
         result = validator.validate_format_id(format_id)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "invalid characters" in result.error_message.lower()
 
     def test_format_id_max_length(self, validator: FormatValidator):
@@ -195,31 +201,36 @@ class TestFormatValidator:
         long_format_id = "a" * 100
         result = validator.validate_format_id(long_format_id)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "maximum length" in result.error_message.lower()
 
     def test_empty_format_id_rejected(self, validator: FormatValidator):
         """Test that empty format IDs are rejected."""
         result = validator.validate_format_id("")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "required" in result.error_message.lower()
 
     def test_whitespace_only_format_id_rejected(self, validator: FormatValidator):
         """Test that format IDs containing only whitespace are rejected."""
         result = validator.validate_format_id("   ")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "cannot be empty" in result.error_message.lower()
 
         result = validator.validate_format_id("\t\t")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "cannot be empty" in result.error_message.lower()
 
         result = validator.validate_format_id("\n\n")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "cannot be empty" in result.error_message.lower()
 
     def test_none_format_id_rejected(self, validator: FormatValidator):
         """Test that None format ID is rejected."""
-        result = validator.validate_format_id(None)
+        result = validator.validate_format_id(None)  # type: ignore[arg-type]
         assert result.is_valid is False
 
     def test_is_valid_format_id_convenience(self, validator: FormatValidator):
@@ -280,12 +291,14 @@ class TestParameterValidator:
         """Test that invalid audio formats are rejected."""
         result = validator.validate_audio_format(audio_format)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "invalid audio format" in result.error_message.lower()
 
     def test_empty_audio_format_rejected(self, validator: ParameterValidator):
         """Test that empty audio format is rejected."""
         result = validator.validate_audio_format("")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "required" in result.error_message.lower()
 
     # Audio quality validation
@@ -335,6 +348,7 @@ class TestParameterValidator:
         # Zero
         result = validator.validate_positive_integer(0, "count")
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "positive" in result.error_message.lower()
 
         # Negative
@@ -344,12 +358,14 @@ class TestParameterValidator:
         # Exceeds max
         result = validator.validate_positive_integer(500, "count", max_value=100)
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "maximum" in result.error_message.lower()
 
     def test_non_integer_rejected(self, validator: ParameterValidator):
         """Test that non-integers are rejected."""
-        result = validator.validate_positive_integer("10", "count")
+        result = validator.validate_positive_integer("10", "count")  # type: ignore[arg-type]
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "integer" in result.error_message.lower()
 
         # Boolean is not accepted even though bool is subclass of int
@@ -378,7 +394,7 @@ class TestValidationResult:
         """Test that ValidationResult is immutable (frozen dataclass)."""
         result = ValidationResult(is_valid=True)
         with pytest.raises(AttributeError):
-            result.is_valid = False
+            result.is_valid = False  # type: ignore[misc]
 
 
 class TestConvenienceFunctions:

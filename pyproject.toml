@@ -201,11 +201,15 @@ show_error_codes = true
 show_column_numbers = true
 pretty = true
 
+# Tests are part of the blocking type gate (CI runs `make type-check`, i.e.
+# `mypy .`). The only relaxation left is the annotation requirement: annotating
+# every test signature costs 444 errors and catches nothing the error codes
+# below do not already catch. Bodies are checked, and a deliberate type error
+# in a test is marked with a per-line `# type: ignore[...]` that says which
+# rule is being broken, instead of switching the rule off for the whole suite.
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
-check_untyped_defs = false
-disable_error_code = ["arg-type", "union-attr", "operator", "misc"]
 
 [[tool.mypy.overrides]]
 module = "prometheus_client"
