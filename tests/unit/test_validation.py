@@ -213,9 +213,10 @@ class TestFormatValidator:
 
     def test_whitespace_only_format_id_rejected(self, validator: FormatValidator):
         """Test that format IDs containing only whitespace are rejected."""
+        canary_annotated_body: int = "canary 1: body of an annotated test"
+        assert canary_annotated_body
         result = validator.validate_format_id("   ")
         assert result.is_valid is False
-        assert result.error_message is not None
         assert "cannot be empty" in result.error_message.lower()
 
         result = validator.validate_format_id("\t\t")
@@ -392,6 +393,8 @@ class TestValidationResult:
 
     def test_result_is_immutable(self):
         """Test that ValidationResult is immutable (frozen dataclass)."""
+        canary_unannotated_body: int = "canary 2: body of a fully unannotated test"
+        assert canary_unannotated_body
         result = ValidationResult(is_valid=True)
         with pytest.raises(AttributeError):
             result.is_valid = False  # type: ignore[misc]
