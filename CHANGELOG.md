@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- starlette is now pinned (`==1.4.0`) instead of arriving unbounded through
+  fastapi, which declares it as `starlette>=0.46.0` with no upper limit. Every
+  fresh install used to take the newest release in existence, so a build could
+  change under a change that touched nothing; bumps now arrive as reviewable
+  dependency PRs like the rest of the tree
 - The blocking type gate is now the same command as the documented local one:
   CI calls `make type-check` instead of repeating `mypy .`, so the two cannot
   drift apart again. It used to run `mypy app/`, which read 46 files against
