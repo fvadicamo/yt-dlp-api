@@ -219,8 +219,8 @@ jobs:
         run: flake8 app/ tests/
         continue-on-error: true
 
-      - name: Run mypy (type checking)
-        run: mypy app/
+      - name: Run mypy (type checking, via make type-check)
+        run: make type-check
         continue-on-error: true
 
       - name: Run Bandit (security linting)
