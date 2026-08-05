@@ -845,9 +845,12 @@ class TestSyncDownloadErrorPaths:
         client = TestClient(app)
         # starlette imports `httpx2 as httpx` under TYPE_CHECKING, so with plain
         # httpx installed every TestClient annotation degrades to Any and
-        # warn_return_any fires. Only newer starlette resolves this way, hence
-        # an ignore rather than a cast: a cast would be redundant, and reported
-        # as such, under the older resolution.
+        # warn_return_any fires. starlette is pinned (DEBT-005), so this is now
+        # the only resolution and the ignore is unconditionally needed; before
+        # the pin it was version-dependent, which is why it is an ignore rather
+        # than a cast. Adopting httpx2 would not delete these: TestClient would
+        # then return `httpx2.Response`, turning this into a `return-value`
+        # error against the `httpx.Response` annotation.
         return client.post(  # type: ignore[no-any-return]
             "/api/v1/download",
             json={"url": "https://www.youtube.com/watch?v=abc123", "async": False},

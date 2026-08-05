@@ -71,34 +71,39 @@ counted in the 911:
 - [ ] The `or status == 200` escape hatches removed, so the assertions bind
 - [ ] Quick scan for the same two shapes elsewhere in the suite
 
-### DEBT-005: starlette is unpinned and the resolved version deprecates httpx
+### DEBT-007: migrate the TestClient backend to httpx2
 
 **Status**: planned | **Created**: 2026-08-05
 
-**Context**: `requirements.txt` pins fastapi and httpx but not starlette, which
-arrives transitively. On 2026-08-05 a fresh install resolved starlette 1.3.1
-while a months-old venv still had 0.50.0, and the two disagree on types: 1.3.1
-imports `httpx2 as httpx` under `TYPE_CHECKING`, so with plain httpx installed
-every `TestClient` annotation degrades to `Any` and `warn_return_any` fires.
-DEBT-003 hit this as a CI-only failure and worked around it per line. At
-runtime the same version emits `StarletteDeprecationWarning: Using httpx with
-starlette.testclient is deprecated; install httpx2 instead` on every suite run.
+**Context**: Split out of DEBT-005, which pinned starlette and deliberately left
+this open. starlette 1.4.0 imports `httpx2 as httpx` in `testclient.py` and
+falls back to plain `httpx` with a `StarletteDeprecationWarning`, so the suite
+runs with exactly one warning. Silencing it means installing `httpx2` in the dev
+dependencies, and that is a migration rather than a line:
 
-The sharp part is not that starlette is unpinned but that it is **unbounded**:
-fastapi 0.139.2 declares `starlette>=0.46.0` with no ceiling
-(`importlib.metadata.requires("fastapi")`), so every fresh install takes the
-newest starlette in existence. A major version (0.50 → 1.3.1) already landed
-that way, in a repo that pins everything else to the exact version. This is
-therefore the one open item that can turn CI red with nobody having changed a
-line, on a PR whose author did not cause it.
+- measured on 2026-08-05, adding `httpx2==2.9.1` turns `make type-check` **red**
+  with 2 `return-value` errors, because `TestClient.post` then returns
+  `httpx2._models.Response` against helpers annotated `httpx.Response`. The
+  DEBT-003 per-line ignores do not cover it (`Error code "return-value" not
+  covered by "type: ignore[no-any-return]"`) and are reported unused at the
+  same time. The original DEBT-005 entry claimed httpx2 would make those
+  ignores unnecessary; it does not, it makes them insufficient.
+- it pulls `httpx2` + `httpcore2` + `truststore` into the dev env purely for
+  `TestClient`, while `app/services/webhook_service.py` keeps using
+  `httpx==0.28.1` at runtime, so the test types would reference a different
+  HTTP library from the one the application uses.
+
+The coherent version of this change is one HTTP client, not two: move webhook
+delivery to httpx2 as well, or wait until fastapi/starlette make httpx2 the
+default and httpx the fallback. Neither is urgent, and the pin means the
+decision is no longer forced by whatever a fresh install happens to resolve.
 
 **Acceptance Criteria**:
-- [ ] Decide between pinning starlette and adopting `httpx2` in the test
-      dependencies (adopting it would also restore the `TestClient` types and
-      make the DEBT-003 per-line ignores unnecessary)
-- [ ] Suite runs with 0 warnings again on a fresh install, not only on a stale
-      venv
-- [ ] A stale local venv can no longer disagree with CI about which errors exist
+- [ ] Decide whether httpx2 replaces httpx everywhere or the warning stays
+      documented until upstream flips the default
+- [ ] If adopted: the two helper annotations in `test_api_endpoints.py` moved to
+      the httpx2 types and the DEBT-003 ignores removed, gate green
+- [ ] Suite back to 0 warnings on a fresh install
 
 ### TECH-007: Drive adoption of the published image
 
@@ -140,6 +145,50 @@ transcript endpoint can fall back to a config-declared external service.
 ---
 
 ## Completed
+
+### DEBT-005: starlette was unbounded, so a fresh install took whatever was newest
+
+**Status**: completed | **Created**: 2026-08-05 | **Completed**: 2026-08-05
+
+**Context**: `requirements.txt` pinned fastapi and httpx but not starlette,
+which arrives transitively. fastapi 0.139.2 declares `starlette>=0.46.0` with
+no ceiling (`importlib.metadata.requires("fastapi")`), so every fresh install
+took the newest starlette in existence, in a repo that pins everything else to
+the exact version. The item existed because that is the one input able to turn
+CI red on a PR whose author changed nothing.
+
+**Measured before deciding**, and two of the three findings corrected the entry
+as originally written:
+
+- the drift is faster than the ticket. The entry was written on 2026-08-05
+  recording a fresh resolve of starlette **1.3.1**; a fresh resolve the same
+  week returned **1.4.0**. One unbounded dependency, one minor version, nobody
+  touched a line.
+- the type-error delta the entry describes was **already absorbed**. Under the
+  real gate (`mypy .`, which CI reaches through `make type-check` since
+  DEBT-003), both a fresh env at 1.4.0 and the stale in-tree venv at 0.50.0
+  report `Success: no issues found in 79 source files`. What survived was an
+  asymmetry, not a failure: the two DEBT-003 ignores are needed at 1.x and dead
+  at 0.50.0, and `warn_unused_ignores = false` hides the difference. The live
+  delta was one warning, present on fresh installs and absent on the stale venv.
+- adopting `httpx2` would **not** have fixed this. It leaves starlette floating
+  (still resolves 1.4.0 with httpx2 installed), so it does not touch the failure
+  mode at all, and it turns the gate red: see DEBT-007.
+
+**Acceptance Criteria**:
+- [x] Decided: pin, because it is the only one of the two options that addresses
+      an unbounded input; `starlette==1.4.0` in `requirements.txt` and in
+      `pyproject.toml`, which its own comment requires to stay in sync
+      (`requirements-dev.txt` inherits it through `-r requirements.txt`)
+- [x] A stale local venv can no longer disagree with CI about which errors exist:
+      the version is now an input rather than a resolution result, and bumps
+      arrive as dependabot PRs like every other dependency
+- [x] The stale rationale on the two DEBT-003 ignores corrected: with one pinned
+      resolution they are unconditionally needed, and the comment no longer
+      claims a second resolution exists
+- [ ] **Not met, split out deliberately**: the suite still emits one
+      `StarletteDeprecationWarning` on a fresh install. Closing that means
+      adopting httpx2, which is a migration with its own costs → DEBT-007
 
 ### DEBT-003: The CI type gate is narrower than the documented local one
 
