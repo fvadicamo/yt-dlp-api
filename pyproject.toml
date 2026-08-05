@@ -184,9 +184,14 @@ max-complexity = 10
 
 [tool.mypy]
 python_version = "3.11"
-# `make type-check` runs `mypy .`, which would otherwise descend into the
-# local virtualenv the contributor guide tells you to create in-tree.
-exclude = ["^\\.?venv/"]
+# `make type-check` runs `mypy .`, which would otherwise descend into whatever
+# untracked directories a contributor keeps in-tree: the virtualenv the guide
+# tells you to create, a build/ from `python -m build`, a personal .local/.
+# Ask git rather than maintaining a second copy of that list: an exclusion
+# written by hand covers the names someone thought of on the day they wrote it,
+# and this one already missed `env/`, which .flake8 and bandit both exclude.
+# With no .git present mypy scans more, not less, so the failure is loud.
+exclude_gitignore = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
