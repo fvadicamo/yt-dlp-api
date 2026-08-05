@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `operator` and `misc`, nor skips the bodies of unannotated tests. Those
   relaxations were hiding 70 real errors, now fixed. Only the annotation
   requirement stays relaxed for tests
+- mypy asks git which paths to skip (`exclude_gitignore`) instead of carrying a
+  hand-written exclusion. The old one listed `venv/` and `.venv/` but not
+  `env/`, a name `.flake8` and bandit both exclude, so a contributor using it
+  got a red `make type-check` against a green CI, which is the asymmetry the
+  same release set out to remove
 
 ### Fixed
 
