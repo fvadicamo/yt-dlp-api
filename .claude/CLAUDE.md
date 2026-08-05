@@ -1,10 +1,10 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2026-08-04
+**Last Updated**: 2026-08-05
 **Branch**: `develop`
 **Current Task**: none open. Production readiness waves all closed; the backlog
 holds two demand-gated items (TECH-007 adoption, FEAT-004 external STT contract)
-plus DEBT-003 (CI type gate narrower than the local one)
+plus DEBT-004 (type gates outside CI) and DEBT-005 (starlette unpinned)
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
 **Latest Release**: v0.2.4 - Dependency maintenance
 
@@ -313,6 +313,28 @@ trusting the checkmarks:
 actually read. A required check that never triggers on the workflow it is
 supposed to guard, or that scans a narrower path than the documented local
 command, reports a pass over work it never did.
+
+### DEBT-003 closed 2026-08-05 (PR #110)
+
+The blocking type gate now calls `make type-check`, so CI and the documented
+local command are the same definition and not two copies of one string. The
+`tests.*` override lost `disable_error_code` and `check_untyped_defs = false`;
+the 70 errors they were hiding are fixed. Only `disallow_untyped_defs = false`
+survives (turning it on costs 444 errors and catches nothing new).
+
+**Two things a local run did not measure**, and both matter for the next
+session:
+
+- **A widened gate is not automatically a working gate.** Scope and strictness
+  are separate axes: with the override untouched, `mypy .` was green over
+  `tests/` while 70 real errors sat there. The only honest check is to watch
+  the gate fail on a deliberate error, which is what PR #109 (closed) did.
+- **The local venv can be a different dependency set from CI.** starlette is
+  unpinned; the venv in the tree had 0.50.0 while a fresh `pip install -r
+  requirements-dev.txt` resolves 1.3.1, and the two disagree about which type
+  errors exist. Reproduce CI with a throwaway env
+  (`uv venv` + `uv pip install -r requirements-dev.txt`) before trusting a
+  green local `make check` on anything type-related. Tracked as DEBT-005.
 
 ---
 
