@@ -352,7 +352,7 @@ class StorageManager:
 
 async def cleanup_scheduler(
     storage: StorageManager,
-    interval: int = 3600,
+    interval: float = 3600,
     run_once: bool = False,
 ) -> Optional[CleanupResult]:
     """Run periodic cleanup checks.

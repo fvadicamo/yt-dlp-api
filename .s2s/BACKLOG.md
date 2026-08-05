@@ -1,6 +1,6 @@
 # yt-dlp-api Backlog
 
-**Updated**: 2026-08-04
+**Updated**: 2026-08-05
 **Format**: Single markdown file for tracking work items
 
 ---
@@ -20,26 +20,51 @@
 
 ## Planned
 
-### DEBT-003: The CI type gate is narrower than the documented local one
+### DEBT-004: The type gates outside CI are still narrower than the CI one
 
-**Status**: planned | **Created**: 2026-08-04
+**Status**: planned | **Created**: 2026-08-05
 
-**Context**: The CI `Lint` job runs `mypy app/`, while `make type-check` (the
-command CONTRIBUTING tells contributors to run) runs `mypy .`. The gap is not
-theoretical: `make check` had been failing on a clean checkout for an unknown
-number of releases while every required check stayed green, because the 19
-errors were all in `tests/`. The errors themselves are fixed in v0.2.4; the
-asymmetry that hid them is not.
+**Context**: DEBT-003 aligned the blocking gate with `make type-check`, but the
+pre-commit mypy hook keeps `exclude: ^tests/` and pins mypy 1.19.1 against
+requirements-dev's 2.3.0. Measured during the DEBT-003 canary: committing three
+deliberate type errors in `tests/` printed `mypy (no files to check) Skipped`,
+so the local commit hook let them through and only CI caught them. Widening the
+hook is not free, since it runs mypy in an isolated env whose
+`additional_dependencies` would have to grow the test-only packages.
+
+The other Lint tools have the same command asymmetry (`flake8 .` vs
+`flake8 app/ tests/`, `black --check .` vs `app/ tests/`, `bandit -r app/`
+with and without `-c pyproject.toml`). All four were measured on 2026-08-05:
+identical results on both sides, so no active defect, only the same shape that
+produced DEBT-003.
 
 **Acceptance Criteria**:
-- [ ] Decide the intended scope of the blocking type gate: widen CI to `mypy .`,
-      or narrow the Makefile to match CI and say so in CONTRIBUTING. Widening is
-      the recommended one, since it is the local command that is documented
-- [ ] Whichever is chosen, the two are the same command, so a green CI implies a
-      green `make check`
-- [ ] If CI widens: `tests.*` mypy overrides in `pyproject.toml` reviewed, since
-      they currently disable `arg-type`, `union-attr`, `operator` and `misc`
-      and would become part of a blocking gate
+- [ ] Decide whether the pre-commit mypy hook covers `tests/` or is documented
+      as deliberately narrower than the gate
+- [ ] Hook's mypy version reconciled with `requirements-dev.txt`
+- [ ] Remaining Lint steps either routed through their make target or left
+      duplicated on purpose, with the reason written down
+
+### DEBT-005: starlette is unpinned and the resolved version deprecates httpx
+
+**Status**: planned | **Created**: 2026-08-05
+
+**Context**: `requirements.txt` pins fastapi and httpx but not starlette, which
+arrives transitively. On 2026-08-05 a fresh install resolved starlette 1.3.1
+while a months-old venv still had 0.50.0, and the two disagree on types: 1.3.1
+imports `httpx2 as httpx` under `TYPE_CHECKING`, so with plain httpx installed
+every `TestClient` annotation degrades to `Any` and `warn_return_any` fires.
+DEBT-003 hit this as a CI-only failure and worked around it per line. At
+runtime the same version emits `StarletteDeprecationWarning: Using httpx with
+starlette.testclient is deprecated; install httpx2 instead` on every suite run.
+
+**Acceptance Criteria**:
+- [ ] Decide between pinning starlette and adopting `httpx2` in the test
+      dependencies (adopting it would also restore the `TestClient` types and
+      make the DEBT-003 per-line ignores unnecessary)
+- [ ] Suite runs with 0 warnings again on a fresh install, not only on a stale
+      venv
+- [ ] A stale local venv can no longer disagree with CI about which errors exist
 
 ### TECH-007: Drive adoption of the published image
 
@@ -81,6 +106,44 @@ transcript endpoint can fall back to a config-declared external service.
 ---
 
 ## Completed
+
+### DEBT-003: The CI type gate is narrower than the documented local one
+
+**Status**: completed | **Created**: 2026-08-04 | **Completed**: 2026-08-05 (PR #110)
+
+**Context**: The CI `Lint` job runs `mypy app/`, while `make type-check` (the
+command CONTRIBUTING tells contributors to run) runs `mypy .`. The gap is not
+theoretical: `make check` had been failing on a clean checkout for an unknown
+number of releases while every required check stayed green, because the 19
+errors were all in `tests/`. The errors themselves are fixed in v0.2.4; the
+asymmetry that hid them is not.
+
+**Measured before deciding**: `mypy app/` checked 46 files, `mypy .` checked 79,
+and the 33 in the delta were all of `tests/`. Under the old gate mypy itself
+reported `unused section(s): module = ['tests.*']`, so the gate read neither the
+tests nor the configuration about them. The `tests.*` override was hiding 70
+real errors in 8 files (43 `union-attr`, 17 `operator`, 8 `arg-type`, 2 `misc`),
+and `check_untyped_defs = false` skipped the body of every fully unannotated
+test. Dropping the whole override instead would have cost 514 errors, 444 of
+them `no-untyped-def`.
+
+**Acceptance Criteria**:
+- [x] Scope decided: CI widened, because the documented command is the local one
+      and narrowing would have left `tests/` unread by every gate
+- [x] CI calls `make type-check` rather than repeating `mypy .`, so the two
+      cannot drift apart again
+- [x] `tests.*` overrides reviewed one code at a time: `arg-type`, `union-attr`,
+      `operator` and `misc` re-enabled and their 70 sites fixed (50 narrowing
+      asserts, 8 `isinstance`, 5 genuine defects including a `cleanup_scheduler`
+      `interval` annotated `int` while only ever forwarding to `asyncio.sleep`,
+      5 per-line ignores where the wrong type is what the test asserts);
+      `check_untyped_defs` re-enabled; `disallow_untyped_defs` deliberately left
+      off
+- [x] Verified by watching it fail: a throwaway branch (PR #109, closed) with
+      three deliberate type errors in `tests/` turned the Lint job red on
+      exactly those three, with Tests green
+- [x] Follow-ups recorded rather than absorbed: DEBT-004 (gates outside CI),
+      DEBT-005 (starlette unpinned)
 
 ### TECH-008: Drain the dependabot queue and release v0.2.4
 

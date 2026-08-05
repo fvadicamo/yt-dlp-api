@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The blocking type gate is now the same command as the documented local one:
+  CI calls `make type-check` instead of repeating `mypy .`, so the two cannot
+  drift apart again. It used to run `mypy app/`, which read 46 files against
+  the 79 `make check` reads, the delta being all of `tests/`
+- The `tests.*` mypy override no longer disables `arg-type`, `union-attr`,
+  `operator` and `misc`, nor skips the bodies of unannotated tests. Those
+  relaxations were hiding 70 real errors, now fixed. Only the annotation
+  requirement stays relaxed for tests
+
+### Fixed
+
+- `cleanup_scheduler(interval=...)` was annotated `int` while the value is only
+  ever forwarded to `asyncio.sleep`; it now accepts `float`, as its callers
+  already did
+
 ## [0.2.4] - 2026-08-04
 
 Dependency maintenance release. No application code changed: the API surface,

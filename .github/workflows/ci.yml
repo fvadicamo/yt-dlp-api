@@ -44,8 +44,12 @@ jobs:
       - name: Flake8 (style)
         run: flake8 app/ tests/
 
-      - name: mypy (types)
-        run: mypy app/
+      # Goes through the Makefile on purpose: this gate used to run `mypy app/`
+      # while CONTRIBUTING told contributors to run `make type-check` (`mypy .`),
+      # so `make check` could stay red on a clean checkout with every required
+      # check green. Calling the target means the two cannot drift again.
+      - name: mypy (types, via make type-check)
+        run: make type-check
 
       - name: Bandit (security lint)
         run: bandit -c pyproject.toml -r app/
