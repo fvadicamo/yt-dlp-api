@@ -649,4 +649,4 @@ class TestRateLimitMiddlewareExcludedPaths:
         for _ in range(50):
             response = client.get("/api/v1/info")
             # Note: May return 404 if endpoint doesn't exist, but won't return 429
-            assert response.status_code != 429 or response.status_code == 200
+            assert response.status_code != 429

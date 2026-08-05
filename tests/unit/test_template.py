@@ -146,9 +146,9 @@ class TestSanitizeFilename(TestTemplateProcessor):
 
         # Result should not exceed MAX_FILENAME_LENGTH
         assert len(result) <= processor.MAX_FILENAME_LENGTH
-        # Result should not start with dot (invalid filename)
-        # If it would start with dot, it should be replaced with "unnamed"
-        assert not result.startswith(".") or result == "unnamed"
+        # Result should not start with dot (invalid filename):
+        # the "unnamed" fallback does not start with one either
+        assert not result.startswith(".")
 
     def test_unicode_normalization(self, processor: TemplateProcessor):
         """Test Unicode normalization (NFKC)."""
@@ -490,6 +490,10 @@ class TestSecurityEdgeCases:
             if result.is_valid:
                 assert result.processed_path is not None
                 assert ".." not in result.processed_path
+            else:
+                # A rejection must say why and must not hand back a usable path
+                assert result.error_message is not None
+                assert result.processed_path is None
 
     def test_url_encoded_in_filename(self, processor: TemplateProcessor):
         """Test that URL-encoded characters in filename are handled."""
