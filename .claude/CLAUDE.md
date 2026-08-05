@@ -4,8 +4,7 @@
 **Branch**: `develop`
 **Current Task**: none open. Production readiness waves all closed; the backlog
 holds two demand-gated items (TECH-007 adoption, FEAT-004 external STT contract)
-plus DEBT-004 (type gates outside CI), DEBT-006 (tests that cannot fail) and
-DEBT-007 (TestClient on httpx2)
+plus DEBT-004 (type gates outside CI) and DEBT-007 (TestClient on httpx2)
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
 **Latest Release**: v0.2.4 - Dependency maintenance
 
@@ -358,6 +357,23 @@ unnecessary. Split to DEBT-007, which also owns the one remaining
 **Rule of thumb this produced**: a pin verified by an install that would have
 resolved the same version anyway is a check that cannot fail. Perturb the pin
 to a different version and watch the resolver follow it, then put it back.
+
+### DEBT-006 closed 2026-08-05
+
+Four assertions that could not fail, fixed and each verified by breaking the
+behaviour underneath and watching the colour: `1 failed, 3 passed` before,
+`4 failed` after, same breaks. The entry's own classification held up under
+measurement, which is not the same as having been measured.
+
+**Coverage over test code finds candidate dead asserts, it does not confirm
+them.** Pointing coverage at `tests/` (its own `[run] source = tests`, since
+pyproject omits `*/tests/*`) flagged 7 never-executed asserts. Five were false
+positives: they sit right after an `await` on a cancelled task in
+`test_download_worker.py`, and deliberately breaking `stop()` and `_run()`
+turned every owning test red. Trusting the report would have meant "fixing"
+five working tests. The greppable half of the scan is
+`grep -rnE "^\s*assert .*\bor\b" tests/`; the non-greppable half needs the same
+deliberate break as the sites themselves.
 
 ---
 

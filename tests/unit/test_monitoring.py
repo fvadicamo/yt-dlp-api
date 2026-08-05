@@ -448,9 +448,10 @@ class TestMetricsEndpoint:
         """Test metrics endpoint returns correct content type."""
         response = client.get("/metrics")
 
+        assert response.status_code == 200
         # Check content type (may be text/plain or text/plain; charset=utf-8)
         content_type = response.headers.get("content-type", "")
-        assert "text/plain" in content_type or response.status_code == 200
+        assert "text/plain" in content_type
 
     def test_metrics_endpoint_contains_http_metrics(
         self,
@@ -459,9 +460,8 @@ class TestMetricsEndpoint:
         """Test metrics endpoint contains HTTP request metrics."""
         response = client.get("/metrics")
 
-        if response.status_code == 200:
-            content = response.text
-            assert "http_requests_total" in content or response.status_code == 200
+        assert response.status_code == 200
+        assert "http_requests_total" in response.text
 
 
 class TestYouTubeConnectivityCheck:

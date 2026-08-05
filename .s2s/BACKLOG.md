@@ -45,32 +45,6 @@ produced DEBT-003.
 - [ ] Remaining Lint steps either routed through their make target or left
       duplicated on purpose, with the reason written down
 
-### DEBT-006: a few tests cannot fail
-
-**Status**: planned | **Created**: 2026-08-05
-
-**Context**: Found reviewing DEBT-003, same defect class as the debt itself: a
-check that cannot fail reads as a pass. Four sites, all pre-existing and all
-counted in the 911:
-
-- `test_template.py::test_unicode_path_traversal` asserts inside
-  `if result.is_valid:`, and both of its cases are rejected by
-  `validate_template`, so the body never runs and the test asserts nothing.
-  Its sibling `test_security.py::test_unicode_normalization_attacks` has the
-  same shape but 2 of its 4 cases do validate, so that one is live.
-- `test_monitoring.py:464` asserts `X or response.status_code == 200` inside
-  `if response.status_code == 200`, so the right operand is always true.
-- `test_monitoring.py:453` has the same `or response.status_code == 200`
-  escape hatch, which defeats the check on exactly the healthy path.
-- `test_rate_limiter.py:652` is `status != 429 or status == 200`, which is
-  merely a convoluted way to write `status != 429`. Correct, only obscure.
-
-**Acceptance Criteria**:
-- [ ] `test_unicode_path_traversal` asserts something on the rejected branch
-      too (its comment says "rejected or sanitized"; only one half is checked)
-- [ ] The `or status == 200` escape hatches removed, so the assertions bind
-- [ ] Quick scan for the same two shapes elsewhere in the suite
-
 ### DEBT-007: migrate the TestClient backend to httpx2
 
 **Status**: planned | **Created**: 2026-08-05
@@ -145,6 +119,76 @@ transcript endpoint can fall back to a config-declared external service.
 ---
 
 ## Completed
+
+### DEBT-006: a few tests cannot fail
+
+**Status**: completed | **Created**: 2026-08-05 | **Completed**: 2026-08-05
+
+**Context**: Found reviewing DEBT-003, same defect class as the debt itself: a
+check that cannot fail reads as a pass. Four sites, all pre-existing and all
+counted in the 911:
+
+- `test_template.py::test_unicode_path_traversal` asserts inside
+  `if result.is_valid:`, and both of its cases are rejected by
+  `validate_template`, so the body never runs and the test asserts nothing.
+  Its sibling `test_security.py::test_unicode_normalization_attacks` has the
+  same shape but 2 of its 4 cases do validate, so that one is live.
+- `test_monitoring.py:464` asserts `X or response.status_code == 200` inside
+  `if response.status_code == 200`, so the right operand is always true.
+- `test_monitoring.py:453` has the same `or response.status_code == 200`
+  escape hatch, which defeats the check on exactly the healthy path.
+- `test_rate_limiter.py:652` is `status != 429 or status == 200`, which is
+  merely a convoluted way to write `status != 429`. Correct, only obscure.
+
+**The criterion was not that the tests pass, it was that they can fail**, so
+each site was measured by breaking the behaviour under it and watching the
+colour. Run against the same three deliberate breaks (a rejected template that
+hands back `processed_path` with no `error_message`; `/metrics` returning
+`200 application/json` with no metric names; `_is_excluded_path` returning
+`False`):
+
+- **before**: `1 failed, 3 passed`. The three sites the entry called dead stayed
+  green while the code under them was broken, and the rate-limiter one went red,
+  which is exactly the entry's own classification, now measured instead of read.
+- **after**: `4 failed`. Same breaks, same code, four red tests.
+
+**The scan for the two shapes was mechanical, and the instrument lied once.**
+Shape B (the always-true `or`) is a grep: `grep -rnE "^\s*assert .*\bor\b"
+tests/` returns 7 hits, of which 1 is the word "or" inside a string literal, 4
+are genuine disjunctions, 1 is weak but not vacuous
+(`test_metrics.py:62`, three real operands, left in place), and 1 is the same
+convoluted form as the rate-limiter site: `test_template.py:151` was
+`not result.startswith(".") or result == "unnamed"`, where the right operand is
+implied by the left and can never rescue it. Simplified, and its sibling test
+three lines above already wrote it that way.
+
+Shape A (an assert in a branch that never runs) is not greppable, so it was
+measured with coverage pointed at `tests/` itself: 27 never-executed statements
+out of 5674, 7 of them asserts. **Five of those seven were false positives.**
+All five sit in `test_download_worker.py` immediately after an `await` on a
+cancelled task, and breaking `stop()` and `_run()` turned all four owning tests
+red, so the asserts do execute and coverage simply loses the line events there.
+The other two are the `if result.is_valid:` body of the test fixed above, dead
+on purpose: the input is always rejected, so the live branch is the `else`, and
+the `if` half stays as the contract for the sanitising alternative. The
+remaining 20 never-executed lines are unused fixtures and stub methods, not
+assertions.
+
+**Rule of thumb this produced**: coverage over test code finds candidate dead
+asserts, it does not confirm them. Async lines after a cancellation read as
+uncovered while running fine, so every candidate needs the same deliberate
+break as the sites themselves; a scan that only reads the report would have
+"fixed" five working tests.
+
+**Acceptance Criteria**:
+- [x] `test_unicode_path_traversal` asserts something on the rejected branch
+      too: a rejection must carry an `error_message` and must not hand back a
+      `processed_path`
+- [x] The `or status == 200` escape hatches removed, so the assertions bind;
+      both `/metrics` tests now assert the status explicitly first
+- [x] Scan done mechanically for both shapes, with the grep and the coverage
+      run recorded above; one further instance found and fixed
+      (`test_template.py:151`), one near-miss left in place with the reason
 
 ### DEBT-005: starlette was unbounded, so a fresh install took whatever was newest
 
