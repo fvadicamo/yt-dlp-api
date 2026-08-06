@@ -4,7 +4,8 @@
 **Branch**: `develop`
 **Current Task**: none open. Production readiness waves all closed; the backlog
 holds two demand-gated items (TECH-007 adoption, FEAT-004 external STT contract)
-plus DEBT-004 (type gates outside CI) and DEBT-007 (TestClient on httpx2)
+plus DEBT-004 (type gates outside CI), DEBT-007 (TestClient on httpx2) and
+DEBT-008 (unicode traversal coverage)
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
 **Latest Release**: v0.2.4 - Dependency maintenance
 
