@@ -45,6 +45,55 @@ produced DEBT-003.
 - [ ] Remaining Lint steps either routed through their make target or left
       duplicated on purpose, with the reason written down
 
+### DEBT-008: the unicode traversal test does not test unicode
+
+**Status**: planned | **Created**: 2026-08-06
+
+**Context**: Surfaced closing DEBT-006 and deliberately left out of it, because
+the fix is a possible security change rather than a test change.
+`test_template.py::test_unicode_path_traversal` says it covers "various Unicode
+representations of `..`", but Python resolves `\uXXXX` escapes at parse time, so
+its two cases are the byte-identical string `"../etc/passwd"`. DEBT-006 made the
+test able to fail; it did not make it test what its name promises. Its sibling
+`test_security.py::test_unicode_normalization_attacks` is parametrized and has
+the same question mark over what its inputs actually are.
+
+**Measured on 2026-08-06**, calling `validate_template` directly:
+
+| input | `is_valid` | NFKC of input |
+|---|---|---|
+| `../etc/passwd` (ascii) | **False** | `../etc/passwd` |
+| `．．/etc/passwd` (U+FF0E) | **True** | `../etc/passwd` |
+| `․․/etc/passwd` (U+2024) | **True** | `../etc/passwd` |
+| `﹒﹒/etc/passwd` (U+FE52) | **True** | `../etc/passwd` |
+
+`validate_template` matches `PATH_TRAVERSAL_PATTERNS` against the raw string and
+never normalizes; `sanitize_filename` is the method that does NFKC.
+
+**Why that asymmetry matters here**: those are two different code paths, and the
+one an API client reaches is the raw one. `output_template` goes
+`download.py:125` (the only validation) → job params → `youtube.py:532`, which
+appends it to the yt-dlp argv as `-o` unchanged. `build_output_path` /
+`process_template`, which do sanitize, are not on that path.
+
+**What is NOT established, and must be measured before any fix**: that this is
+exploitable. A fullwidth `．．` is not `..` to any filesystem, so an escape needs
+something downstream to NFKC-normalize the path, and no evidence was found that
+yt-dlp or the filesystem does. The honest statement today is that a security
+check covers less than its test name claims, with unknown severity, and the
+repo's own rule applies: settle it against the built image and real yt-dlp, not
+by reasoning about it.
+
+**Acceptance Criteria**:
+- [ ] Exploitability settled empirically: a real `-o` with each variant against
+      the built image, checking where the file actually lands
+- [ ] If it escapes the output dir: `validate_template` normalizes before
+      matching, with the ascii and unicode forms both rejected by test
+- [ ] If it does not: the finding written down as defence-in-depth, with the
+      test renamed or its inputs made genuinely non-ascii, so the name and the
+      coverage agree either way
+- [ ] `test_unicode_normalization_attacks` inputs audited the same way
+
 ### DEBT-007: migrate the TestClient backend to httpx2
 
 **Status**: planned | **Created**: 2026-08-05
@@ -173,6 +222,11 @@ on purpose: the input is always rejected, so the live branch is the `else`, and
 the `if` half stays as the contract for the sanitising alternative. The
 remaining 20 never-executed lines are unused fixtures and stub methods, not
 assertions.
+
+**One thing this deliberately did not fix**: the test now can fail, but it still
+does not test unicode, because Python resolves its `\uXXXX` escapes at parse
+time and both cases are the same ascii string. Making the inputs genuinely
+non-ascii can turn into a validator change, so it was split out → **DEBT-008**.
 
 **Rule of thumb this produced**: coverage over test code finds candidate dead
 asserts, it does not confirm them. Async lines after a cancellation read as
