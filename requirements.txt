@@ -1,5 +1,5 @@
 # Core dependencies
-fastapi==0.139.2
+fastapi==0.141.1
 # starlette arrives through fastapi, which declares it as `starlette>=0.46.0`
 # with no ceiling, so an unpinned install takes the newest release in existence
 # and CI can go red on a PR that changed nothing. Pinned here for the same

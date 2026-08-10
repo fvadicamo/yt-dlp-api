@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 license = {text = "MIT"}
 # Keep in sync with requirements.txt (canonical source used by Docker and CI)
 dependencies = [
-    "fastapi==0.139.2",
+    "fastapi==0.141.1",
     # Transitive through fastapi, which declares no upper bound: see requirements.txt
     "starlette==1.4.0",
     "uvicorn[standard]==0.51.0",
