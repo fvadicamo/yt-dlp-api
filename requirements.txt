@@ -6,7 +6,7 @@ fastapi==0.139.2
 # reason everything else in this file is: the version is an input, not a
 # result. Bumps come from dependabot like any other dependency.
 starlette==1.4.0
-uvicorn[standard]==0.51.0
+uvicorn[standard]==0.52.1
 pydantic==2.13.4
 pydantic-settings==2.14.2
 
