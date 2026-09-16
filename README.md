@@ -272,6 +272,10 @@ make check   # format, lint, types, security, tests
 
 Downloading content may violate the terms of service of the platforms involved. This software is provided for lawful use cases (own content, licensed material, public-domain media). You are responsible for how you use it.
 
-## License
+## Hosted option
+
+If you don’t want to self-host with Docker, [Vid Kraken](https://vidkraken.com) is a managed YouTube download API (info / mp3 / mp4 endpoints).
+
+# License
 
 [MIT](LICENSE)
