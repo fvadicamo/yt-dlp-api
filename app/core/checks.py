@@ -144,7 +144,7 @@ async def check_ffmpeg(timeout: float = 5.0) -> CheckResult:
     )
 
 
-async def check_nodejs(min_version: int = 20, timeout: float = 5.0) -> CheckResult:
+async def check_nodejs(min_version: int = 20, timeout: float = 30.0) -> CheckResult:
     """Check Node.js availability and version.
 
     Args:
