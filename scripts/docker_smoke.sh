@@ -85,4 +85,18 @@ check "transcript (mocked)" 200 \
     -H "X-API-Key: ${API_KEY}" \
     "http://127.0.0.1:${PORT}/api/v1/transcript?url=${DEMO_URL}&fmt=text"
 
+# Orphan reaping (#129): a process whose parent dies is reparented to PID 1.
+# This is what happens to curl when Docker kills a timed-out health check
+# shell. Without an init that reaps, it stays a zombie forever.
+echo "Checking orphan reaping..."
+$DOCKER exec "$NAME" sh -c 'sleep 1 >/dev/null 2>&1 & exit 0'
+sleep 3
+zombies=$($DOCKER exec "$NAME" sh -c \
+    'grep -l "^State:[[:space:]]*Z" /proc/[0-9]*/status 2>/dev/null | wc -l')
+if [ "$zombies" != "0" ]; then
+    echo "FAIL: ${zombies} zombie process(es) left after an orphan exited (no reaping init as PID 1?)"
+    exit 1
+fi
+echo "OK: orphan reaped (0 zombies)"
+
 echo "Container smoke test passed."

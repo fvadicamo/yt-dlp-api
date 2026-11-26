@@ -33,6 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `cleanup_scheduler(interval=...)` was annotated `int` while the value is only
   ever forwarded to `asyncio.sleep`; it now accepts `float`, as its callers
   already did
+- Long-running containers accumulated zombie `curl` processes, one for every
+  health check slower than Docker's 5s timeout (#129). Docker killed the
+  health check shell, curl was reparented to uvicorn as PID 1, and uvicorn
+  never reaps children it did not spawn. The image now runs `tini` as
+  `ENTRYPOINT`, curl has its own `--max-time 12`, and the health check
+  timeout is 15s, above the app's own 10s YouTube probe, so a slow but healthy
+  `/health` no longer counts as a failure. The container smoke test now fails
+  if an orphaned process is left as a zombie
 
 ## [0.2.4] - 2026-08-04
 
