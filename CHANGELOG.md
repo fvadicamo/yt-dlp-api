@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-27
+
+Container fix release. Long-running containers no longer accumulate zombie
+processes from health checks (#129), and the health check no longer counts a
+slow but healthy `/health` as a failure. It also pins starlette, which used to
+float through fastapi. The API surface is unchanged.
+
 ### Changed
 
 - starlette is now pinned (`==1.4.0`) instead of arriving unbounded through
@@ -414,7 +421,8 @@ Initial MVP release of yt-dlp REST API.
 - Trivy security scan passed (0 critical vulnerabilities)
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
-[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.1...v0.2.2
