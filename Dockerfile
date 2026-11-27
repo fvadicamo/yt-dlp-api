@@ -58,10 +58,12 @@ WORKDIR /app
 # - ffmpeg: Audio/video processing
 # - nodejs: JavaScript runtime for yt-dlp challenge resolution (>= 20)
 # - curl: Health check
+# - tini: PID 1 that reaps orphaned processes (see ENTRYPOINT)
 # Node.js 20+ from NodeSource
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
+    tini \
     gnupg \
     ca-certificates \
     && mkdir -p /etc/apt/keyrings \
@@ -95,12 +97,21 @@ COPY --chown=appuser:appuser requirements.txt /app/requirements.txt
 USER appuser
 
 # Health check configuration (Req 41)
-# Checks the /health endpoint every 30 seconds
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl --fail http://localhost:${APP_SERVER_PORT}/health || exit 1
+# Checks the /health endpoint every 30 seconds. The timeout sits above the
+# app's own YouTube probe (APP_TIMEOUTS_HEALTH_CHECK, default 10s), so a slow
+# but healthy response is not a failure; curl's --max-time sits below it, so
+# curl exits by itself instead of being orphaned when Docker kills the shell.
+HEALTHCHECK --interval=30s --timeout=15s --start-period=10s --retries=3 \
+    CMD curl --fail --silent --show-error --max-time 12 http://localhost:${APP_SERVER_PORT}/health || exit 1
 
 # Expose the API port (default 8000)
 EXPOSE 8000
+
+# tini as PID 1 reaps any orphan reparented to it. uvicorn never waits on
+# children it did not spawn, so without tini each orphan stays a zombie for
+# the life of the container. -s keeps reaping when another init is PID 1
+# (docker run --init, compose init: true).
+ENTRYPOINT ["/usr/bin/tini", "-s", "--"]
 
 # Run the application
 # Using shell form with exec for variable substitution and proper signal handling
