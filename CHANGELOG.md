@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-27
+
+Container fix release. Long-running containers no longer accumulate zombie
+processes from health checks (#129), and the health check no longer counts a
+slow but healthy `/health` as a failure. It also pins starlette, which used to
+float through fastapi. The API surface is unchanged.
+
+### Changed
+
+- starlette is now pinned (`==1.4.0`) instead of arriving unbounded through
+  fastapi, which declares it as `starlette>=0.46.0` with no upper limit. Every
+  fresh install used to take the newest release in existence, so a build could
+  change under a change that touched nothing; bumps now arrive as reviewable
+  dependency PRs like the rest of the tree
+- The blocking type gate is now the same command as the documented local one:
+  CI calls `make type-check` instead of repeating `mypy .`, so the two cannot
+  drift apart again. It used to run `mypy app/`, which read 46 files against
+  the 79 `make check` reads, the delta being all of `tests/`
+- The `tests.*` mypy override no longer disables `arg-type`, `union-attr`,
+  `operator` and `misc`, nor skips the bodies of unannotated tests. Those
+  relaxations were hiding 70 real errors, now fixed. Only the annotation
+  requirement stays relaxed for tests
+- mypy asks git which paths to skip (`exclude_gitignore`) instead of carrying a
+  hand-written exclusion. The old one listed `venv/` and `.venv/` but not
+  `env/`, a name `.flake8` and bandit both exclude, so a contributor using it
+  got a red `make type-check` against a green CI, which is the asymmetry the
+  same release set out to remove
+
+### Fixed
+
+- `cleanup_scheduler(interval=...)` was annotated `int` while the value is only
+  ever forwarded to `asyncio.sleep`; it now accepts `float`, as its callers
+  already did
+- Long-running containers accumulated zombie `curl` processes, one for every
+  health check slower than Docker's 5s timeout (#129). Docker killed the
+  health check shell, curl was reparented to uvicorn as PID 1, and uvicorn
+  never reaps children it did not spawn. The image now runs `tini` as
+  `ENTRYPOINT`, curl has its own `--max-time 12`, and the health check
+  timeout is 15s, above the app's own 10s YouTube probe, so a slow but healthy
+  `/health` no longer counts as a failure. The container smoke test now fails
+  if an orphaned process is left as a zombie
+
 ## [0.2.4] - 2026-08-04
 
 Dependency maintenance release. No application code changed: the API surface,
@@ -379,7 +421,8 @@ Initial MVP release of yt-dlp REST API.
 - Trivy security scan passed (0 critical vulnerabilities)
 - Fixed CVE-2024-47874 (DoS vulnerability in starlette) by upgrading FastAPI to 0.115.6
 
-[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/fvadicamo/yt-dlp-api/compare/v0.2.1...v0.2.2

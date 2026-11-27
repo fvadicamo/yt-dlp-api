@@ -45,6 +45,7 @@ class TestValidateUrl:
         result = service.validate_url("https://hooks.example.com/x")
 
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "disabled" in result.error_message
 
     def test_allowed_host_accepted(self):
@@ -60,6 +61,7 @@ class TestValidateUrl:
         result = service.validate_url("https://evil.example.net/x")
 
         assert result.is_valid is False
+        assert result.error_message is not None
         assert "not in the allowed hosts" in result.error_message
 
     def test_empty_allowlist_rejects_all(self):

@@ -66,6 +66,9 @@ The `health_check` timeout bounds the yt-dlp probe behind the
 `youtube_connectivity` component in `GET /health`. A real yt-dlp invocation
 rarely completes in under a couple of seconds, so a value that is too low makes
 `/health` report `unhealthy` while the service is perfectly functional.
+The image's Docker health check gives `/health` 12 seconds (`curl --max-time
+12`), so a value above 11 lets Docker count a slow but healthy response as a
+failed check.
 
 ### Storage Configuration
 

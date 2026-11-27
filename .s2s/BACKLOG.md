@@ -1,6 +1,6 @@
 # yt-dlp-api Backlog
 
-**Updated**: 2026-08-04
+**Updated**: 2026-08-05
 **Format**: Single markdown file for tracking work items
 
 ---
@@ -20,26 +20,113 @@
 
 ## Planned
 
-### DEBT-003: The CI type gate is narrower than the documented local one
+### DEBT-004: The type gates outside CI are still narrower than the CI one
 
-**Status**: planned | **Created**: 2026-08-04
+**Status**: planned | **Created**: 2026-08-05
 
-**Context**: The CI `Lint` job runs `mypy app/`, while `make type-check` (the
-command CONTRIBUTING tells contributors to run) runs `mypy .`. The gap is not
-theoretical: `make check` had been failing on a clean checkout for an unknown
-number of releases while every required check stayed green, because the 19
-errors were all in `tests/`. The errors themselves are fixed in v0.2.4; the
-asymmetry that hid them is not.
+**Context**: DEBT-003 aligned the blocking gate with `make type-check`, but the
+pre-commit mypy hook keeps `exclude: ^tests/` and pins mypy 1.19.1 against
+requirements-dev's 2.3.0. Measured during the DEBT-003 canary: committing three
+deliberate type errors in `tests/` printed `mypy (no files to check) Skipped`,
+so the local commit hook let them through and only CI caught them. Widening the
+hook is not free, since it runs mypy in an isolated env whose
+`additional_dependencies` would have to grow the test-only packages.
+
+The other Lint tools have the same command asymmetry (`flake8 .` vs
+`flake8 app/ tests/`, `black --check .` vs `app/ tests/`, `bandit -r app/`
+with and without `-c pyproject.toml`). All four were measured on 2026-08-05:
+identical results on both sides, so no active defect, only the same shape that
+produced DEBT-003.
 
 **Acceptance Criteria**:
-- [ ] Decide the intended scope of the blocking type gate: widen CI to `mypy .`,
-      or narrow the Makefile to match CI and say so in CONTRIBUTING. Widening is
-      the recommended one, since it is the local command that is documented
-- [ ] Whichever is chosen, the two are the same command, so a green CI implies a
-      green `make check`
-- [ ] If CI widens: `tests.*` mypy overrides in `pyproject.toml` reviewed, since
-      they currently disable `arg-type`, `union-attr`, `operator` and `misc`
-      and would become part of a blocking gate
+- [ ] Decide whether the pre-commit mypy hook covers `tests/` or is documented
+      as deliberately narrower than the gate
+- [ ] Hook's mypy version reconciled with `requirements-dev.txt`
+- [ ] Remaining Lint steps either routed through their make target or left
+      duplicated on purpose, with the reason written down
+
+### DEBT-008: the unicode traversal test does not test unicode
+
+**Status**: planned | **Created**: 2026-08-06
+
+**Context**: Surfaced closing DEBT-006 and deliberately left out of it, because
+the fix is a possible security change rather than a test change.
+`test_template.py::test_unicode_path_traversal` says it covers "various Unicode
+representations of `..`", but Python resolves `\uXXXX` escapes at parse time, so
+its two cases are the byte-identical string `"../etc/passwd"`. DEBT-006 made the
+test able to fail; it did not make it test what its name promises. Its sibling
+`test_security.py::test_unicode_normalization_attacks` is parametrized and has
+the same question mark over what its inputs actually are.
+
+**Measured on 2026-08-06**, calling `validate_template` directly:
+
+| input | `is_valid` | NFKC of input |
+|---|---|---|
+| `../etc/passwd` (ascii) | **False** | `../etc/passwd` |
+| `．．/etc/passwd` (U+FF0E) | **True** | `../etc/passwd` |
+| `․․/etc/passwd` (U+2024) | **True** | `../etc/passwd` |
+| `﹒﹒/etc/passwd` (U+FE52) | **True** | `../etc/passwd` |
+
+`validate_template` matches `PATH_TRAVERSAL_PATTERNS` against the raw string and
+never normalizes; `sanitize_filename` is the method that does NFKC.
+
+**Why that asymmetry matters here**: those are two different code paths, and the
+one an API client reaches is the raw one. `output_template` goes
+`download.py:125` (the only validation) → job params → `youtube.py:532`, which
+appends it to the yt-dlp argv as `-o` unchanged. `build_output_path` /
+`process_template`, which do sanitize, are not on that path.
+
+**What is NOT established, and must be measured before any fix**: that this is
+exploitable. A fullwidth `．．` is not `..` to any filesystem, so an escape needs
+something downstream to NFKC-normalize the path, and no evidence was found that
+yt-dlp or the filesystem does. The honest statement today is that a security
+check covers less than its test name claims, with unknown severity, and the
+repo's own rule applies: settle it against the built image and real yt-dlp, not
+by reasoning about it.
+
+**Acceptance Criteria**:
+- [ ] Exploitability settled empirically: a real `-o` with each variant against
+      the built image, checking where the file actually lands
+- [ ] If it escapes the output dir: `validate_template` normalizes before
+      matching, with the ascii and unicode forms both rejected by test
+- [ ] If it does not: the finding written down as defence-in-depth, with the
+      test renamed or its inputs made genuinely non-ascii, so the name and the
+      coverage agree either way
+- [ ] `test_unicode_normalization_attacks` inputs audited the same way
+
+### DEBT-007: migrate the TestClient backend to httpx2
+
+**Status**: planned | **Created**: 2026-08-05
+
+**Context**: Split out of DEBT-005, which pinned starlette and deliberately left
+this open. starlette 1.4.0 imports `httpx2 as httpx` in `testclient.py` and
+falls back to plain `httpx` with a `StarletteDeprecationWarning`, so the suite
+runs with exactly one warning. Silencing it means installing `httpx2` in the dev
+dependencies, and that is a migration rather than a line:
+
+- measured on 2026-08-05, adding `httpx2==2.9.1` turns `make type-check` **red**
+  with 2 `return-value` errors, because `TestClient.post` then returns
+  `httpx2._models.Response` against helpers annotated `httpx.Response`. The
+  DEBT-003 per-line ignores do not cover it (`Error code "return-value" not
+  covered by "type: ignore[no-any-return]"`) and are reported unused at the
+  same time. The original DEBT-005 entry claimed httpx2 would make those
+  ignores unnecessary; it does not, it makes them insufficient.
+- it pulls `httpx2` + `httpcore2` + `truststore` into the dev env purely for
+  `TestClient`, while `app/services/webhook_service.py` keeps using
+  `httpx==0.28.1` at runtime, so the test types would reference a different
+  HTTP library from the one the application uses.
+
+The coherent version of this change is one HTTP client, not two: move webhook
+delivery to httpx2 as well, or wait until fastapi/starlette make httpx2 the
+default and httpx the fallback. Neither is urgent, and the pin means the
+decision is no longer forced by whatever a fresh install happens to resolve.
+
+**Acceptance Criteria**:
+- [ ] Decide whether httpx2 replaces httpx everywhere or the warning stays
+      documented until upstream flips the default
+- [ ] If adopted: the two helper annotations in `test_api_endpoints.py` moved to
+      the httpx2 types and the DEBT-003 ignores removed, gate green
+- [ ] Suite back to 0 warnings on a fresh install
 
 ### TECH-007: Drive adoption of the published image
 
@@ -81,6 +168,163 @@ transcript endpoint can fall back to a config-declared external service.
 ---
 
 ## Completed
+
+### DEBT-006: a few tests cannot fail
+
+**Status**: completed | **Created**: 2026-08-05 | **Completed**: 2026-08-05
+
+**Context**: Found reviewing DEBT-003, same defect class as the debt itself: a
+check that cannot fail reads as a pass. Four sites, all pre-existing and all
+counted in the 911:
+
+- `test_template.py::test_unicode_path_traversal` asserts inside
+  `if result.is_valid:`, and both of its cases are rejected by
+  `validate_template`, so the body never runs and the test asserts nothing.
+  Its sibling `test_security.py::test_unicode_normalization_attacks` has the
+  same shape but 2 of its 4 cases do validate, so that one is live.
+- `test_monitoring.py:464` asserts `X or response.status_code == 200` inside
+  `if response.status_code == 200`, so the right operand is always true.
+- `test_monitoring.py:453` has the same `or response.status_code == 200`
+  escape hatch, which defeats the check on exactly the healthy path.
+- `test_rate_limiter.py:652` is `status != 429 or status == 200`, which is
+  merely a convoluted way to write `status != 429`. Correct, only obscure.
+
+**The criterion was not that the tests pass, it was that they can fail**, so
+each site was measured by breaking the behaviour under it and watching the
+colour. Run against the same three deliberate breaks (a rejected template that
+hands back `processed_path` with no `error_message`; `/metrics` returning
+`200 application/json` with no metric names; `_is_excluded_path` returning
+`False`):
+
+- **before**: `1 failed, 3 passed`. The three sites the entry called dead stayed
+  green while the code under them was broken, and the rate-limiter one went red,
+  which is exactly the entry's own classification, now measured instead of read.
+- **after**: `4 failed`. Same breaks, same code, four red tests.
+
+**The scan for the two shapes was mechanical, and the instrument lied once.**
+Shape B (the always-true `or`) is a grep: `grep -rnE "^\s*assert .*\bor\b"
+tests/` returns 7 hits, of which 1 is the word "or" inside a string literal, 4
+are genuine disjunctions, 1 is weak but not vacuous
+(`test_metrics.py:62`, three real operands, left in place), and 1 is the same
+convoluted form as the rate-limiter site: `test_template.py:151` was
+`not result.startswith(".") or result == "unnamed"`, where the right operand is
+implied by the left and can never rescue it. Simplified, and its sibling test
+three lines above already wrote it that way.
+
+Shape A (an assert in a branch that never runs) is not greppable, so it was
+measured with coverage pointed at `tests/` itself: 27 never-executed statements
+out of 5674, 7 of them asserts. **Five of those seven were false positives.**
+All five sit in `test_download_worker.py` immediately after an `await` on a
+cancelled task, and breaking `stop()` and `_run()` turned all four owning tests
+red, so the asserts do execute and coverage simply loses the line events there.
+The other two are the `if result.is_valid:` body of the test fixed above, dead
+on purpose: the input is always rejected, so the live branch is the `else`, and
+the `if` half stays as the contract for the sanitising alternative. The
+remaining 20 never-executed lines are unused fixtures and stub methods, not
+assertions.
+
+**One thing this deliberately did not fix**: the test now can fail, but it still
+does not test unicode, because Python resolves its `\uXXXX` escapes at parse
+time and both cases are the same ascii string. Making the inputs genuinely
+non-ascii can turn into a validator change, so it was split out → **DEBT-008**.
+
+**Rule of thumb this produced**: coverage over test code finds candidate dead
+asserts, it does not confirm them. Async lines after a cancellation read as
+uncovered while running fine, so every candidate needs the same deliberate
+break as the sites themselves; a scan that only reads the report would have
+"fixed" five working tests.
+
+**Acceptance Criteria**:
+- [x] `test_unicode_path_traversal` asserts something on the rejected branch
+      too: a rejection must carry an `error_message` and must not hand back a
+      `processed_path`
+- [x] The `or status == 200` escape hatches removed, so the assertions bind;
+      both `/metrics` tests now assert the status explicitly first
+- [x] Scan done mechanically for both shapes, with the grep and the coverage
+      run recorded above; one further instance found and fixed
+      (`test_template.py:151`), one near-miss left in place with the reason
+
+### DEBT-005: starlette was unbounded, so a fresh install took whatever was newest
+
+**Status**: completed | **Created**: 2026-08-05 | **Completed**: 2026-08-05
+
+**Context**: `requirements.txt` pinned fastapi and httpx but not starlette,
+which arrives transitively. fastapi 0.139.2 declares `starlette>=0.46.0` with
+no ceiling (`importlib.metadata.requires("fastapi")`), so every fresh install
+took the newest starlette in existence, in a repo that pins everything else to
+the exact version. The item existed because that is the one input able to turn
+CI red on a PR whose author changed nothing.
+
+**Measured before deciding**, and two of the three findings corrected the entry
+as originally written:
+
+- the drift is faster than the ticket. The entry was written on 2026-08-05
+  recording a fresh resolve of starlette **1.3.1**; a fresh resolve the same
+  week returned **1.4.0**. One unbounded dependency, one minor version, nobody
+  touched a line.
+- the type-error delta the entry describes was **already absorbed**. Under the
+  real gate (`mypy .`, which CI reaches through `make type-check` since
+  DEBT-003), both a fresh env at 1.4.0 and the stale in-tree venv at 0.50.0
+  report `Success: no issues found in 79 source files`. What survived was an
+  asymmetry, not a failure: the two DEBT-003 ignores are needed at 1.x and dead
+  at 0.50.0, and `warn_unused_ignores = false` hides the difference. The live
+  delta was one warning, present on fresh installs and absent on the stale venv.
+- adopting `httpx2` would **not** have fixed this. It leaves starlette floating
+  (still resolves 1.4.0 with httpx2 installed), so it does not touch the failure
+  mode at all, and it turns the gate red: see DEBT-007.
+
+**Acceptance Criteria**:
+- [x] Decided: pin, because it is the only one of the two options that addresses
+      an unbounded input; `starlette==1.4.0` in `requirements.txt` and in
+      `pyproject.toml`, which its own comment requires to stay in sync
+      (`requirements-dev.txt` inherits it through `-r requirements.txt`)
+- [x] A stale local venv can no longer disagree with CI about which errors exist:
+      the version is now an input rather than a resolution result, and bumps
+      arrive as dependabot PRs like every other dependency
+- [x] The stale rationale on the two DEBT-003 ignores corrected: with one pinned
+      resolution they are unconditionally needed, and the comment no longer
+      claims a second resolution exists
+- [ ] **Not met, split out deliberately**: the suite still emits one
+      `StarletteDeprecationWarning` on a fresh install. Closing that means
+      adopting httpx2, which is a migration with its own costs → DEBT-007
+
+### DEBT-003: The CI type gate is narrower than the documented local one
+
+**Status**: completed | **Created**: 2026-08-04 | **Completed**: 2026-08-05 (PR #110)
+
+**Context**: The CI `Lint` job runs `mypy app/`, while `make type-check` (the
+command CONTRIBUTING tells contributors to run) runs `mypy .`. The gap is not
+theoretical: `make check` had been failing on a clean checkout for an unknown
+number of releases while every required check stayed green, because the 19
+errors were all in `tests/`. The errors themselves are fixed in v0.2.4; the
+asymmetry that hid them is not.
+
+**Measured before deciding**: `mypy app/` checked 46 files, `mypy .` checked 79,
+and the 33 in the delta were all of `tests/`. Under the old gate mypy itself
+reported `unused section(s): module = ['tests.*']`, so the gate read neither the
+tests nor the configuration about them. The `tests.*` override was hiding 70
+real errors in 8 files (43 `union-attr`, 17 `operator`, 8 `arg-type`, 2 `misc`),
+and `check_untyped_defs = false` skipped the body of every fully unannotated
+test. Dropping the whole override instead would have cost 514 errors, 444 of
+them `no-untyped-def`.
+
+**Acceptance Criteria**:
+- [x] Scope decided: CI widened, because the documented command is the local one
+      and narrowing would have left `tests/` unread by every gate
+- [x] CI calls `make type-check` rather than repeating `mypy .`, so the two
+      cannot drift apart again
+- [x] `tests.*` overrides reviewed one code at a time: `arg-type`, `union-attr`,
+      `operator` and `misc` re-enabled and their 70 sites fixed (50 narrowing
+      asserts, 8 `isinstance`, 5 genuine defects including a `cleanup_scheduler`
+      `interval` annotated `int` while only ever forwarding to `asyncio.sleep`,
+      5 per-line ignores where the wrong type is what the test asserts);
+      `check_untyped_defs` re-enabled; `disallow_untyped_defs` deliberately left
+      off
+- [x] Verified by watching it fail: a throwaway branch (PR #109, closed) with
+      three deliberate type errors in `tests/` turned the Lint job red on
+      exactly those three, with Tests green
+- [x] Follow-ups recorded rather than absorbed: DEBT-004 (gates outside CI),
+      DEBT-005 (starlette unpinned)
 
 ### TECH-008: Drain the dependabot queue and release v0.2.4
 

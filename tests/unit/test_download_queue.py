@@ -183,6 +183,7 @@ class TestDownloadQueueReleaseSlot:
 
         assert queue.get_active_count() == 1
 
+        assert job_id is not None
         await queue.release_slot(job_id)
 
         assert queue.get_active_count() == 0
@@ -202,6 +203,7 @@ class TestDownloadQueueReleaseSlot:
         assert await queue.dequeue() is None
 
         # Release a slot
+        assert job2 is not None
         await queue.release_slot(job2)
 
         # Now can dequeue

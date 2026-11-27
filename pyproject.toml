@@ -1,6 +1,6 @@
 [project]
 name = "ytdlp-api"
-version = "0.2.4"
+version = "0.2.5"
 description = "REST API backend for yt-dlp video downloads and metadata extraction"
 authors = [
     {name = "Francesco Vadicamo"}
@@ -11,6 +11,8 @@ license = {text = "MIT"}
 # Keep in sync with requirements.txt (canonical source used by Docker and CI)
 dependencies = [
     "fastapi==0.139.2",
+    # Transitive through fastapi, which declares no upper bound: see requirements.txt
+    "starlette==1.4.0",
     "uvicorn[standard]==0.51.0",
     "pydantic==2.13.4",
     "pydantic-settings==2.14.2",
@@ -184,9 +186,14 @@ max-complexity = 10
 
 [tool.mypy]
 python_version = "3.11"
-# `make type-check` runs `mypy .`, which would otherwise descend into the
-# local virtualenv the contributor guide tells you to create in-tree.
-exclude = ["^\\.?venv/"]
+# `make type-check` runs `mypy .`, which would otherwise descend into whatever
+# untracked directories a contributor keeps in-tree: the virtualenv the guide
+# tells you to create, a build/ from `python -m build`, a personal .local/.
+# Ask git rather than maintaining a second copy of that list: an exclusion
+# written by hand covers the names someone thought of on the day they wrote it,
+# and this one already missed `env/`, which .flake8 and bandit both exclude.
+# With no .git present mypy scans more, not less, so the failure is loud.
+exclude_gitignore = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -201,11 +208,15 @@ show_error_codes = true
 show_column_numbers = true
 pretty = true
 
+# Tests are part of the blocking type gate (CI runs `make type-check`, i.e.
+# `mypy .`). The only relaxation left is the annotation requirement: annotating
+# every test signature costs 444 errors and catches nothing the error codes
+# below do not already catch. Bodies are checked, and a deliberate type error
+# in a test is marked with a per-line `# type: ignore[...]` that says which
+# rule is being broken, instead of switching the rule off for the whole suite.
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
-check_untyped_defs = false
-disable_error_code = ["arg-type", "union-attr", "operator", "misc"]
 
 [[tool.mypy.overrides]]
 module = "prometheus_client"

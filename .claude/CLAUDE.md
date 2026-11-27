@@ -1,12 +1,13 @@
 # Claude Code Context - yt-dlp REST API
 
-**Last Updated**: 2026-08-04
+**Last Updated**: 2026-08-05
 **Branch**: `develop`
 **Current Task**: none open. Production readiness waves all closed; the backlog
 holds two demand-gated items (TECH-007 adoption, FEAT-004 external STT contract)
-plus DEBT-003 (CI type gate narrower than the local one)
+plus DEBT-004 (type gates outside CI), DEBT-007 (TestClient on httpx2) and
+DEBT-008 (unicode traversal coverage)
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
-**Latest Release**: v0.2.4 - Dependency maintenance
+**Latest Release**: v0.2.5 - Container zombie fix
 
 @../.s2s/CONTEXT.md
 
@@ -245,7 +246,7 @@ git push origin --delete feature/<task-name>
 
 **Coverage**: 94% (gate: 90%, enforced in CI and pre-push) ✅
 **Tests Passing**: 911 tests ✅
-**Latest Release**: v0.2.4 (2026-08-04)
+**Latest Release**: v0.2.5 (2026-11-27)
 
 ### MVP Status: COMPLETE ✅
 
@@ -313,6 +314,67 @@ trusting the checkmarks:
 actually read. A required check that never triggers on the workflow it is
 supposed to guard, or that scans a narrower path than the documented local
 command, reports a pass over work it never did.
+
+### DEBT-003 closed 2026-08-05 (PR #110)
+
+The blocking type gate now calls `make type-check`, so CI and the documented
+local command are the same definition and not two copies of one string. The
+`tests.*` override lost `disable_error_code` and `check_untyped_defs = false`;
+the 70 errors they were hiding are fixed. Only `disallow_untyped_defs = false`
+survives (turning it on costs 444 errors and catches nothing new).
+
+**Two things a local run did not measure**, and both matter for the next
+session:
+
+- **A widened gate is not automatically a working gate.** Scope and strictness
+  are separate axes: with the override untouched, `mypy .` was green over
+  `tests/` while 70 real errors sat there. The only honest check is to watch
+  the gate fail on a deliberate error, which is what PR #109 (closed) did.
+- **The local venv can be a different dependency set from CI.** starlette was
+  unpinned; the venv in the tree had 0.50.0 while a fresh `pip install -r
+  requirements-dev.txt` resolved 1.3.1, and the two disagree about which type
+  errors exist. Reproduce CI with a throwaway env
+  (`uv venv` + `uv pip install -r requirements-dev.txt`) before trusting a
+  green local `make check` on anything type-related. The pin closed the
+  starlette instance of this (DEBT-005); the habit stays, because any unpinned
+  transitive dependency reopens it.
+
+### DEBT-005 closed 2026-08-05
+
+starlette is pinned (`==1.4.0`) in `requirements.txt` and `pyproject.toml`. It
+arrives through fastapi, which declares `starlette>=0.46.0` with **no ceiling**,
+so a fresh install took whatever was newest: the backlog entry recorded 1.3.1
+and a resolve days later returned 1.4.0, in a repo that pins everything else
+exactly.
+
+**httpx2 was measured and rejected for now.** It does not address the failure
+mode (starlette still floats with it installed) and it turns `make type-check`
+red: `TestClient.post` returns `httpx2._models.Response` against helpers
+annotated `httpx.Response`, a `return-value` error the DEBT-003 ignores do not
+cover. The backlog entry had claimed httpx2 would make those ignores
+unnecessary. Split to DEBT-007, which also owns the one remaining
+`StarletteDeprecationWarning`.
+
+**Rule of thumb this produced**: a pin verified by an install that would have
+resolved the same version anyway is a check that cannot fail. Perturb the pin
+to a different version and watch the resolver follow it, then put it back.
+
+### DEBT-006 closed 2026-08-05
+
+Four assertions that could not fail, fixed and each verified by breaking the
+behaviour underneath and watching the colour: `1 failed, 3 passed` before,
+`4 failed` after, same breaks. The entry's own classification held up under
+measurement, which is not the same as having been measured.
+
+**Coverage over test code finds candidate dead asserts, it does not confirm
+them.** Pointing coverage at `tests/` (its own `[run] source = tests`, since
+pyproject omits `*/tests/*`) flagged 7 never-executed asserts. Five were false
+positives: they sit right after an `await` on a cancelled task in
+`test_download_worker.py`, and deliberately breaking `stop()` and `_run()`
+turned every owning test red. Trusting the report would have meant "fixing"
+five working tests. The greppable half of the scan is
+`grep -rnE "^\s*assert .*\bor\b" tests/`; the non-greppable half needs the same
+deliberate break as the sites themselves.
 
 ---
 

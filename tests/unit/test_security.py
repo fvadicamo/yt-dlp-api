@@ -115,6 +115,7 @@ class TestPathTraversalPrevention:
         result = processor.validate_template(unicode_attack)
         # Should either be rejected or the path traversal neutralized
         if result.is_valid:
+            assert result.processed_path is not None
             assert ".." not in result.processed_path
 
     # Long path traversal

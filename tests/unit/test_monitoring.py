@@ -233,6 +233,7 @@ class TestGlobalExceptionHandler:
         response = await global_exception_handler(mock_request, error)
 
         assert response.status_code == 400
+        assert isinstance(response.body, bytes)
         body = response.body.decode()
         assert "INVALID_URL" in body
         assert "Bad URL format" in body
@@ -245,6 +246,7 @@ class TestGlobalExceptionHandler:
         response = await global_exception_handler(mock_request, error)
 
         assert response.status_code == 404
+        assert isinstance(response.body, bytes)
         body = response.body.decode()
         assert "Not found" in body
 
@@ -262,6 +264,7 @@ class TestGlobalExceptionHandler:
         response = await global_exception_handler(mock_request, error)
 
         assert response.status_code == 400
+        assert isinstance(response.body, bytes)
         body = response.body.decode()
         assert "CUSTOM_ERROR" in body
 
@@ -273,6 +276,7 @@ class TestGlobalExceptionHandler:
         response = await global_exception_handler(mock_request, error)
 
         assert response.status_code == 404
+        assert isinstance(response.body, bytes)
         body = response.body.decode()
         assert "VIDEO_UNAVAILABLE" in body
 
@@ -284,6 +288,7 @@ class TestGlobalExceptionHandler:
         response = await global_exception_handler(mock_request, error)
 
         assert response.status_code == 500
+        assert isinstance(response.body, bytes)
         body = response.body.decode()
         assert "INTERNAL_ERROR" in body
 
@@ -294,6 +299,7 @@ class TestGlobalExceptionHandler:
 
         response = await global_exception_handler(mock_request, error)
 
+        assert isinstance(response.body, bytes)
         body = response.body.decode()
         assert "timestamp" in body
 
@@ -310,6 +316,7 @@ class TestGlobalExceptionHandler:
             error = APIError(error_code=ErrorCode.INVALID_URL, message="test")
             response = await global_exception_handler(mock_request, error)
 
+            assert isinstance(response.body, bytes)
             body = response.body.decode()
             assert "request_id" in body
             assert "req_test123456" in body
@@ -441,9 +448,10 @@ class TestMetricsEndpoint:
         """Test metrics endpoint returns correct content type."""
         response = client.get("/metrics")
 
+        assert response.status_code == 200
         # Check content type (may be text/plain or text/plain; charset=utf-8)
         content_type = response.headers.get("content-type", "")
-        assert "text/plain" in content_type or response.status_code == 200
+        assert "text/plain" in content_type
 
     def test_metrics_endpoint_contains_http_metrics(
         self,
@@ -452,9 +460,8 @@ class TestMetricsEndpoint:
         """Test metrics endpoint contains HTTP request metrics."""
         response = client.get("/metrics")
 
-        if response.status_code == 200:
-            content = response.text
-            assert "http_requests_total" in content or response.status_code == 200
+        assert response.status_code == 200
+        assert "http_requests_total" in response.text
 
 
 class TestYouTubeConnectivityCheck:
@@ -609,5 +616,6 @@ class TestHealthCheckWithYouTube:
             response = await health_check()
 
             assert response.status_code == 200
+            assert isinstance(response.body, bytes)
             body = response.body.decode()
             assert "youtube_connectivity" in body

@@ -843,7 +843,15 @@ class TestSyncDownloadErrorPaths:
 
     def _post_sync(self, app: FastAPI) -> httpx.Response:
         client = TestClient(app)
-        return client.post(
+        # starlette imports `httpx2 as httpx` under TYPE_CHECKING, so with plain
+        # httpx installed every TestClient annotation degrades to Any and
+        # warn_return_any fires. starlette is pinned (DEBT-005), so this is now
+        # the only resolution and the ignore is unconditionally needed; before
+        # the pin it was version-dependent, which is why it is an ignore rather
+        # than a cast. Adopting httpx2 would not delete these: TestClient would
+        # then return `httpx2.Response`, turning this into a `return-value`
+        # error against the `httpx.Response` annotation.
+        return client.post(  # type: ignore[no-any-return]
             "/api/v1/download",
             json={"url": "https://www.youtube.com/watch?v=abc123", "async": False},
         )
@@ -1308,7 +1316,8 @@ class TestDownloadWebhookParam:
 
     def _post(self, app: FastAPI, payload: dict) -> httpx.Response:
         client = TestClient(app)
-        return client.post("/api/v1/download", json=payload)
+        # see _post_sync above: TestClient methods can resolve to Any here.
+        return client.post("/api/v1/download", json=payload)  # type: ignore[no-any-return]
 
     def test_webhook_rejected_when_disabled(
         self,
