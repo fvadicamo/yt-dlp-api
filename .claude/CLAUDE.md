@@ -7,7 +7,7 @@ holds two demand-gated items (TECH-007 adoption, FEAT-004 external STT contract)
 plus DEBT-004 (type gates outside CI), DEBT-007 (TestClient on httpx2) and
 DEBT-008 (unicode traversal coverage)
 **Repo**: https://github.com/fvadicamo/yt-dlp-api
-**Latest Release**: v0.2.4 - Dependency maintenance
+**Latest Release**: v0.2.5 - Container zombie fix
 
 @../.s2s/CONTEXT.md
 
@@ -246,7 +246,7 @@ git push origin --delete feature/<task-name>
 
 **Coverage**: 94% (gate: 90%, enforced in CI and pre-push) ✅
 **Tests Passing**: 911 tests ✅
-**Latest Release**: v0.2.4 (2026-08-04)
+**Latest Release**: v0.2.5 (2026-11-27)
 
 ### MVP Status: COMPLETE ✅
 
